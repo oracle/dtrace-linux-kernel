@@ -1439,7 +1439,7 @@ $(modthickbuiltin-dirs): include/config/tristate.conf
 
 # Directories & files removed with 'make clean'
 CLEAN_DIRS  += include/ksym .ctf
-CLEAN_FILES += modules.builtin.modinfo .ctf.filelist
+CLEAN_FILES += modules.builtin.modinfo .ctf.filelist .ctf.filelist.raw
 
 # Directories & files removed with 'make mrproper'
 MRPROPER_DIRS  += include/config include/generated          \
