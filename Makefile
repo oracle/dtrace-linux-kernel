@@ -1420,7 +1420,7 @@ modules_thick.builtin: $(vmlinux-dirs:%=%/modules_thick.builtin)
 
 # Directories & files removed with 'make clean'
 CLEAN_DIRS  += $(MODVERDIR) include/ksym .ctf
-CLEAN_FILES += modules.builtin.modinfo .ctf.filelist
+CLEAN_FILES += modules.builtin.modinfo .ctf.filelist .ctf.filelist.raw
 
 # Directories & files removed with 'make mrproper'
 MRPROPER_DIRS  += include/config usr/include include/generated          \

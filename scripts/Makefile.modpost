@@ -189,6 +189,7 @@ ctf-builtins := objects.builtin
 ctf-builtins-prereq := $(ctf-builtins)
  ctf-modules := $(shell find $(CTF_DEBUGDIR) \( -name '*.ko' -o -name '*.ko.debug' \) -print)
 ctf-filelist := .ctf.filelist
+ctf-filelist-raw := .ctf.filelist.raw
 ctf-stamp :=
 
 else
@@ -200,6 +201,7 @@ ctf-builtins := ////.no-builtins
 ctf-builtins-prereq :=
 ctf-modules := $(modules:.ko=.o)
 ctf-filelist := $(ctf-dir)/$(notdir $(M)-extmod).ctf.filelist
+ctf-filelist-raw := $(ctf-dir)/$(notdir $(M)-extmod).ctf.filelist.raw
 ctf-stamp = $(ctf-dir)/$(notdir $(M)-extmod).stamp
 
 # All the modules' CTF depends on the stamp file.
@@ -209,12 +211,23 @@ $(all-module-ctfs): $(ctf-stamp)
 
 endif
 
-$(ctf-filelist): $(ctf-builtins-prereq) $(ctf-modules) | $(sdtinfo-prereq)
-	@rm -f $(ctf-filelist);
+# Split a list up like shell xargs does.
+define xargs =
+$(1) $(wordlist 1,1024,$(2))
+$(if $(word 1025,$(2)),$(call xargs,$(1),$(wordlist 1025,$(words $(2)),$(2))))
+endef
+
+$(ctf-filelist-raw): $(ctf-builtins-prereq) $(ctf-modules) | $(sdtinfo-prereq)
+	@rm -f $(ctf-filelist-raw);
 	@if [[ -n "$(ctf-dir-mk)" ]]; then \
 		mkdir -p "$(ctf-dir-mk)"; \
 	fi
-	@for obj in $^; do \
+	$(call xargs,@printf "%s\n" >> $(ctf-filelist-raw),$^)
+	@touch $(ctf-filelist-raw)
+
+$(ctf-filelist): $(ctf-filelist-raw)
+	@rm -f $(ctf-filelist);
+	@cat $(ctf-filelist-raw) | while read -r obj; do \
 		case $$obj in \
 		$(ctf-builtins)) cat $$obj >> $(ctf-filelist);; \
 		*.a) ar t $$obj > $(ctf-filelist);; \
@@ -222,6 +235,7 @@ $(ctf-filelist): $(ctf-builtins-prereq) $(ctf-modules) | $(sdtinfo-prereq)
 		*) echo "$$obj" >> $(ctf-filelist);; \
 		esac; \
 	done
+	@touch $(ctf-filelist)
 
 ifeq ($(KBUILD_EXTMOD),)
 # The CTF depends on the output CTF file list, and that depends
