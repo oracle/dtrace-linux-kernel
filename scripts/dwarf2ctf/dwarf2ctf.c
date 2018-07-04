@@ -3836,20 +3836,19 @@ static int ctf_su_offset(Dwarf_Die *die, const char *locerrstr,
 			exit(1);
 		}
 		}
+	}
 
-		/*
-		 * Handle the bit offset.
-		 */
-		if (private_dwarf_hasattr(die, DW_AT_bit_offset)) {
-			Dwarf_Attribute bit_attr;
-			Dwarf_Word bit;
+	/*
+	 * Handle the bit offset.
+	 */
+	if (private_dwarf_hasattr(die, DW_AT_bit_offset)) {
+	  Dwarf_Attribute bit_attr;
+	  Dwarf_Word bit;
 
-			private_dwarf_attr(die, DW_AT_bit_offset,
-					   &bit_attr);
-			dwarf_formudata(&bit_attr, &bit);
-			*bit_offset = bit;
-		}
-
+	  private_dwarf_attr(die, DW_AT_bit_offset,
+			     &bit_attr);
+	  dwarf_formudata(&bit_attr, &bit);
+	  *bit_offset = bit;
 	}
 
 	/*
