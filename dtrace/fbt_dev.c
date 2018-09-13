@@ -54,7 +54,6 @@ static void *fbt_provide_probe(struct module *mp, char *func, int type, int
 			goto err_name;
 
 		fbp->fbp_module = mp;
-		fbp->fbp_loadcnt = 1; /* FIXME */
 		fbp->fbp_primary = 1; /* FIXME */
 		fbp->fbp_roffset = off;
 		fbp->fbp_patchpoint = addr;
@@ -90,7 +89,6 @@ static void *fbt_provide_probe(struct module *mp, char *func, int type, int
 		}
 
 		fbp->fbp_module = mp;
-		fbp->fbp_loadcnt = 1; /* FIXME */
 		fbp->fbp_primary = 1; /* FIXME */
 		fbp->fbp_roffset = off;
 		fbp->fbp_patchpoint = addr;
