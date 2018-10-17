@@ -109,6 +109,9 @@ if [ "$tok" = "kmod" ]; then
     ${OBJDUMP} -tr ${ofn} | \
     awk '/^RELOC/ {
 	     sect = substr($4, 2, length($4) - 3);
+	     if (sect ~ /^\.(exit|init|meminit)\.text/)
+		 sect = 0;
+
 	     next;
 	 }
 
@@ -131,6 +134,9 @@ if [ "$tok" = "kmod" ]; then
 	 }
 
 	 / F / {
+	     if ($4 ~ /^\.(exit|init|meminit)\.text/)
+		 next;
+
 	     if ($6 == ".hidden")
 		 print $4 " " $1 " G " $7;
 	     else
