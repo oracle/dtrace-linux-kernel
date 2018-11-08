@@ -66,7 +66,7 @@ static void notrace el1_dbg(struct pt_regs *regs, unsigned long esr)
 }
 NOKPROBE_SYMBOL(el1_dbg);
 
-asmlinkage void notrace el1_sync_handler(struct pt_regs *regs)
+asmlinkage int notrace el1_sync_handler(struct pt_regs *regs)
 {
 	unsigned long esr = read_sysreg(esr_el1);
 
@@ -91,10 +91,11 @@ asmlinkage void notrace el1_sync_handler(struct pt_regs *regs)
 	case ESR_ELx_EC_WATCHPT_CUR:
 	case ESR_ELx_EC_BRK64:
 		el1_dbg(regs, esr);
-		break;
+		return 1;
 	default:
 		el1_inv(regs, esr);
 	};
+	return 0;
 }
 NOKPROBE_SYMBOL(el1_sync_handler);
 

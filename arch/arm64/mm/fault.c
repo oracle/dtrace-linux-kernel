@@ -14,6 +14,7 @@
 #include <linux/mm.h>
 #include <linux/hardirq.h>
 #include <linux/init.h>
+#include <linux/kdebug.h>
 #include <linux/kprobes.h>
 #include <linux/uaccess.h>
 #include <linux/page-flags.h>
@@ -60,6 +61,19 @@ static inline const struct fault_info *esr_to_debug_fault_info(unsigned int esr)
 {
 	return debug_fault_info + DBG_ESR_EVT(esr);
 }
+
+#ifdef CONFIG_DTRACE
+static int dtrace_fault(struct pt_regs *regs, unsigned long addr)
+{
+	preempt_disable();
+	if (notify_die(DIE_PAGE_FAULT, "page fault", regs, addr, 14,
+		       SIGKILL) == NOTIFY_STOP)
+		return 1;
+	preempt_enable();
+
+	return 0;
+}
+#endif
 
 static void data_abort_decode(unsigned int esr)
 {
@@ -450,6 +464,10 @@ static int __kprobes do_page_fault(unsigned long addr, unsigned int esr,
 
 	if (kprobe_page_fault(regs, esr))
 		return 0;
+#ifdef CONFIG_DTRACE
+	if (dtrace_fault(regs, addr))
+		return 0;
+#endif
 
 	/*
 	 * If we're in an interrupt or have no user context, we must not take
