@@ -60,6 +60,8 @@
 
 #include <net/ip6_checksum.h>
 
+#include <linux/sdt.h>
+
 /* Ensure that we have struct in6_addr aligned on 32bit word. */
 static int __mld2_query_bugs[] __attribute__((__unused__)) = {
 	BUILD_BUG_ON_ZERO(offsetof(struct mld2_query, mld2q_srcs) % 4),
@@ -1647,6 +1649,7 @@ static void mld_sendpack(struct sk_buff *skb)
 	int payload_len, mldlen;
 	struct inet6_dev *idev;
 	struct net *net = dev_net(skb->dev);
+	const char *dropreason;
 	int err;
 	struct flowi6 fl6;
 	struct dst_entry *dst;
@@ -1676,26 +1679,45 @@ static void mld_sendpack(struct sk_buff *skb)
 		dst = NULL;
 	}
 	skb_dst_set(skb, dst);
-	if (err)
-		goto err_out;
+	if (err) {
+		kfree_skb(skb);
+		skb = NULL;
+		dropreason = "out of memory";
+		goto out;
+	}
+
+	DTRACE_IP(send,
+		  struct sk_buff * : pktinfo_t *, skb,
+		  struct sock * : csinfo_t *, skb->sk,
+		  void_ip_t * : ipinfo_t *, ipv6_hdr(skb),
+		  struct net_device * : ifinfo_t *, skb->dev,
+		  struct iphdr * : ipv4info_t *, NULL,
+		  struct ipv6hdr * : ipv6info_t *, ipv6_hdr(skb));
 
 	err = NF_HOOK(NFPROTO_IPV6, NF_INET_LOCAL_OUT,
 		      net, net->ipv6.igmp_sk, skb, NULL, skb->dev,
 		      dst_output);
+	dropreason = "multicast send error";
 out:
 	if (!err) {
 		ICMP6MSGOUT_INC_STATS(net, idev, ICMPV6_MLD2_REPORT);
 		ICMP6_INC_STATS(net, idev, ICMP6_MIB_OUTMSGS);
 	} else {
+		/* skb may have been freed */
+		DTRACE_IP(drop__out,
+			  struct sk_buff * : pktinfo_t *, NULL,
+			  struct sock * : csinfo_t *, NULL,
+			  void_ip_t * : ipinfo_t *, NULL,
+			  struct net_device * : ifinfo_t *, idev->dev,
+			  struct iphdr * : ipv4info_t *, NULL,
+			  struct ipv6hdr * : ipv6info_t *, NULL,
+			  const char * : string, dropreason);
+
 		IP6_INC_STATS(net, idev, IPSTATS_MIB_OUTDISCARDS);
 	}
 
 	rcu_read_unlock();
 	return;
-
-err_out:
-	kfree_skb(skb);
-	goto out;
 }
 
 static int grec_size(struct ifmcaddr6 *pmc, int type, int gdel, int sdel)
@@ -1982,7 +2004,7 @@ static void igmp6_send(struct in6_addr *addr, struct net_device *dev, int type)
 {
 	struct net *net = dev_net(dev);
 	struct sock *sk = net->ipv6.igmp_sk;
-	struct inet6_dev *idev;
+	struct inet6_dev *idev = NULL;
 	struct sk_buff *skb;
 	struct mld_msg *hdr;
 	const struct in6_addr *snd_addr, *saddr;
@@ -1993,6 +2015,7 @@ static void igmp6_send(struct in6_addr *addr, struct net_device *dev, int type)
 	u8 ra[8] = { IPPROTO_ICMPV6, 0,
 		     IPV6_TLV_ROUTERALERT, 2, 0, 0,
 		     IPV6_TLV_PADN, 0 };
+	const char *dropreason;
 	struct flowi6 fl6;
 	struct dst_entry *dst;
 
@@ -2014,10 +2037,8 @@ static void igmp6_send(struct in6_addr *addr, struct net_device *dev, int type)
 
 	if (!skb) {
 		rcu_read_lock();
-		IP6_INC_STATS(net, __in6_dev_get(dev),
-			      IPSTATS_MIB_OUTDISCARDS);
-		rcu_read_unlock();
-		return;
+		dropreason = "out of memory";
+		goto out;
 	}
 	skb->priority = TC_PRIO_CONTROL;
 	skb_reserve(skb, hlen);
@@ -2052,26 +2073,43 @@ static void igmp6_send(struct in6_addr *addr, struct net_device *dev, int type)
 	dst = icmp6_dst_alloc(skb->dev, &fl6);
 	if (IS_ERR(dst)) {
 		err = PTR_ERR(dst);
-		goto err_out;
+		kfree_skb(skb);
+		skb = NULL;
+		dropreason = "out of memory";
+		goto out;
 	}
 
 	skb_dst_set(skb, dst);
+	DTRACE_IP(send,
+		  struct sk_buff * : pktinfo_t *, skb,
+		  struct sock * : csinfo_t *, skb->sk,
+		  void_ip_t * : ipinfo_t *, ipv6_hdr(skb),
+		  struct net_device * : ifinfo_t *, skb->dev,
+		  struct iphdr * : ipv4info_t *, NULL,
+		  struct ipv6hdr * : ipv6info_t *, ipv6_hdr(skb));
 	err = NF_HOOK(NFPROTO_IPV6, NF_INET_LOCAL_OUT,
 		      net, sk, skb, NULL, skb->dev,
 		      dst_output);
+	dropreason = "multicast send error";
 out:
 	if (!err) {
 		ICMP6MSGOUT_INC_STATS(net, idev, type);
 		ICMP6_INC_STATS(net, idev, ICMP6_MIB_OUTMSGS);
-	} else
+	} else {
+		/* skb may have been freed */
+		DTRACE_IP(drop__out,
+			  struct sk_buff * : pktinfo_t *, NULL,
+			  struct sock * : csinfo_t *, sk,
+			  void_ip_t * : ipinfo_t *, NULL,
+			  struct net_device * : ifinfo_t *, idev->dev,
+			  struct iphdr * : ipv4info_t *, NULL,
+			  struct ipv6hdr * : ipv6info_t *, NULL,
+			  const char * : string, dropreason);
 		IP6_INC_STATS(net, idev, IPSTATS_MIB_OUTDISCARDS);
+	}
 
 	rcu_read_unlock();
 	return;
-
-err_out:
-	kfree_skb(skb);
-	goto out;
 }
 
 static void mld_send_initial_cr(struct inet6_dev *idev)
