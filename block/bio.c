@@ -1153,6 +1153,8 @@ int submit_bio_wait(struct bio *bio)
 	bio->bi_opf |= REQ_SYNC;
 	submit_bio(bio);
 
+	DTRACE_IO(wait__start, struct bio * : (bufinfo_t *, devinfo_t *), bio,
+		  struct file * : fileinfo_t *, NULL);
 	/* Prevent hang_check timer from firing at us during very long I/O */
 	hang_check = sysctl_hung_task_timeout_secs;
 	if (hang_check)
@@ -1161,6 +1163,8 @@ int submit_bio_wait(struct bio *bio)
 			;
 	else
 		wait_for_completion_io(&done);
+	DTRACE_IO(wait__done, struct bio * : (bufinfo_t *, devinfo_t *), bio,
+		  struct file * : fileinfo_t *, NULL);
 
 	return blk_status_to_errno(bio->bi_status);
 }
@@ -1444,6 +1448,9 @@ again:
 	}
 
 	blk_throtl_bio_endio(bio);
+	DTRACE_IO(done, struct bio * :
+		  (bufinfo_t *, devinfo_t *), bio,
+		  struct file * : fileinfo_t *, NULL);
 	/* release cgroup info */
 	bio_uninit(bio);
 	if (bio->bi_end_io)

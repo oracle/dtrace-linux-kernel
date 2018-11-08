@@ -44,6 +44,7 @@
 #include <linux/slab.h>
 #include <linux/compat.h>
 #include <linux/random.h>
+#include <linux/sdt.h>
 
 #include <linux/uaccess.h>
 #include <asm/unistd.h>
@@ -1775,6 +1776,8 @@ void update_process_times(int user_tick)
 	struct task_struct *p = current;
 
 	PRANDOM_ADD_NOISE(jiffies, user_tick, p, 0);
+	DTRACE_SCHED(tick, struct task_struct * : (lwpsinfo_t *, psinfo_t *),
+		     p);
 
 	/* Note: this timer irq context must be accounted for as well. */
 	account_process_tick(p, user_tick);
