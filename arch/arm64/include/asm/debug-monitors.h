@@ -64,13 +64,20 @@
 
 #define CACHE_FLUSH_IS_SAFE		1
 
-/* kprobes BRK opcodes with ESR encoding  */
 #define BRK64_ESR_MASK		0xFFFF
+/* kprobes BRK opcodes with ESR encoding  */
 #define BRK64_ESR_KPROBES	0x0004
 #define BRK64_OPCODE_KPROBES	(AARCH64_BREAK_MON | (BRK64_ESR_KPROBES << 5))
 /* uprobes BRK opcodes with ESR encoding  */
 #define BRK64_ESR_UPROBES	0x0005
 #define BRK64_OPCODE_UPROBES	(AARCH64_BREAK_MON | (BRK64_ESR_UPROBES << 5))
+/* DTrace probes BRK opcodes with ESR encoding  */
+#define BRK64_ESR_DPROBES_SDT	0x0006
+#define BRK64_OPCODE_DPROBE_SDT	(AARCH64_BREAK_MON | (BRK64_ESR_DPROBES_SDT << 5))
+#define BRK64_ESR_DPROBES_FBE	0x0007
+#define BRK64_OPCODE_DPROBE_FBE	(AARCH64_BREAK_MON | (BRK64_ESR_DPROBES_FBE << 5))
+#define BRK64_ESR_DPROBES_FBR	0x0008
+#define BRK64_OPCODE_DPROBE_FBR	(AARCH64_BREAK_MON | (BRK64_ESR_DPROBES_FBR << 5))
 
 /* AArch32 */
 #define DBG_ESR_EVT_BKPT	0x4
