@@ -19,6 +19,7 @@
  *		Jorge Cwik, <jorge@laser.satlink.net>
  */
 
+#include <linux/sdt.h>
 #include <net/tcp.h>
 #include <net/xfrm.h>
 #include <net/busy_poll.h>
@@ -321,6 +322,20 @@ void tcp_time_wait(struct sock *sk, int state, int timeo)
 		 */
 		inet_twsk_hashdance(tw, sk, &tcp_hashinfo);
 		local_bh_enable();
+
+		if (DTRACE_TCP_ENABLED(state__change) &&
+		    state != sk->sk_state)
+			DTRACE_TCP_NOCHECK(state__change,
+					   struct sk_buff * : pktinfo_t *, NULL,
+					   struct sock * : csinfo_t *, sk,
+					   __dtrace_tcp_void_ip_t * :
+					   ipinfo_t *, NULL,
+					   struct tcp_sock * : tcpsinfo_t *,
+					   tcp_sk(sk),
+					   struct tcphdr * : tcpinfo_t *, NULL,
+					   int : tcplsinfo_t *, sk->sk_state,
+					   int, state,
+					   int, DTRACE_NET_PROBE_OUTBOUND);
 	} else {
 		/* Sorry, if we're out of memory, just CLOSE this
 		 * socket up.  We've got bigger problems than
