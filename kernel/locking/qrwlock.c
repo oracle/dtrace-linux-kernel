@@ -11,6 +11,7 @@
 #include <linux/cpumask.h>
 #include <linux/percpu.h>
 #include <linux/hardirq.h>
+#include <linux/sdt.h>
 #include <linux/spinlock.h>
 
 /**
@@ -19,9 +20,13 @@
  */
 void queued_read_lock_slowpath(struct qrwlock *lock)
 {
+	u64 spinstart = 0, spinend, spintime;
+
 	/*
 	 * Readers come here when they cannot get the lock without waiting
 	 */
+	if (DTRACE_LOCKSTAT_ENABLED(rw__spin))
+		spinstart = dtrace_gethrtime_ns();
 	if (unlikely(in_interrupt())) {
 		/*
 		 * Readers in interrupt context will get the lock immediately
@@ -30,7 +35,7 @@ void queued_read_lock_slowpath(struct qrwlock *lock)
 		 * without waiting in the queue.
 		 */
 		atomic_cond_read_acquire(&lock->cnts, !(VAL & _QW_LOCKED));
-		return;
+		goto done;
 	}
 	atomic_sub(_QR_BIAS, &lock->cnts);
 
@@ -51,6 +56,13 @@ void queued_read_lock_slowpath(struct qrwlock *lock)
 	 * Signal the next one in queue to become queue head
 	 */
 	arch_spin_unlock(&lock->wait_lock);
+done:
+	if (DTRACE_LOCKSTAT_ENABLED(rw__spin) && spinstart) {
+		spinend = dtrace_gethrtime_ns();
+		spintime = spinend > spinstart ? spinend - spinstart : 0;
+		DTRACE_LOCKSTAT(rw__spin, rwlock_t *, lock, uint64_t, spintime,
+				int, DTRACE_LOCKSTAT_RW_READER);
+	}
 }
 EXPORT_SYMBOL(queued_read_lock_slowpath);
 
@@ -61,8 +73,11 @@ EXPORT_SYMBOL(queued_read_lock_slowpath);
 void queued_write_lock_slowpath(struct qrwlock *lock)
 {
 	int cnts;
+	u64 spinstart = 0, spinend, spintime;
 
 	/* Put the writer into the wait queue */
+	if (DTRACE_LOCKSTAT_ENABLED(rw__spin))
+		spinstart = dtrace_gethrtime_ns();
 	arch_spin_lock(&lock->wait_lock);
 
 	/* Try to acquire the lock directly if no reader is present */
@@ -79,5 +94,11 @@ void queued_write_lock_slowpath(struct qrwlock *lock)
 	} while (!atomic_try_cmpxchg_acquire(&lock->cnts, &cnts, _QW_LOCKED));
 unlock:
 	arch_spin_unlock(&lock->wait_lock);
+	if (DTRACE_LOCKSTAT_ENABLED(rw__spin) && spinstart) {
+		spinend = dtrace_gethrtime_ns();
+		spintime = spinend > spinstart ? spinend - spinstart : 0;
+		DTRACE_LOCKSTAT(rw__spin, rwlock_t *, lock, uint64_t, spintime,
+				int, DTRACE_LOCKSTAT_RW_WRITER);
+	}
 }
 EXPORT_SYMBOL(queued_write_lock_slowpath);
