@@ -198,8 +198,7 @@ static void noinstr el1_fpac(struct pt_regs *regs, unsigned long esr)
 	local_daif_mask();
 	exit_to_kernel_mode(regs);
 }
-
-asmlinkage void noinstr el1_sync_handler(struct pt_regs *regs)
+asmlinkage int noinstr el1_sync_handler(struct pt_regs *regs)
 {
 	unsigned long esr = read_sysreg(esr_el1);
 
@@ -224,13 +223,14 @@ asmlinkage void noinstr el1_sync_handler(struct pt_regs *regs)
 	case ESR_ELx_EC_WATCHPT_CUR:
 	case ESR_ELx_EC_BRK64:
 		el1_dbg(regs, esr);
-		break;
+		return 1;
 	case ESR_ELx_EC_FPAC:
 		el1_fpac(regs, esr);
 		break;
 	default:
 		el1_inv(regs, esr);
 	}
+	return 0;
 }
 
 asmlinkage void noinstr enter_from_user_mode(void)

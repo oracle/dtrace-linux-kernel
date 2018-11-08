@@ -31,7 +31,7 @@ static inline u32 disr_to_esr(u64 disr)
 	return esr;
 }
 
-asmlinkage void el1_sync_handler(struct pt_regs *regs);
+asmlinkage int el1_sync_handler(struct pt_regs *regs);
 asmlinkage void el0_sync_handler(struct pt_regs *regs);
 asmlinkage void el0_sync_compat_handler(struct pt_regs *regs);
 
