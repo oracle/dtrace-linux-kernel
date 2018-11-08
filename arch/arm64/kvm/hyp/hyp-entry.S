@@ -74,6 +74,7 @@ el1_sync:				// Guest trapped into EL2
 
 	eret
 	sb
+ENDPROC(el1_sync)
 
 el1_hvc_guest:
 	/*
@@ -125,21 +126,25 @@ wa_epilogue:
 	add	sp, sp, #16
 	eret
 	sb
+ENDPROC(el1_hvc_guest)
 
 el1_trap:
 	get_vcpu_ptr	x1, x0
 	mov	x0, #ARM_EXCEPTION_TRAP
 	b	__guest_exit
+ENDPROC(el1_trap)
 
 el1_irq:
 	get_vcpu_ptr	x1, x0
 	mov	x0, #ARM_EXCEPTION_IRQ
 	b	__guest_exit
+ENDPROC(el1_irq)
 
 el1_error:
 	get_vcpu_ptr	x1, x0
 	mov	x0, #ARM_EXCEPTION_EL1_SERROR
 	b	__guest_exit
+ENDPROC(el1_error)
 
 el2_sync:
 	/* Check for illegal exception return, otherwise panic */
@@ -179,6 +184,7 @@ el2_error:
 	mov	x0, #(1 << ARM_EXIT_WITH_SERROR_BIT)
 	eret
 	sb
+ENDPROC(el2_error)
 
 ENTRY(__hyp_do_panic)
 	mov	lr, #(PSR_F_BIT | PSR_I_BIT | PSR_A_BIT | PSR_D_BIT |\
