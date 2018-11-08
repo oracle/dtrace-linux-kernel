@@ -1963,6 +1963,9 @@ bool sched_task_on_rq(struct task_struct *p)
 
 static inline void enqueue_task(struct rq *rq, struct task_struct *p, int flags)
 {
+	DTRACE_SCHED(enqueue, struct task_struct * : (lwpsinfo_t *,
+						      psinfo_t *), p,
+		     cpuinfo_t *, rq->dtrace_cpu_info);
 	if (!(flags & ENQUEUE_NOCLOCK))
 		update_rq_clock(rq);
 
@@ -1980,6 +1983,11 @@ static inline void enqueue_task(struct rq *rq, struct task_struct *p, int flags)
 
 static inline void dequeue_task(struct rq *rq, struct task_struct *p, int flags)
 {
+	DTRACE_SCHED(dequeue, struct task_struct * : (lwpsinfo_t *,
+						      psinfo_t *), p,
+		     cpuinfo_t *, rq->dtrace_cpu_info,
+		     int, 0);
+
 	if (sched_core_enabled(rq))
 		sched_core_dequeue(rq, p);
 
@@ -3750,6 +3758,8 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 		goto unlock;
 
 	trace_sched_waking(p);
+	DTRACE_SCHED(wakeup, struct task_struct * : (lwpsinfo_t *,
+						     psinfo_t *), p);
 
 	/* We're going to change ->state: */
 	success = 1;
@@ -4512,6 +4522,8 @@ prepare_task_switch(struct rq *rq, struct task_struct *prev,
 	sched_info_switch(rq, prev, next);
 	perf_event_task_sched_out(prev, next);
 	rseq_preempt(prev);
+	DTRACE_SCHED(off__cpu, struct task_struct * : (lwpsinfo_t *,
+						       psinfo_t *), next);
 	fire_sched_out_preempt_notifiers(prev, next);
 	kmap_local_sched_out();
 	prepare_task(next);
@@ -4595,6 +4607,7 @@ static struct rq *finish_task_switch(struct task_struct *prev)
 	 */
 	kmap_local_sched_in();
 
+	DTRACE_SCHED(on__cpu);
 	fire_sched_in_preempt_notifiers(current);
 	/*
 	 * When switching through a kernel thread, the loop in
@@ -4654,6 +4667,8 @@ asmlinkage __visible void schedule_tail(struct task_struct *prev)
 		put_user(task_pid_vnr(current), current->set_child_tid);
 
 	calculate_sigpending();
+	DTRACE_PROC(start);
+	DTRACE_PROC(lwp__start);
 }
 
 /*
@@ -5974,6 +5989,7 @@ static void __sched notrace __schedule(bool preempt)
 	 */
 	prev_state = READ_ONCE(prev->__state);
 	if (!preempt && prev_state) {
+		DTRACE_SCHED(sleep);
 		if (signal_pending_state(prev_state, prev)) {
 			WRITE_ONCE(prev->__state, TASK_RUNNING);
 		} else {
@@ -6004,7 +6020,8 @@ static void __sched notrace __schedule(bool preempt)
 			}
 		}
 		switch_count = &prev->nvcsw;
-	}
+	} else
+		DTRACE_SCHED(preempt);
 
 	next = pick_next_task(rq, prev, &rf);
 	clear_tsk_need_resched(prev);
@@ -6046,6 +6063,7 @@ static void __sched notrace __schedule(bool preempt)
 	} else {
 		rq->clock_update_flags &= ~(RQCF_ACT_SKIP|RQCF_REQ_SKIP);
 
+		DTRACE_SCHED(remain__cpu);
 		rq_unpin_lock(rq, &rf);
 		__balance_callbacks(rq);
 		raw_spin_rq_unlock_irq(rq);
@@ -6648,6 +6666,9 @@ void set_user_nice(struct task_struct *p, long nice)
 	old_prio = p->prio;
 	p->prio = effective_prio(p);
 
+	DTRACE_SCHED(change__pri, struct task_struct * : (lwpsinfo_t *,
+							  psinfo_t *), p,
+		      int, old_prio);
 	if (queued)
 		enqueue_task(rq, p, ENQUEUE_RESTORE | ENQUEUE_NOCLOCK);
 	if (running)
@@ -7844,6 +7865,9 @@ static void do_sched_yield(void)
 	rq_unlock_irq(rq, &rf);
 	sched_preempt_enable_no_resched();
 
+	DTRACE_SCHED(surrender,
+		     struct task_struct * : (lwpsinfo_t *, psinfo_t *),
+		     current);
 	schedule();
 }
 
@@ -8048,8 +8072,12 @@ out_unlock:
 out_irq:
 	local_irq_restore(flags);
 
-	if (yielded > 0)
+	if (yielded > 0) {
+		DTRACE_SCHED(surrender,
+			     struct task_struct * : (lwpsinfo_t *, psinfo_t *),
+			     curr);
 		schedule();
+	}
 
 	return yielded;
 }
