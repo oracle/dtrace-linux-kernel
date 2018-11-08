@@ -49,6 +49,20 @@ static kmem_zone_t *xfs_buf_zone;
  *	  b_lock (trylock due to inversion)
  */
 
+#define	DTRACE_IO_XFS_WAIT(name, bp, is_write)				\
+	if (DTRACE_IO_ENABLED(name)) {					\
+		struct bio bio __maybe_unused = {			\
+			.bi_iter.bi_sector = xfs_buf_daddr(bp),		\
+			.bi_iter.bi_size = (bp)->b_length,		\
+			.bi_opf = is_write ?				\
+				REQ_OP_WRITE : REQ_OP_READ,		\
+			.bi_bdev = (bp)->b_target->bt_bdev		\
+		};							\
+		DTRACE_IO(name, struct bio * : (bufinfo_t *,		\
+			  devinfo_t *), &bio,				\
+			  struct file * : fileinfo_t *, NULL);		\
+	}
+
 static int __xfs_buf_submit(struct xfs_buf *bp, bool wait);
 
 static inline int
@@ -1567,10 +1581,14 @@ static int
 xfs_buf_iowait(
 	struct xfs_buf	*bp)
 {
+	int orig_flags __attribute__((unused)) = bp->b_flags;
+
 	ASSERT(!(bp->b_flags & XBF_ASYNC));
 
 	trace_xfs_buf_iowait(bp, _RET_IP_);
+	DTRACE_IO_XFS_WAIT(wait__start, bp, orig_flags & XBF_WRITE);
 	wait_for_completion(&bp->b_iowait);
+	DTRACE_IO_XFS_WAIT(wait__done, bp, orig_flags & XBF_WRITE);
 	trace_xfs_buf_iowait_done(bp, _RET_IP_);
 
 	return bp->b_error;
