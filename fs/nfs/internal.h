@@ -10,6 +10,7 @@
 #include <linux/sunrpc/addr.h>
 #include <linux/nfs_page.h>
 #include <linux/wait_bit.h>
+#include <linux/sdt.h>
 
 #define NFS_SB_MASK (SB_RDONLY|SB_NOSUID|SB_NODEV|SB_NOEXEC|SB_SYNCHRONOUS)
 
@@ -789,4 +790,17 @@ static inline void nfs_set_port(struct sockaddr *sap, int *port,
 		*port = default_port;
 
 	rpc_set_port(sap, *port);
+}
+
+#define	DTRACE_IO_NFS(name, rw, size, inode)			\
+	if (DTRACE_IO_ENABLED(name)) {				\
+		struct bio bio __maybe_unused = {		\
+			.bi_opf = rw,				\
+			.bi_flags = (1 << BIO_USER_MAPPED),	\
+			.bi_iter.bi_size = size,		\
+			.bi_iter.bi_sector = NFS_FILEID(inode),	\
+		};						\
+		DTRACE_IO(name, struct bio * : (bufinfo_t *,	\
+			  devinfo_t *), &bio,			\
+			  struct file * : fileinfo_t *, NULL);	\
 }
