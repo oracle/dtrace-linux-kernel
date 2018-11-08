@@ -914,11 +914,15 @@ static noinline_for_stack bool submit_bio_checks(struct bio *bio)
 		 */
 		bio_set_flag(bio, BIO_TRACE_COMPLETION);
 	}
+	DTRACE_IO(start, struct bio * : (bufinfo_t *, devinfo_t *), bio,
+		  struct file * : fileinfo_t *, NULL);
 	return true;
 
 not_supported:
 	status = BLK_STS_NOTSUPP;
 end_io:
+	DTRACE_IO(start, struct bio * : (bufinfo_t *, devinfo_t *), bio,
+		  struct file * : fileinfo_t *, NULL);
 	bio->bi_status = status;
 	bio_endio(bio);
 	return false;
