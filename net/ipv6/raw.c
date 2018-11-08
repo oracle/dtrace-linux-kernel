@@ -58,6 +58,7 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/export.h>
+#include <linux/sdt.h>
 
 #define	ICMPV6_HDRLEN	4	/* ICMPv6 header, RFC 4443 Section 2.1 */
 
@@ -622,26 +623,34 @@ static int rawv6_send_hdrinc(struct sock *sk, struct msghdr *msg, int length,
 	struct ipv6_pinfo *np = inet6_sk(sk);
 	struct net *net = sock_net(sk);
 	struct ipv6hdr *iph;
-	struct sk_buff *skb;
+	struct sk_buff *skb = NULL;
 	int err;
 	struct rt6_info *rt = (struct rt6_info *)*dstp;
 	int hlen = LL_RESERVED_SPACE(rt->dst.dev);
 	int tlen = rt->dst.dev->needed_tailroom;
+	const char *dropreason;
 
 	if (length > rt->dst.dev->mtu) {
 		ipv6_local_error(sk, EMSGSIZE, fl6, rt->dst.dev->mtu);
-		return -EMSGSIZE;
+		dropreason = "packet too big";
+		err = -EMSGSIZE;
+		goto error_check;
 	}
-	if (length < sizeof(struct ipv6hdr))
-		return -EINVAL;
+	if (length < sizeof(struct ipv6hdr)) {
+		dropreason = "packet too short";
+		err = -EINVAL;
+		goto error_check;
+	}
 	if (flags&MSG_PROBE)
 		goto out;
 
 	skb = sock_alloc_send_skb(sk,
 				  length + hlen + tlen + 15,
 				  flags & MSG_DONTWAIT, &err);
-	if (!skb)
+	if (!skb) {
+		dropreason = "out of memory";
 		goto error;
+	}
 	skb_reserve(skb, hlen);
 
 	skb->protocol = htons(ETH_P_IPV6);
@@ -665,7 +674,8 @@ static int rawv6_send_hdrinc(struct sock *sk, struct msghdr *msg, int length,
 	if (err) {
 		err = -EFAULT;
 		kfree_skb(skb);
-		goto error;
+		dropreason = "could not copy msg";
+		goto error_check;
 	}
 
 	skb_dst_set(skb, &rt->dst);
@@ -684,6 +694,13 @@ static int rawv6_send_hdrinc(struct sock *sk, struct msghdr *msg, int length,
 	 */
 	rcu_read_lock();
 	IP6_UPD_PO_STATS(net, rt->rt6i_idev, IPSTATS_MIB_OUT, skb->len);
+	DTRACE_IP(send,
+		  struct sk_buff * : pktinfo_t *, skb,
+		  struct sock * : csinfo_t *, skb->sk,
+		  void_ip_t * : ipinfo_t *, ipv6_hdr(skb),
+		  struct net_device * : ifinfo_t *, skb->dev,
+		  struct iphdr * : ipv4info_t *, NULL,
+		  struct ipv6hdr * : ipv6info_t *, ipv6_hdr(skb));
 	err = NF_HOOK(NFPROTO_IPV6, NF_INET_LOCAL_OUT, net, sk, skb,
 		      NULL, rt->dst.dev, dst_output);
 	if (err > 0)
@@ -691,6 +708,7 @@ static int rawv6_send_hdrinc(struct sock *sk, struct msghdr *msg, int length,
 	if (err) {
 		IP6_INC_STATS(net, rt->rt6i_idev, IPSTATS_MIB_OUTDISCARDS);
 		rcu_read_unlock();
+		dropreason = "raw send error";
 		goto error_check;
 	}
 	rcu_read_unlock();
@@ -700,6 +718,14 @@ out:
 error:
 	IP6_INC_STATS(net, rt->rt6i_idev, IPSTATS_MIB_OUTDISCARDS);
 error_check:
+	DTRACE_IP(drop__out,
+		  struct sk_buff * : pktinfo_t *, skb,
+		  struct sock * : csinfo_t *, skb ? skb->sk : NULL,
+		  void_ip_t * : ipinfo_t *, skb ? ipv6_hdr(skb) : NULL,
+		  struct net_device * : ifinfo_t *, skb ? skb->dev : NULL,
+		  struct iphdr * : ipv4info_t *, NULL,
+		  struct ipv6hdr * : ipv6info_t *, skb ? ipv6_hdr(skb) : NULL,
+		  const char * : string, dropreason);
 	if (err == -ENOBUFS && !np->recverr)
 		err = 0;
 	return err;
