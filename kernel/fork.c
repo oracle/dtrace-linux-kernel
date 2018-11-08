@@ -94,6 +94,7 @@
 #include <linux/livepatch.h>
 #include <linux/thread_info.h>
 #include <linux/stackleak.h>
+#include <linux/sdt.h>
 #include <linux/dtrace_task_impl.h>
 
 #include <asm/pgtable.h>
@@ -2410,6 +2411,8 @@ long _do_fork(unsigned long clone_flags,
 	}
 
 	put_pid(pid);
+	DTRACE_PROC(lwp__create, struct task_struct * : (lwpsinfo_t *, psinfo_t *), p);
+	DTRACE_PROC(create, struct task_struct * : psinfo_t *, p);
 	return nr;
 }
 
