@@ -38,7 +38,7 @@ asmlinkage void el1t_64_irq_handler(struct pt_regs *regs);
 asmlinkage void el1t_64_fiq_handler(struct pt_regs *regs);
 asmlinkage void el1t_64_error_handler(struct pt_regs *regs);
 
-asmlinkage void el1h_64_sync_handler(struct pt_regs *regs);
+asmlinkage int el1h_64_sync_handler(struct pt_regs *regs);
 asmlinkage void el1h_64_irq_handler(struct pt_regs *regs);
 asmlinkage void el1h_64_fiq_handler(struct pt_regs *regs);
 asmlinkage void el1h_64_error_handler(struct pt_regs *regs);
