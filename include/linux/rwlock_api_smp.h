@@ -5,6 +5,8 @@
 # error "please don't include this file directly"
 #endif
 
+#include <linux/sdt.h>
+
 /*
  * include/linux/rwlock_api_smp.h
  *
@@ -120,6 +122,8 @@ static inline int __raw_read_trylock(rwlock_t *lock)
 	preempt_disable();
 	if (do_raw_read_trylock(lock)) {
 		rwlock_acquire_read(&lock->dep_map, 0, 1, _RET_IP_);
+		DTRACE_LOCKSTAT(rw__acquire, struct rwlock *, lock, int,
+				DTRACE_LOCKSTAT_RW_READER);
 		return 1;
 	}
 	preempt_enable();
@@ -131,6 +135,8 @@ static inline int __raw_write_trylock(rwlock_t *lock)
 	preempt_disable();
 	if (do_raw_write_trylock(lock)) {
 		rwlock_acquire(&lock->dep_map, 0, 1, _RET_IP_);
+		DTRACE_LOCKSTAT(rw__acquire, struct rwlock *, lock, int,
+				DTRACE_LOCKSTAT_RW_WRITER);
 		return 1;
 	}
 	preempt_enable();
@@ -149,6 +155,8 @@ static inline void __raw_read_lock(rwlock_t *lock)
 	preempt_disable();
 	rwlock_acquire_read(&lock->dep_map, 0, 0, _RET_IP_);
 	LOCK_CONTENDED(lock, do_raw_read_trylock, do_raw_read_lock);
+	DTRACE_LOCKSTAT(rw__acquire, struct rwlock *, lock, int,
+			DTRACE_LOCKSTAT_RW_READER);
 }
 
 static inline unsigned long __raw_read_lock_irqsave(rwlock_t *lock)
@@ -159,6 +167,8 @@ static inline unsigned long __raw_read_lock_irqsave(rwlock_t *lock)
 	preempt_disable();
 	rwlock_acquire_read(&lock->dep_map, 0, 0, _RET_IP_);
 	LOCK_CONTENDED(lock, do_raw_read_trylock, do_raw_read_lock);
+	DTRACE_LOCKSTAT(rw__acquire, struct rwlock *, lock, int,
+			DTRACE_LOCKSTAT_RW_READER);
 	return flags;
 }
 
@@ -168,6 +178,8 @@ static inline void __raw_read_lock_irq(rwlock_t *lock)
 	preempt_disable();
 	rwlock_acquire_read(&lock->dep_map, 0, 0, _RET_IP_);
 	LOCK_CONTENDED(lock, do_raw_read_trylock, do_raw_read_lock);
+	DTRACE_LOCKSTAT(rw__acquire, struct rwlock *, lock, int,
+			DTRACE_LOCKSTAT_RW_READER);
 }
 
 static inline void __raw_read_lock_bh(rwlock_t *lock)
@@ -175,6 +187,8 @@ static inline void __raw_read_lock_bh(rwlock_t *lock)
 	__local_bh_disable_ip(_RET_IP_, SOFTIRQ_LOCK_OFFSET);
 	rwlock_acquire_read(&lock->dep_map, 0, 0, _RET_IP_);
 	LOCK_CONTENDED(lock, do_raw_read_trylock, do_raw_read_lock);
+	DTRACE_LOCKSTAT(rw__acquire, struct rwlock *, lock, int,
+			DTRACE_LOCKSTAT_RW_READER);
 }
 
 static inline unsigned long __raw_write_lock_irqsave(rwlock_t *lock)
@@ -185,6 +199,8 @@ static inline unsigned long __raw_write_lock_irqsave(rwlock_t *lock)
 	preempt_disable();
 	rwlock_acquire(&lock->dep_map, 0, 0, _RET_IP_);
 	LOCK_CONTENDED(lock, do_raw_write_trylock, do_raw_write_lock);
+	DTRACE_LOCKSTAT(rw__acquire, struct rwlock *, lock, int,
+			DTRACE_LOCKSTAT_RW_WRITER);
 	return flags;
 }
 
@@ -194,6 +210,8 @@ static inline void __raw_write_lock_irq(rwlock_t *lock)
 	preempt_disable();
 	rwlock_acquire(&lock->dep_map, 0, 0, _RET_IP_);
 	LOCK_CONTENDED(lock, do_raw_write_trylock, do_raw_write_lock);
+	DTRACE_LOCKSTAT(rw__acquire, struct rwlock *, lock, int,
+			DTRACE_LOCKSTAT_RW_WRITER);
 }
 
 static inline void __raw_write_lock_bh(rwlock_t *lock)
@@ -201,6 +219,8 @@ static inline void __raw_write_lock_bh(rwlock_t *lock)
 	__local_bh_disable_ip(_RET_IP_, SOFTIRQ_LOCK_OFFSET);
 	rwlock_acquire(&lock->dep_map, 0, 0, _RET_IP_);
 	LOCK_CONTENDED(lock, do_raw_write_trylock, do_raw_write_lock);
+	DTRACE_LOCKSTAT(rw__acquire, struct rwlock *, lock, int,
+			DTRACE_LOCKSTAT_RW_WRITER);
 }
 
 static inline void __raw_write_lock(rwlock_t *lock)
@@ -208,6 +228,8 @@ static inline void __raw_write_lock(rwlock_t *lock)
 	preempt_disable();
 	rwlock_acquire(&lock->dep_map, 0, 0, _RET_IP_);
 	LOCK_CONTENDED(lock, do_raw_write_trylock, do_raw_write_lock);
+	DTRACE_LOCKSTAT(rw__acquire, struct rwlock *, lock, int,
+			DTRACE_LOCKSTAT_RW_WRITER);
 }
 
 static inline void __raw_write_lock_nested(rwlock_t *lock, int subclass)
@@ -223,6 +245,8 @@ static inline void __raw_write_unlock(rwlock_t *lock)
 {
 	rwlock_release(&lock->dep_map, _RET_IP_);
 	do_raw_write_unlock(lock);
+	DTRACE_LOCKSTAT(rw__release, struct rwlock *, lock, int,
+			DTRACE_LOCKSTAT_RW_WRITER);
 	preempt_enable();
 }
 
@@ -230,6 +254,8 @@ static inline void __raw_read_unlock(rwlock_t *lock)
 {
 	rwlock_release(&lock->dep_map, _RET_IP_);
 	do_raw_read_unlock(lock);
+	DTRACE_LOCKSTAT(rw__release, struct rwlock *, lock, int,
+			DTRACE_LOCKSTAT_RW_READER);
 	preempt_enable();
 }
 
@@ -238,6 +264,8 @@ __raw_read_unlock_irqrestore(rwlock_t *lock, unsigned long flags)
 {
 	rwlock_release(&lock->dep_map, _RET_IP_);
 	do_raw_read_unlock(lock);
+	DTRACE_LOCKSTAT(rw__release, struct rwlock *, lock, int,
+			DTRACE_LOCKSTAT_RW_READER);
 	local_irq_restore(flags);
 	preempt_enable();
 }
@@ -246,6 +274,8 @@ static inline void __raw_read_unlock_irq(rwlock_t *lock)
 {
 	rwlock_release(&lock->dep_map, _RET_IP_);
 	do_raw_read_unlock(lock);
+	DTRACE_LOCKSTAT(rw__release, struct rwlock *, lock, int,
+			DTRACE_LOCKSTAT_RW_READER);
 	local_irq_enable();
 	preempt_enable();
 }
@@ -254,6 +284,8 @@ static inline void __raw_read_unlock_bh(rwlock_t *lock)
 {
 	rwlock_release(&lock->dep_map, _RET_IP_);
 	do_raw_read_unlock(lock);
+	DTRACE_LOCKSTAT(rw__release, struct rwlock *, lock, int,
+			DTRACE_LOCKSTAT_RW_READER);
 	__local_bh_enable_ip(_RET_IP_, SOFTIRQ_LOCK_OFFSET);
 }
 
@@ -262,6 +294,8 @@ static inline void __raw_write_unlock_irqrestore(rwlock_t *lock,
 {
 	rwlock_release(&lock->dep_map, _RET_IP_);
 	do_raw_write_unlock(lock);
+	DTRACE_LOCKSTAT(rw__release, struct rwlock *, lock, int,
+			DTRACE_LOCKSTAT_RW_WRITER);
 	local_irq_restore(flags);
 	preempt_enable();
 }
@@ -270,6 +304,8 @@ static inline void __raw_write_unlock_irq(rwlock_t *lock)
 {
 	rwlock_release(&lock->dep_map, _RET_IP_);
 	do_raw_write_unlock(lock);
+	DTRACE_LOCKSTAT(rw__release, struct rwlock *, lock, int,
+			DTRACE_LOCKSTAT_RW_WRITER);
 	local_irq_enable();
 	preempt_enable();
 }
@@ -278,6 +314,8 @@ static inline void __raw_write_unlock_bh(rwlock_t *lock)
 {
 	rwlock_release(&lock->dep_map, _RET_IP_);
 	do_raw_write_unlock(lock);
+	DTRACE_LOCKSTAT(rw__release, struct rwlock *, lock, int,
+			DTRACE_LOCKSTAT_RW_WRITER);
 	__local_bh_enable_ip(_RET_IP_, SOFTIRQ_LOCK_OFFSET);
 }
 

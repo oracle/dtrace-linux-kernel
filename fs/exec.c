@@ -65,6 +65,7 @@
 #include <linux/io_uring.h>
 #include <linux/syscall_user_dispatch.h>
 #include <linux/coredump.h>
+#include <linux/sdt.h>
 #include <linux/dtrace_os.h>
 
 #include <linux/uaccess.h>
@@ -1810,6 +1811,7 @@ static int bprm_execve(struct linux_binprm *bprm,
 	current->in_execve = 1;
 
 	file = do_open_execat(fd, filename, flags);
+	DTRACE_PROC(exec, char *, filename->name);
 	retval = PTR_ERR(file);
 	if (IS_ERR(file))
 		goto out_unmark;
@@ -1848,6 +1850,8 @@ static int bprm_execve(struct linux_binprm *bprm,
 	rseq_execve(current);
 	acct_update_integrals(current);
 	task_numa_free(current, false);
+
+	DTRACE_PROC(exec__success);
 	return retval;
 
 out:
@@ -1949,6 +1953,8 @@ out_free:
 
 out_ret:
 	putname(filename);
+	if (retval < 0)
+		DTRACE_PROC(exec__failure, int, retval);
 	return retval;
 }
 
@@ -2004,6 +2010,8 @@ out_free:
 	free_bprm(bprm);
 out_ret:
 	putname(filename);
+	if (retval < 0)
+		DTRACE_PROC(exec__failure, int, retval);
 	return retval;
 }
 

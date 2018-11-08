@@ -66,6 +66,7 @@
 #include <linux/io_uring.h>
 #include <linux/kprobes.h>
 #include <linux/rethook.h>
+#include <linux/sdt.h>
 #include <linux/dtrace_os.h>
 
 #include <linux/uaccess.h>
@@ -779,6 +780,10 @@ void __noreturn do_exit(long code)
 
 	tsk->exit_code = code;
 	taskstats_exit(tsk, group_dead);
+
+	DTRACE_PROC(lwp__exit);
+	if (group_dead)
+		DTRACE_PROC(exit, int, code & 0x80 ? 3 : code & 0x7f ? 2 : 1);
 
 	/* Remove DTrace state for this task */
 	dtrace_task_free(tsk);

@@ -859,6 +859,8 @@ void submit_bio_noacct(struct bio *bio)
 		 * completion as well.
 		 */
 		bio_set_flag(bio, BIO_TRACE_COMPLETION);
+		DTRACE_IO(start, struct bio * : (bufinfo_t *, devinfo_t *), bio,
+			  struct file * : fileinfo_t *, NULL);
 	}
 	submit_bio_noacct_nocheck(bio);
 	return;
@@ -866,6 +868,8 @@ void submit_bio_noacct(struct bio *bio)
 not_supported:
 	status = BLK_STS_NOTSUPP;
 end_io:
+	DTRACE_IO(start, struct bio * : (bufinfo_t *, devinfo_t *), bio,
+		  struct file * : fileinfo_t *, NULL);
 	bio->bi_status = status;
 	bio_endio(bio);
 }
