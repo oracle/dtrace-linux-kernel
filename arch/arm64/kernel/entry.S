@@ -28,6 +28,7 @@
 #include <asm/thread_info.h>
 #include <asm/asm-uaccess.h>
 #include <asm/unistd.h>
+#include <asm/debug-monitors.h>
 
 /*
  * Context tracking and irqflag tracing need to instrument transitions between
@@ -320,7 +321,7 @@ alternative_else_nop_endif
 	*/
 	.endm
 
-	.macro	kernel_exit, el
+	.macro	kernel_exit, el, fbt_emu = 0
 	.if	\el != 0
 	disable_daif
 	.endif
@@ -390,7 +391,11 @@ alternative_else_nop_endif
 
 	msr	elr_el1, x21			// set up the return data
 	msr	spsr_el1, x22
-	ldp	x0, x1, [sp, #16 * 0]
+
+	/*
+	 * No need to restore x0 and x1 - we may still clobber them.  We will
+	 * restore them right before we return.
+	 */
 	ldp	x2, x3, [sp, #16 * 1]
 	ldp	x4, x5, [sp, #16 * 2]
 	ldp	x6, x7, [sp, #16 * 3]
@@ -406,7 +411,44 @@ alternative_else_nop_endif
 	ldp	x26, x27, [sp, #16 * 13]
 	ldp	x28, x29, [sp, #16 * 14]
 	ldr	lr, [sp, #S_LR]
+
+	.if	\fbt_emu != 0			// FBT emulation needed?
+	mrs	x0, esr_el1			// check if ESR is FBT probe
+	and	x0, x0, #0x1f			// ... mask code
+	cmp	x0, #DPROBES_FBE_BRK_IMM	// ... compare with FBE code
+	beq	6f				// FBT entry -> emulate instr.
+	cmp	x0, #DPROBES_FBR_BRK_IMM	// ... compare with FBR code
+	beq	7f				// FBT return -> emulate instr.
+	b	8f				// not FBT -> skip next section
+
+6:
+	mrs	x0, elr_el1			// retrieve xeceptionx link reg
+	add	x0, x0, #0x4			// advance to next instr
+	msr	elr_el1, x0			// set exception link reg
+
+	ldp	x0, x1, [sp, #16 * 0]		// done with x0, restore orig
 	add	sp, sp, #PT_REGS_SIZE		// restore sp
+	mov	x29, sp				// instr we put probe on
+	b	9f				// FBT done -> branch to eret
+
+7:
+	msr	elr_el1, lr			// set exception link reg to
+						// link register value, to
+						// simulate the 'ret' instr.
+
+	ldp	x0, x1, [sp, #16 * 0]		// done with x0, restore orig
+	add	sp, sp, #PT_REGS_SIZE		// restore sp
+	b	9f				// FBT done -> branch to eret
+
+8:
+	ldp	x0, x1, [sp, #16 * 0]		// done with x0, restore orig
+	add	sp, sp, #PT_REGS_SIZE		// restore sp
+9:
+	.else
+	ldp	x0, x1, [sp, #16 * 0]		// done with x0, restore orig
+	add	sp, sp, #PT_REGS_SIZE		// restore sp
+
+	.endif
 
 	.if	\el == 0
 alternative_insn eret, nop, ARM64_UNMAP_KERNEL_AT_EL0
@@ -545,7 +587,7 @@ __bad_stack:
 #endif /* CONFIG_VMAP_STACK */
 
 
-	.macro entry_handler el:req, ht:req, regsize:req, label:req
+	.macro entry_handler el:req, ht:req, regsize:req, label:req fbt:req
 SYM_CODE_START_LOCAL(el\el\ht\()_\regsize\()_\label)
 	kernel_entry \el, \regsize
 	mov	x0, sp
@@ -553,7 +595,14 @@ SYM_CODE_START_LOCAL(el\el\ht\()_\regsize\()_\label)
 	.if \el == 0
 	b	ret_to_user
 	.else
-	b	ret_to_kernel
+#if IS_ENABLED(CONFIG_DT_FBT)
+	.if \fbt == 1
+	cmp	x0, 1
+	b.ne	1020f
+	b	ret_to_fbt
+	.endif
+#endif
+1020:   b	ret_to_kernel
 	.endif
 SYM_CODE_END(el\el\ht\()_\regsize\()_\label)
 	.endm
@@ -561,30 +610,35 @@ SYM_CODE_END(el\el\ht\()_\regsize\()_\label)
 /*
  * Early exception handlers
  */
-	entry_handler	1, t, 64, sync
-	entry_handler	1, t, 64, irq
-	entry_handler	1, t, 64, fiq
-	entry_handler	1, t, 64, error
+	entry_handler	1, t, 64, sync, 0
+	entry_handler	1, t, 64, irq, 0
+	entry_handler	1, t, 64, fiq, 0
+	entry_handler	1, t, 64, error, 0
 
-	entry_handler	1, h, 64, sync
-	entry_handler	1, h, 64, irq
-	entry_handler	1, h, 64, fiq
-	entry_handler	1, h, 64, error
+	entry_handler	1, h, 64, sync, 1
+	entry_handler	1, h, 64, irq, 0
+	entry_handler	1, h, 64, fiq, 0
+	entry_handler	1, h, 64, error, 0
 
-	entry_handler	0, t, 64, sync
-	entry_handler	0, t, 64, irq
-	entry_handler	0, t, 64, fiq
-	entry_handler	0, t, 64, error
+	entry_handler	0, t, 64, sync, 0
+	entry_handler	0, t, 64, irq, 0
+	entry_handler	0, t, 64, fiq, 0
+	entry_handler	0, t, 64, error, 0
 
-	entry_handler	0, t, 32, sync
-	entry_handler	0, t, 32, irq
-	entry_handler	0, t, 32, fiq
-	entry_handler	0, t, 32, error
+	entry_handler	0, t, 32, sync, 0
+	entry_handler	0, t, 32, irq, 0
+	entry_handler	0, t, 32, fiq, 0
+	entry_handler	0, t, 32, error, 0
 
 SYM_CODE_START_LOCAL(ret_to_kernel)
 	kernel_exit 1
 SYM_CODE_END(ret_to_kernel)
 
+#if IS_ENABLED(CONFIG_DT_FBT)
+SYM_CODE_START_LOCAL(ret_to_fbt)
+	kernel_exit 1, 1
+SYM_CODE_END(ret_to_fbt)
+#endif
 /*
  * "slow" syscall return path.
  */
