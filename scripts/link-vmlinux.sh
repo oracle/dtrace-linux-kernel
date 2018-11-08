@@ -59,7 +59,12 @@ sdtinfo()
 {
 	info SDTINF ${2}
 
-	${srctree}/scripts/dtrace_sdt.sh sdtinfo .tmp_sdtinfo.S ${1}
+	if [ -n "${CONFIG_ARM64}" ]; then
+		${srctree}/scripts/dtrace_sdt_arm64.sh sdtinfo .tmp_sdtinfo.S \
+						       ${1} ${3}
+	else
+		${srctree}/scripts/dtrace_sdt.sh sdtinfo .tmp_sdtinfo.S ${1}
+	fi
 
 	local aflags="${KBUILD_AFLAGS} ${KBUILD_AFLAGS_KERNEL}               \
 		      ${NOSTDINC_FLAGS} ${LINUXINCLUDE} ${KBUILD_CPPFLAGS}"
@@ -358,16 +363,14 @@ if [ -n "${CONFIG_KALLSYMS}" ]; then
 
 	# step 1
 	if [ -n "${CONFIG_DTRACE}" ]; then
-		sdtinfo vmlinux.o ${sdtinfoo}
+		sdtinfo vmlinux.o ${sdtinfoo} vmlinux.o
 	fi
 
 	kallsyms_step 1
 
 	if [ -n "${CONFIG_DTRACE}" ]; then
-		if [ -n "${CONFIG_ARM64}" ]; then
-			kallsyms_step 1
-		else
-			kallsyms_step 1 -r
+		if [ -n "${CONFIG_X86_64}" ]; then
+			kallsyms_step 1 --emit-relocs
 		fi
 		sdtinfo ${kallsyms_vmlinux} ${sdtinfoo} vmlinux.o
 	fi
