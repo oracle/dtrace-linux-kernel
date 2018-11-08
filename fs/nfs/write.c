@@ -1415,6 +1415,7 @@ static void nfs_initiate_write(struct nfs_pgio_header *hdr,
 	task_setup_data->priority = priority;
 	rpc_ops->write_setup(hdr, msg, &task_setup_data->rpc_client);
 	trace_nfs_initiate_write(hdr);
+	DTRACE_IO_NFS(start, REQ_OP_WRITE, hdr->args.count, hdr->inode);
 }
 
 /* If a nfs_flush_* function fails, it should remove reqs from @head and
@@ -1574,6 +1575,7 @@ static int nfs_writeback_done(struct rpc_task *task,
 	 * depend on tighter cache coherency when writing.
 	 */
 	status = NFS_PROTO(inode)->write_done(task, hdr);
+	DTRACE_IO_NFS(done, REQ_OP_WRITE, hdr->res.count, hdr->inode);
 	if (status != 0)
 		return status;
 

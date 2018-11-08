@@ -141,6 +141,7 @@
 #include <linux/mroute.h>
 #include <linux/netlink.h>
 #include <net/dst_metadata.h>
+#include <linux/sdt.h>
 
 /*
  *	Process Router Attention IP option (RFC 2113)
@@ -239,15 +240,25 @@ static int ip_local_deliver_finish(struct net *net, struct sock *sk, struct sk_b
  */
 int ip_local_deliver(struct sk_buff *skb)
 {
+	struct iphdr *iph = ip_hdr(skb);
+
 	/*
 	 *	Reassemble IP fragments.
 	 */
 	struct net *net = dev_net(skb->dev);
 
-	if (ip_is_fragment(ip_hdr(skb))) {
+	if (ip_is_fragment(iph)) {
 		if (ip_defrag(net, skb, IP_DEFRAG_LOCAL_DELIVER))
 			return 0;
 	}
+
+	DTRACE_IP(receive,
+		  struct sk_buff * : pktinfo_t *, skb,
+		  struct sock * : csinfo_t *, skb->sk,
+		  void_ip_t * : ipinfo_t *, iph,
+		  struct net_device * : ifinfo_t *, skb->dev,
+		  struct iphdr * : ipv4info_t *, iph,
+		  struct ipv6hdr * : ipv6info_t *, NULL);
 
 	return NF_HOOK(NFPROTO_IPV4, NF_INET_LOCAL_IN,
 		       net, NULL, skb, skb->dev, NULL,
@@ -257,7 +268,8 @@ int ip_local_deliver(struct sk_buff *skb)
 static inline bool ip_rcv_options(struct sk_buff *skb, struct net_device *dev)
 {
 	struct ip_options *opt;
-	const struct iphdr *iph;
+	const struct iphdr *iph = NULL;
+	const char *dropreason;
 
 	/* It looks as overkill, because not all
 	   IP options require packet mangling.
@@ -267,6 +279,7 @@ static inline bool ip_rcv_options(struct sk_buff *skb, struct net_device *dev)
 					      --ANK (980813)
 	*/
 	if (skb_cow(skb, skb_headroom(skb))) {
+		dropreason = "copy-on-write failed";
 		__IP_INC_STATS(dev_net(dev), IPSTATS_MIB_INDISCARDS);
 		goto drop;
 	}
@@ -276,6 +289,7 @@ static inline bool ip_rcv_options(struct sk_buff *skb, struct net_device *dev)
 	opt->optlen = iph->ihl*4 - sizeof(struct iphdr);
 
 	if (ip_options_compile(dev_net(dev), opt, skb)) {
+		dropreason = "invalid options";
 		__IP_INC_STATS(dev_net(dev), IPSTATS_MIB_INHDRERRORS);
 		goto drop;
 	}
@@ -289,16 +303,28 @@ static inline bool ip_rcv_options(struct sk_buff *skb, struct net_device *dev)
 					net_info_ratelimited("source route option %pI4 -> %pI4\n",
 							     &iph->saddr,
 							     &iph->daddr);
+				dropreason = "invalid source route options";
 				goto drop;
 			}
 		}
 
-		if (ip_options_rcv_srr(skb, dev))
+		if (ip_options_rcv_srr(skb, dev)) {
+			dropreason = "invalid options";
 			goto drop;
+		}
 	}
 
 	return false;
 drop:
+	DTRACE_IP(drop__in,
+		  struct sk_buff * : pktinfo_t *, skb,
+		  struct sock * : csinfo_t *, skb->sk,
+		  void_ip_t * : ipinfo_t *, iph,
+		  struct net_device * : ifinfo_t *, skb->dev,
+		  struct iphdr * : ipv4info_t *, iph,
+		  struct ipv6hdr * : ipv6info_t *, NULL,
+		  const char * : string, dropreason);
+
 	return true;
 }
 
@@ -432,27 +458,35 @@ static int ip_rcv_finish(struct net *net, struct sock *sk, struct sk_buff *skb)
 /*
  * 	Main IP Receive routine.
  */
-static struct sk_buff *ip_rcv_core(struct sk_buff *skb, struct net *net)
+static struct sk_buff *ip_rcv_core(struct sk_buff *skb, struct net *net,
+				   struct net_device *dev
+					   __attribute__((__unused__)))
 {
-	const struct iphdr *iph;
+	const struct iphdr *iph = NULL;
 	u32 len;
+	const char *dropreason = "header invalid";
 
 	/* When the interface is in promisc. mode, drop all the crap
 	 * that it receives, do not try to analyse it.
 	 */
-	if (skb->pkt_type == PACKET_OTHERHOST)
+	if (skb->pkt_type == PACKET_OTHERHOST) {
+		dropreason = "for other host";
 		goto drop;
+	}
 
 	__IP_UPD_PO_STATS(net, IPSTATS_MIB_IN, skb->len);
 
 	skb = skb_share_check(skb, GFP_ATOMIC);
 	if (!skb) {
+		dropreason = "could not clone shared buffer";
 		__IP_INC_STATS(net, IPSTATS_MIB_INDISCARDS);
-		goto out;
+		goto drop;
 	}
 
-	if (!pskb_may_pull(skb, sizeof(struct iphdr)))
+	if (!pskb_may_pull(skb, sizeof(struct iphdr))) {
+		dropreason = "could not pull skb";
 		goto inhdr_error;
+	}
 
 	iph = ip_hdr(skb);
 
@@ -487,6 +521,7 @@ static struct sk_buff *ip_rcv_core(struct sk_buff *skb, struct net *net)
 
 	len = ntohs(iph->tot_len);
 	if (skb->len < len) {
+		dropreason = "packet too short";
 		__IP_INC_STATS(net, IPSTATS_MIB_INTRUNCATEDPKTS);
 		goto drop;
 	} else if (len < (iph->ihl*4))
@@ -497,6 +532,7 @@ static struct sk_buff *ip_rcv_core(struct sk_buff *skb, struct net *net)
 	 * Note this now means skb->len holds ntohs(iph->tot_len).
 	 */
 	if (pskb_trim_rcsum(skb, len)) {
+		dropreason = "could not trim buffer";
 		__IP_INC_STATS(net, IPSTATS_MIB_INDISCARDS);
 		goto drop;
 	}
@@ -515,11 +551,19 @@ static struct sk_buff *ip_rcv_core(struct sk_buff *skb, struct net *net)
 
 csum_error:
 	__IP_INC_STATS(net, IPSTATS_MIB_CSUMERRORS);
+	dropreason = "checksum error";
 inhdr_error:
 	__IP_INC_STATS(net, IPSTATS_MIB_INHDRERRORS);
 drop:
+	DTRACE_IP(drop__in,
+		  struct sk_buff * : pktinfo_t *, skb,
+		  struct sock * : csinfo_t *, skb ? skb->sk : NULL,
+		  void_ip_t * : ipinfo_t *, iph,
+		  struct net_device * : ifinfo_t *, dev,
+		  struct iphdr * : ipv4info_t *, iph,
+		  void * : ipv6info_t *, NULL,
+		  const char * : string, dropreason);
 	kfree_skb(skb);
-out:
 	return NULL;
 }
 
@@ -531,7 +575,7 @@ int ip_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt,
 {
 	struct net *net = dev_net(dev);
 
-	skb = ip_rcv_core(skb, net);
+	skb = ip_rcv_core(skb, net, dev);
 	if (skb == NULL)
 		return NET_RX_DROP;
 
@@ -622,7 +666,7 @@ void ip_list_rcv(struct list_head *head, struct packet_type *pt,
 		struct net *net = dev_net(dev);
 
 		skb_list_del_init(skb);
-		skb = ip_rcv_core(skb, net);
+		skb = ip_rcv_core(skb, net, dev);
 		if (skb == NULL)
 			continue;
 

@@ -62,6 +62,7 @@
 #include <linux/oom.h>
 #include <linux/compat.h>
 #include <linux/vmalloc.h>
+#include <linux/sdt.h>
 #include <linux/dtrace_os.h>
 
 #include <linux/uaccess.h>
@@ -1762,8 +1763,10 @@ static int __do_execve_file(int fd, struct filename *filename,
 	check_unsafe_exec(bprm);
 	current->in_execve = 1;
 
-	if (!file)
+	if (!file) {
 		file = do_open_execat(fd, filename, flags);
+		DTRACE_PROC(exec, char *, filename->name);
+	}
 	retval = PTR_ERR(file);
 	if (IS_ERR(file))
 		goto out_unmark;
@@ -1843,6 +1846,8 @@ static int __do_execve_file(int fd, struct filename *filename,
 		putname(filename);
 	if (displaced)
 		put_files_struct(displaced);
+
+	DTRACE_PROC(exec__success);
 	return retval;
 
 out:
@@ -1863,8 +1868,10 @@ out_files:
 	if (displaced)
 		reset_files_struct(displaced);
 out_ret:
-	if (filename)
+	if (filename) {
 		putname(filename);
+		DTRACE_PROC(exec__failure, int, retval);
+	}
 	return retval;
 }
 

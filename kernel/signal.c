@@ -49,6 +49,7 @@
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/signal.h>
+#include <linux/sdt.h>
 
 #include <asm/param.h>
 #include <linux/uaccess.h>
@@ -1078,8 +1079,12 @@ static int __send_signal(int sig, struct kernel_siginfo *info, struct task_struc
 	assert_spin_locked(&t->sighand->siglock);
 
 	result = TRACE_SIGNAL_IGNORED;
-	if (!prepare_signal(sig, t, force))
+	if (!prepare_signal(sig, t, force)) {
+		DTRACE_PROC(signal__discard,
+			    struct task_struct * : (lwpsinfo_t *, psinfo_t *), t,
+			    int, sig);
 		goto ret;
+	}
 
 	pending = (type != PIDTYPE_PID) ? &t->signal->shared_pending : &t->pending;
 	/*
@@ -1178,6 +1183,9 @@ out_set:
 	}
 
 	complete_signal(sig, t, type);
+	DTRACE_PROC(signal__send,
+		     struct task_struct * : (lwpsinfo_t *, psinfo_t *), t,
+		     int, sig);
 ret:
 	trace_signal_generate(sig, info, t, type != PIDTYPE_PID, result);
 	return ret;
@@ -1882,6 +1890,9 @@ int send_sigqueue(struct sigqueue *q, struct pid *pid, enum pid_type type)
 	list_add_tail(&q->list, &pending->list);
 	sigaddset(&pending->signal, sig);
 	complete_signal(sig, t, type);
+	DTRACE_PROC(signal__send,
+		    struct task_struct * : (lwpsinfo_t *, psinfo_t *), t,
+		    int, sig);
 	result = TRACE_SIGNAL_DELIVERED;
 out:
 	trace_signal_generate(sig, &q->info, t, type != PIDTYPE_PID, result);
@@ -2587,6 +2598,11 @@ relock:
 		trace_signal_deliver(SIGKILL, SEND_SIG_NOINFO,
 				&sighand->action[SIGKILL - 1]);
 		recalc_sigpending();
+		DTRACE_PROC(signal__handle,
+			    int, signal->group_exit_code
+						? signal->group_exit_code
+						: signr,
+			    siginfo_t *, NULL, void (*)(void), NULL);
 		goto fatal;
 	}
 
@@ -2638,6 +2654,15 @@ relock:
 		}
 
 		ka = &sighand->action[signr-1];
+
+		DTRACE_PROC(signal__handle,
+			    int, signal->group_exit_code
+						? signal->group_exit_code
+						: signr,
+			    siginfo_t *, ksig->ka.sa.sa_handler != SIG_DFL
+						? NULL
+						: &ksig->info,
+			    void (*)(void), ksig->ka.sa.sa_handler);
 
 		/* Trace actually delivered signals. */
 		trace_signal_deliver(signr, &ksig->info, ka);
@@ -3479,8 +3504,10 @@ static int do_sigtimedwait(const sigset_t *which, kernel_siginfo_t *info,
 	}
 	spin_unlock_irq(&tsk->sighand->siglock);
 
-	if (sig)
+	if (sig) {
+		DTRACE_PROC(signal__clear, int, sig);
 		return sig;
+	}
 	return ret ? -EINTR : -EAGAIN;
 }
 

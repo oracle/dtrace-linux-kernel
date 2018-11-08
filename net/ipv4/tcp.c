@@ -267,6 +267,7 @@
 #include <linux/slab.h>
 #include <linux/errqueue.h>
 #include <linux/static_key.h>
+#include <linux/sdt.h>
 
 #include <net/icmp.h>
 #include <net/inet_common.h>
@@ -2209,6 +2210,19 @@ recv_sndq:
 }
 EXPORT_SYMBOL(tcp_recvmsg);
 
+/* We wish to avoid instrumenting TCP state transitions to SYN_SENT as we trace
+ * those state changes later once the destination address is committed to the
+ * sk.  We also need to deal with the fact that separate timewait sockets are
+ * used to handle the TIME_WAIT state.  We do not want to trace direct
+ * transitions from CLOSING/FIN_WAIT2 -> CLOSE since they do not represent
+ * connection close, rather a transition to using the timewait socket.
+ * Accordingly skip instrumentation of transitions from CLOSING/FIN_WAIT2 to
+ * CLOSE.
+ */
+#define	REAL_STATE_CHANGE(old, new)					\
+	(old != new && new != TCP_SYN_SENT &&				\
+	((old != TCP_CLOSING && old != TCP_FIN_WAIT2) || new != TCP_CLOSE))
+
 void tcp_set_state(struct sock *sk, int state)
 {
 	int oldstate = sk->sk_state;
@@ -2261,6 +2275,18 @@ void tcp_set_state(struct sock *sk, int state)
 	 * socket sitting in hash tables.
 	 */
 	inet_sk_state_store(sk, state);
+
+	if (DTRACE_TCP_ENABLED(state__change) &&
+	    REAL_STATE_CHANGE(oldstate, state))
+		DTRACE_TCP_NOCHECK(state__change,
+				   struct sk_buff * : pktinfo_t *, NULL,
+				   struct sock * : csinfo_t *, sk,
+				   __dtrace_tcp_void_ip_t * : ipinfo_t *, NULL,
+				   struct tcp_sock * : tcpsinfo_t *, tcp_sk(sk),
+				   struct tcphdr * : tcpinfo_t *, NULL,
+				   int : tcplsinfo_t *, oldstate,
+				   int : int, state,
+				   int : int, DTRACE_NET_PROBE_OUTBOUND);
 }
 EXPORT_SYMBOL_GPL(tcp_set_state);
 
