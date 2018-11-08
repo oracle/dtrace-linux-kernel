@@ -96,6 +96,7 @@
 #include <linux/kasan.h>
 #include <linux/scs.h>
 #include <linux/io_uring.h>
+#include <linux/sdt.h>
 #include <linux/dtrace_task_impl.h>
 
 #include <asm/pgalloc.h>
@@ -2526,6 +2527,8 @@ pid_t kernel_clone(struct kernel_clone_args *args)
 	}
 
 	put_pid(pid);
+	DTRACE_PROC(lwp__create, struct task_struct * : (lwpsinfo_t *, psinfo_t *), p);
+	DTRACE_PROC(create, struct task_struct * : psinfo_t *, p);
 	return nr;
 }
 
