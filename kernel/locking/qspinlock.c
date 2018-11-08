@@ -20,6 +20,7 @@
 #include <linux/hardirq.h>
 #include <linux/mutex.h>
 #include <linux/prefetch.h>
+#include <linux/sdt.h>
 #include <asm/byteorder.h>
 #include <asm/qspinlock.h>
 
@@ -315,16 +316,20 @@ static __always_inline u32  __pv_wait_head_or_lock(struct qspinlock *lock,
 void queued_spin_lock_slowpath(struct qspinlock *lock, u32 val)
 {
 	struct mcs_spinlock *prev, *next, *node;
+	u64 spinstart = 0, spinend, spintime;
 	u32 old, tail;
 	int idx;
 
 	BUILD_BUG_ON(CONFIG_NR_CPUS >= (1U << _Q_TAIL_CPU_BITS));
 
+	if (DTRACE_LOCKSTAT_ENABLED(spin__spin))
+		spinstart = dtrace_gethrtime_ns();
+
 	if (pv_enabled())
 		goto pv_queue;
 
 	if (virt_spin_lock(lock))
-		return;
+		goto out;
 
 	/*
 	 * Wait for in-progress pending->locked hand-overs with a bounded
@@ -388,7 +393,7 @@ void queued_spin_lock_slowpath(struct qspinlock *lock, u32 val)
 	 */
 	clear_pending_set_locked(lock);
 	lockevent_inc(lock_pending);
-	return;
+	goto out;
 
 	/*
 	 * End of pending bit optimistic spinning and beginning of MCS
@@ -558,6 +563,17 @@ release:
 	 * release the node
 	 */
 	__this_cpu_dec(qnodes[0].mcs.count);
+
+	/*
+	 * Fire spin-spin probe to note time waiting for a lock.
+	 */
+out:
+	if (DTRACE_LOCKSTAT_ENABLED(spin__spin)) {
+		spinend = dtrace_gethrtime_ns();
+		spintime = spinend > spinstart ? spinend - spinstart : 0;
+		DTRACE_LOCKSTAT(spin__spin, spinlock_t *, lock,
+				uint64_t, spintime);
+	}
 }
 EXPORT_SYMBOL(queued_spin_lock_slowpath);
 
