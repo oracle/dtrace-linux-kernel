@@ -482,6 +482,7 @@ __bad_stack:
 	/* Time to die */
 	bl	handle_bad_stack
 	ASM_BUG()
+END(__bad_stack)
 #endif /* CONFIG_VMAP_STACK */
 
 /*
@@ -642,6 +643,7 @@ el1_preempt:
 	ldr	x0, [tsk, #TSK_TI_FLAGS]	// get new tasks TI_FLAGS
 	tbnz	x0, #TIF_NEED_RESCHED, 1b	// needs rescheduling?
 	ret	x24
+END(el1_preempt)
 #endif
 
 /*
@@ -892,6 +894,7 @@ work_pending:
 #endif
 	ldr	x1, [tsk, #TSK_TI_FLAGS]	// re-check for single-step
 	b	finish_ret_to_user
+END(work_pending)
 /*
  * "slow" syscall return path.
  */
