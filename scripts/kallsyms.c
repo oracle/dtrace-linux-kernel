@@ -5,7 +5,10 @@
  * This software may be used and distributed according to the terms
  * of the GNU General Public License, incorporated herein by reference.
  *
- * Usage: nm -n vmlinux | scripts/kallsyms [--all-symbols] > symbols.S
+ * Usage: nm -n -S vmlinux | scripts/kallsyms [--all-symbols]
+ *                                            [--symbol-prefix=<prefix char>]
+ *                                            [--builtin=modules_thick.builtin]
+ *                                            > symbols.S
  *
  *      Table compression uses all the unused char codes on the symbols and
  *  maps these to the most used substrings (tokens). For instance, it might
@@ -18,11 +21,26 @@
  *
  */
 
+#define _GNU_SOURCE 1
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 #include <limits.h>
+#include <errno.h>
+#include <unistd.h>
+
+#include "../include/generated/autoconf.h"
+
+#ifdef CONFIG_KALLMODSYMS
+#include <libelf.h>
+#include <dwarf.h>
+#include <elfutils/libdwfl.h>
+#include <elfutils/libdw.h>
+#include <glib.h>
+
+#include <eu_simple.h>
+#endif
 
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof(arr[0]))
@@ -32,10 +50,14 @@
 
 struct sym_entry {
 	unsigned long long addr;
+	unsigned long long size;
 	unsigned int len;
 	unsigned int start_pos;
 	unsigned char *sym;
 	unsigned int percpu_absolute;
+#ifdef CONFIG_KALLMODSYMS
+	unsigned int module;
+#endif
 };
 
 struct addr_range {
@@ -68,11 +90,33 @@ static int token_profit[0x10000];
 static unsigned char best_table[256][2];
 static unsigned char best_table_len[256];
 
+#ifdef CONFIG_KALLMODSYMS
+/*
+ * The builtin module names.  The "offset" points to the name as if
+ * all builtin module names were concatenated to a single string.
+ */
+static unsigned int builtin_module_size;	/* number allocated */
+static unsigned int builtin_module_len;		/* number assigned */
+static char **builtin_modules;			/* array of module names */
+static unsigned int *builtin_module_offsets;	/* offset */
+
+/*
+ * An ordered list of address ranges and how they map to built-in modules.
+ */
+struct addrmap_entry {
+	unsigned long long addr;
+	unsigned long long size;
+	unsigned int module;
+};
+static struct addrmap_entry *addrmap;
+static int addrmap_num, addrmap_alloced;
+#endif
 
 static void usage(void)
 {
 	fprintf(stderr, "Usage: kallsyms [--all-symbols] "
-			"[--base-relative] < in.map > out.S\n");
+			"[--base-relative] [--builtin=modules_thick.builtin] "
+			"< in.map > out.S\n");
 	exit(1);
 }
 
@@ -107,13 +151,31 @@ static int check_symbol_range(const char *sym, unsigned long long addr,
 	return 1;
 }
 
+#ifdef CONFIG_KALLMODSYMS
+static int addrmap_compare(const void *keyp, const void *rangep)
+{
+	unsigned long long addr = *((const unsigned long long *)keyp);
+	const struct addrmap_entry *range = (const struct addrmap_entry *)rangep;
+
+	if (addr < range->addr)
+		return -1;
+	if (addr < range->addr + range->size)
+		return 0;
+	return 1;
+}
+#endif
+
 static int read_symbol(FILE *in, struct sym_entry *s)
 {
 	char sym[500], stype;
 	int rc;
+#ifdef CONFIG_KALLMODSYMS
+	struct addrmap_entry *range;
+#endif
 
-	rc = fscanf(in, "%llx %c %499s\n", &s->addr, &stype, sym);
-	if (rc != 3) {
+	rc = fscanf(in, "%llx %llx %c %499s\n",
+		    &s->addr, &s->size, &stype, sym);
+	if (rc != 4) {
 		if (rc != EOF && fgets(sym, 500, in) == NULL)
 			fprintf(stderr, "Read error or end of file.\n");
 		return -1;
@@ -150,6 +212,16 @@ static int read_symbol(FILE *in, struct sym_entry *s)
 	/* exclude debugging symbols */
 	else if (stype == 'N' || stype == 'n')
 		return -1;
+
+#ifdef CONFIG_KALLMODSYMS
+	/* look up the builtin module this is part of (if any) */
+	range = (struct addrmap_entry *) bsearch(&s->addr,
+	    addrmap, addrmap_num, sizeof(*addrmap), &addrmap_compare);
+	if (range)
+		s->module = builtin_module_offsets[range->module];
+	else
+		s->module = 0;
+#endif
 
 	/* include the type field in the symbol name, so that it gets
 	 * compressed together */
@@ -198,11 +270,14 @@ static int symbol_valid(struct sym_entry *s)
 		"kallsyms_addresses",
 		"kallsyms_offsets",
 		"kallsyms_relative_base",
+		"kallsyms_sizes",
 		"kallsyms_num_syms",
 		"kallsyms_names",
 		"kallsyms_markers",
 		"kallsyms_token_table",
 		"kallsyms_token_index",
+		"kallsyms_symbol_modules",
+		"kallsyms_modules",
 
 	/* Exclude linker generated symbols which vary between passes */
 		"_SDA_BASE_",		/* ppc */
@@ -402,6 +477,11 @@ static void write_src(void)
 		printf("\n");
 	}
 
+	output_label("kallsyms_sizes");
+	for (i = 0; i < table_cnt; i++)
+		printf("\tPTR\t%#llx\n", table[i].size);
+	printf("\n");
+
 	output_label("kallsyms_num_syms");
 	printf("\t.long\t%u\n", table_cnt);
 	printf("\n");
@@ -451,8 +531,22 @@ static void write_src(void)
 	for (i = 0; i < 256; i++)
 		printf("\t.short\t%d\n", best_idx[i]);
 	printf("\n");
-}
 
+#ifdef CONFIG_KALLMODSYMS
+	output_label("kallsyms_modules");
+	for (i = 0; i < builtin_module_len; i++)
+		printf("\t.asciz\t\"%s\"\n", builtin_modules[i]);
+	printf("\n");
+
+	for (i = 0; i < builtin_module_len; i++)
+		free(builtin_modules[i]);
+
+	output_label("kallsyms_symbol_modules");
+	for (i = 0; i < table_cnt; i++)
+		printf("\t.int\t%d\n", table[i].module);
+	printf("\n");
+#endif
+}
 
 /* table lookup compression functions */
 
@@ -680,6 +774,18 @@ static int compare_symbols(const void *a, const void *b)
 	if (sa->addr < sb->addr)
 		return -1;
 
+	/* zero-size markers before nonzero-size symbols */
+	if (sa->size > 0 && sb->size == 0)
+		return 1;
+	if (sa->size == 0 && sb->size > 0)
+		return -1;
+
+	/* sort by size (large size preceding symbols it encompasses) */
+	if (sa->size < sb->size)
+		return 1;
+	if (sa->size > sb->size)
+		return -1;
+
 	/* sort by "weakness" type */
 	wa = (sa->sym[0] == 'w') || (sa->sym[0] == 'W');
 	wb = (sb->sym[0] == 'w') || (sb->sym[0] == 'W');
@@ -735,23 +841,198 @@ static void record_relative_base(void)
 			relative_base = table[i].addr;
 }
 
+#ifdef CONFIG_KALLMODSYMS
+/* Built-in module list computation. */
+
+/*
+ * Expand the builtin modules list.
+ */
+static void expand_builtin_modules(void)
+{
+	builtin_module_size += 50;
+
+	builtin_modules = realloc(builtin_modules,
+				  sizeof(*builtin_modules) *
+				  builtin_module_size);
+	builtin_module_offsets = realloc(builtin_module_offsets,
+					 sizeof(*builtin_module_offsets) *
+					 builtin_module_size);
+
+	if (!builtin_modules || !builtin_module_offsets) {
+		fprintf(stderr, "kallsyms failure: out of memory.\n");
+		exit(EXIT_FAILURE);
+	}
+}
+
+/*
+ * Add a single built-in module (possibly composed of many files) to the
+ * modules list.  Take the offset of the current module and return it
+ * (purely for simplicity's sake in the caller).
+ */
+static size_t add_builtin_module(const char *module_name, char **module_paths,
+				 GHashTable *obj2mod, size_t offset)
+{
+	gpointer val = GUINT_TO_POINTER(builtin_module_len);
+
+	/* map the module's object paths to the module offset */
+	while (*module_paths) {
+		g_hash_table_insert(obj2mod, strdup(*module_paths), val);
+		module_paths++;
+	}
+
+	/* add the module name */
+	if (builtin_module_size <= builtin_module_len)
+		expand_builtin_modules();
+	builtin_modules[builtin_module_len] = strdup(module_name);
+	builtin_module_offsets[builtin_module_len] = offset;
+	builtin_module_len++;
+
+	return (offset + strlen(module_name) + 1);
+}
+
+/*
+ * Read the linker map.
+ */
+static void read_linker_map(GHashTable *obj2mod)
+{
+	unsigned long long addr, size;
+	char obj[PATH_MAX+1];
+	FILE *f = fopen(".tmp_vmlinux.ranges", "r");
+
+	if (!f) {
+		fprintf(stderr, "Cannot open '.tmp_vmlinux.ranges'.\n");
+		exit(1);
+	}
+
+	addrmap_num = 0;
+	addrmap_alloced = 4096;
+	addrmap = malloc(sizeof(*addrmap) * addrmap_alloced);
+	if (!addrmap)
+		goto oom;
+
+	/*
+	 * For each address range (addr,size) and object, add to addrmap
+	 * the range and the built-in module to which the object maps.
+	 */
+	while (fscanf(f, "%llx %llx %s\n", &addr, &size, obj) == 3) {
+		int m = GPOINTER_TO_UINT(g_hash_table_lookup(obj2mod, obj));
+
+		if (addr == 0 || size == 0 || m == 0)
+			continue;
+
+		if (addrmap_num >= addrmap_alloced) {
+			addrmap_alloced *= 2;
+			addrmap = realloc(addrmap,
+			    sizeof(*addrmap) * addrmap_alloced);
+			if (!addrmap)
+				goto oom;
+		}
+
+		addrmap[addrmap_num].addr = addr;
+		addrmap[addrmap_num].size = size;
+		addrmap[addrmap_num].module = m;
+		addrmap_num++;
+	}
+	fclose(f);
+	return;
+
+oom:
+	fprintf(stderr, "kallsyms: out of memory\n");
+	exit(1);
+}
+
+/*
+ * Read the list of built-in modules.  Construct:
+ *   - builtin_modules: array of module names
+ *   - builtin_module_offsets: array of offsets to find module names
+ *   - obj2mod: mapping from each object-file path to a module index
+ *       (which can be used in the arrays)
+ * Finally, read the linker map.
+ */
+static void read_modules(const char *modules_builtin)
+{
+	struct modules_thick_iter *i;
+	size_t offset = 0;
+	char *module_name = NULL;
+	char **module_paths;
+	GHashTable *obj2mod;
+
+	obj2mod = g_hash_table_new_full(g_str_hash, g_str_equal, free, NULL);
+	if (!obj2mod) {
+		fprintf(stderr, "kallsyms: out of memory\n");
+		exit(1);
+	}
+
+	/*
+	 * builtin_modules[0] is a null entry signifying a symbol that cannot be
+	 * modular.
+	 */
+	builtin_module_size = 50;
+	builtin_modules = malloc(sizeof(*builtin_modules) *
+				 builtin_module_size);
+	builtin_module_offsets = malloc(sizeof(*builtin_module_offsets) *
+				 builtin_module_size);
+	if (!builtin_modules || !builtin_module_offsets) {
+		fprintf(stderr, "kallsyms: out of memory\n");
+		exit(1);
+	}
+	builtin_modules[0] = strdup("");
+	builtin_module_offsets[0] = 0;
+	builtin_module_len = 1;
+	offset++;
+
+	/*
+	 * Iterate over all modules in modules_thick.builtin and add each.
+	 */
+	i = modules_thick_iter_new(modules_builtin);
+	if (i == NULL) {
+		fprintf(stderr, "Cannot iterate over builtin modules.\n");
+		exit(1);
+	}
+
+	while ((module_paths = modules_thick_iter_next(i, &module_name)) != NULL) {
+		offset = add_builtin_module(module_name, module_paths,
+					    obj2mod, offset);
+		free(module_paths);
+		module_paths = NULL;
+	}
+
+	free(module_name);
+	modules_thick_iter_free(i);
+
+	/*
+	 * Read linker map.
+	 */
+	read_linker_map(obj2mod);
+
+	g_hash_table_destroy(obj2mod);
+}
+#else
+static void read_modules(const char *unused) {}
+#endif /* CONFIG_KALLMODSYMS */
+
 int main(int argc, char **argv)
 {
-	if (argc >= 2) {
+	const char *modules_builtin = "modules_thick.builtin";
+
+	if (argc >= 1) {
 		int i;
 		for (i = 1; i < argc; i++) {
-			if(strcmp(argv[i], "--all-symbols") == 0)
+			if (strcmp(argv[i], "--all-symbols") == 0)
 				all_symbols = 1;
 			else if (strcmp(argv[i], "--absolute-percpu") == 0)
 				absolute_percpu = 1;
 			else if (strcmp(argv[i], "--base-relative") == 0)
 				base_relative = 1;
+			else if (strncmp(argv[i], "--builtin=", 10) == 0)
+				modules_builtin = &argv[i][10];
 			else
 				usage();
 		}
 	} else if (argc != 1)
 		usage();
 
+	read_modules(modules_builtin);
 	read_map(stdin);
 	if (absolute_percpu)
 		make_percpus_absolute();
