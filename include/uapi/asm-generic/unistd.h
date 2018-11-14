@@ -878,8 +878,11 @@ __SYSCALL(__NR_landlock_restrict_self, sys_landlock_restrict_self)
 __SYSCALL(__NR_memfd_secret, sys_memfd_secret)
 #endif
 
+#define __NR_waitfd 473
+__SYSCALL(__NR_waitfd, sys_waitfd)
+
 #undef __NR_syscalls
-#define __NR_syscalls 448
+#define __NR_syscalls 474
 
 /*
  * 32 bit systems traditionally used different
