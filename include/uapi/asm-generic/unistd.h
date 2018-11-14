@@ -744,6 +744,14 @@ __SYSCALL(__NR_kexec_file_load,     sys_kexec_file_load)
 #undef __NR_syscalls
 #define __NR_syscalls 295
 
+#ifdef CONFIG_DTRACE
+#define __NR_waitfd 473
+__SYSCALL(__NR_waitfd, sys_waitfd)
+
+#undef __NR_syscalls
+#define __NR_syscalls 474
+#endif
+
 /*
  * 32 bit systems traditionally used different
  * syscalls for off_t and loff_t arguments, while
