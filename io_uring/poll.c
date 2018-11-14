@@ -533,7 +533,8 @@ static void __io_queue_proc(struct io_poll *poll, struct io_poll_table *pt,
 }
 
 static void io_poll_queue_proc(struct file *file, struct wait_queue_head *head,
-			       struct poll_table_struct *p)
+			       struct poll_table_struct *p,
+			       unsigned long fixed_event)
 {
 	struct io_poll_table *pt = container_of(p, struct io_poll_table, pt);
 	struct io_poll *poll = io_kiocb_to_cmd(pt->req, struct io_poll);
@@ -644,7 +645,8 @@ static int __io_arm_poll_handler(struct io_kiocb *req,
 }
 
 static void io_async_queue_proc(struct file *file, struct wait_queue_head *head,
-			       struct poll_table_struct *p)
+				struct poll_table_struct *p,
+				unsigned long fixed_event)
 {
 	struct io_poll_table *pt = container_of(p, struct io_poll_table, pt);
 	struct async_poll *apoll = pt->req->apoll;
