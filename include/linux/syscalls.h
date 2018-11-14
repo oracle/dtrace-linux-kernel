@@ -1359,6 +1359,9 @@ long ksys_old_shmctl(int shmid, int cmd, struct shmid_ds __user *buf);
 long compat_ksys_semtimedop(int semid, struct sembuf __user *tsems,
 			    unsigned int nsops,
 			    const struct old_timespec32 __user *timeout);
+#ifdef CONFIG_DTRACE
+asmlinkage long sys_waitfd(int which, pid_t upid, int options, int flags);
+#endif
 
 int __sys_getsockopt(int fd, int level, int optname, char __user *optval,
 		int __user *optlen);
