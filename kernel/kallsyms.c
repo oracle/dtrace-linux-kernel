@@ -32,6 +32,7 @@
  */
 extern const unsigned long kallsyms_addresses[] __weak;
 extern const int kallsyms_offsets[] __weak;
+extern const unsigned long kallsyms_sizes[] __weak;
 extern const u8 kallsyms_names[] __weak;
 
 /*
@@ -46,6 +47,8 @@ __attribute__((weak, section(".rodata")));
 
 extern const u8 kallsyms_token_table[] __weak;
 extern const u16 kallsyms_token_index[] __weak;
+extern const char kallsyms_modules[] __weak;
+extern const u32 kallsyms_symbol_modules[] __weak;
 
 extern const unsigned int kallsyms_markers[] __weak;
 
@@ -195,12 +198,24 @@ int kallsyms_on_each_symbol(int (*fn)(void *, const char *, struct module *,
 }
 EXPORT_SYMBOL_GPL(kallsyms_on_each_symbol);
 
+/*
+ * The caller passes in an address, and we return an index to the symbol --
+ * potentially also size and offset information.
+ * But an address might map to multiple symbols because:
+ *   - some symbols might have zero size
+ *   - some symbols might be aliases of one another
+ *   - some symbols might span (encompass) others
+ * The symbols should already be ordered so that, for a particular address,
+ * we first have the zero-size ones, then the biggest, then the smallest.
+ * So we find the index by:
+ *   - finding the last symbol with the target address
+ *   - backing the index up so long as both the address and size are unchanged
+ */
 static unsigned long get_symbol_pos(unsigned long addr,
 				    unsigned long *symbolsize,
 				    unsigned long *offset)
 {
-	unsigned long symbol_start = 0, symbol_end = 0;
-	unsigned long i, low, high, mid;
+	unsigned long low, high, mid;
 
 	/* This kernel should never had been booted. */
 	if (!IS_ENABLED(CONFIG_KALLSYMS_BASE_RELATIVE))
@@ -221,36 +236,17 @@ static unsigned long get_symbol_pos(unsigned long addr,
 	}
 
 	/*
-	 * Search for the first aliased symbol. Aliased
-	 * symbols are symbols with the same address.
+	 * Search for the first aliased symbol.
 	 */
-	while (low && kallsyms_sym_address(low-1) == kallsyms_sym_address(low))
+	while (low
+	    && kallsyms_sym_address(low-1) == kallsyms_sym_address(low)
+	    && kallsyms_sizes[low-1] == kallsyms_sizes[low])
 		--low;
 
-	symbol_start = kallsyms_sym_address(low);
-
-	/* Search for next non-aliased symbol. */
-	for (i = low + 1; i < kallsyms_num_syms; i++) {
-		if (kallsyms_sym_address(i) > symbol_start) {
-			symbol_end = kallsyms_sym_address(i);
-			break;
-		}
-	}
-
-	/* If we found no next symbol, we use the end of the section. */
-	if (!symbol_end) {
-		if (is_kernel_inittext(addr))
-			symbol_end = (unsigned long)_einittext;
-		else if (IS_ENABLED(CONFIG_KALLSYMS_ALL))
-			symbol_end = (unsigned long)_end;
-		else
-			symbol_end = (unsigned long)_etext;
-	}
-
 	if (symbolsize)
-		*symbolsize = symbol_end - symbol_start;
+		*symbolsize = kallsyms_sizes[low];
 	if (offset)
-		*offset = addr - symbol_start;
+		*offset = addr - kallsyms_sym_address(low);
 
 	return low;
 }
@@ -268,6 +264,7 @@ int kallsyms_lookup_size_offset(unsigned long addr, unsigned long *symbolsize,
 	return !!module_address_lookup(addr, symbolsize, offset, NULL, namebuf) ||
 	       !!__bpf_address_lookup(addr, symbolsize, offset, namebuf);
 }
+EXPORT_SYMBOL_GPL(kallsyms_lookup_size_offset);
 
 /*
  * Lookup an address
@@ -430,21 +427,6 @@ int sprint_backtrace(char *buffer, unsigned long address)
 	return __sprint_symbol(buffer, address, -1, 1);
 }
 
-/* To avoid using get_symbol_offset for every symbol, we carry prefix along. */
-struct kallsym_iter {
-	loff_t pos;
-	loff_t pos_arch_end;
-	loff_t pos_mod_end;
-	loff_t pos_ftrace_mod_end;
-	unsigned long value;
-	unsigned int nameoff; /* If iterating in core kernel symbols. */
-	char type;
-	char name[KSYM_NAME_LEN];
-	char module_name[MODULE_NAME_LEN];
-	int exported;
-	int show_value;
-};
-
 int __weak arch_get_kallsym(unsigned int symnum, unsigned long *value,
 			    char *type, char *name)
 {
@@ -470,7 +452,9 @@ static int get_ksymbol_mod(struct kallsym_iter *iter)
 	int ret = module_get_kallsym(iter->pos - iter->pos_arch_end,
 				     &iter->value, &iter->type,
 				     iter->name, iter->module_name,
-				     &iter->exported);
+				     &iter->size, &iter->exported);
+	iter->builtin_module = 0;
+
 	if (ret < 0) {
 		iter->pos_mod_end = iter->pos;
 		return 0;
@@ -506,10 +490,22 @@ static int get_ksymbol_bpf(struct kallsym_iter *iter)
 static unsigned long get_ksymbol_core(struct kallsym_iter *iter)
 {
 	unsigned off = iter->nameoff;
+	u32 mod_index = 0;
 
-	iter->module_name[0] = '\0';
+	if (kallsyms_symbol_modules)
+		mod_index = kallsyms_symbol_modules[iter->pos];
+
+	if (mod_index == 0 || kallsyms_modules == NULL) {
+		iter->module_name[0] = '\0';
+		iter->builtin_module = 0;
+	} else {
+		strcpy(iter->module_name, &kallsyms_modules[mod_index]);
+		iter->builtin_module = 1;
+	}
+	iter->exported = 0;
 	iter->value = kallsyms_sym_address(iter->pos);
 
+	iter->size = kallsyms_sizes[iter->pos];
 	iter->type = kallsyms_get_symbol_type(off);
 
 	off = kallsyms_expand_symbol(off, iter->name, ARRAY_SIZE(iter->name));
@@ -517,7 +513,7 @@ static unsigned long get_ksymbol_core(struct kallsym_iter *iter)
 	return off - iter->nameoff;
 }
 
-static void reset_iter(struct kallsym_iter *iter, loff_t new_pos)
+void kallsyms_iter_reset(struct kallsym_iter *iter, loff_t new_pos)
 {
 	iter->name[0] = '\0';
 	iter->nameoff = get_symbol_offset(new_pos);
@@ -528,6 +524,7 @@ static void reset_iter(struct kallsym_iter *iter, loff_t new_pos)
 		iter->pos_ftrace_mod_end = 0;
 	}
 }
+EXPORT_SYMBOL_GPL(kallsyms_iter_reset);
 
 /*
  * The end position (last + 1) of each additional kallsyms section is recorded
@@ -554,7 +551,7 @@ static int update_iter_mod(struct kallsym_iter *iter, loff_t pos)
 }
 
 /* Returns false if pos at or past end of file. */
-static int update_iter(struct kallsym_iter *iter, loff_t pos)
+int kallsyms_iter_update(struct kallsym_iter *iter, loff_t pos)
 {
 	/* Module symbols can be accessed randomly. */
 	if (pos >= kallsyms_num_syms)
@@ -562,26 +559,27 @@ static int update_iter(struct kallsym_iter *iter, loff_t pos)
 
 	/* If we're not on the desired position, reset to new position. */
 	if (pos != iter->pos)
-		reset_iter(iter, pos);
+		kallsyms_iter_reset(iter, pos);
 
 	iter->nameoff += get_ksymbol_core(iter);
 	iter->pos++;
 
 	return 1;
 }
+EXPORT_SYMBOL_GPL(kallsyms_iter_update);
 
 static void *s_next(struct seq_file *m, void *p, loff_t *pos)
 {
 	(*pos)++;
 
-	if (!update_iter(m->private, *pos))
+	if (!kallsyms_iter_update(m->private, *pos))
 		return NULL;
 	return p;
 }
 
 static void *s_start(struct seq_file *m, loff_t *pos)
 {
-	if (!update_iter(m->private, *pos))
+	if (!kallsyms_iter_update(m->private, *pos))
 		return NULL;
 	return m->private;
 }
@@ -590,7 +588,7 @@ static void s_stop(struct seq_file *m, void *p)
 {
 }
 
-static int s_show(struct seq_file *m, void *p)
+static int s_show_internal(struct seq_file *m, void *p, int builtin_modules)
 {
 	void *value;
 	struct kallsym_iter *iter = m->private;
@@ -601,7 +599,9 @@ static int s_show(struct seq_file *m, void *p)
 
 	value = iter->show_value ? (void *)iter->value : NULL;
 
-	if (iter->module_name[0]) {
+	if ((iter->builtin_module == 0 && iter->module_name[0]) ||
+	    (iter->builtin_module != 0 && iter->module_name[0] &&
+	     builtin_modules != 0)) {
 		char type;
 
 		/*
@@ -610,12 +610,30 @@ static int s_show(struct seq_file *m, void *p)
 		 */
 		type = iter->exported ? toupper(iter->type) :
 					tolower(iter->type);
-		seq_printf(m, "%px %c %s\t[%s]\n", value,
-			   type, iter->name, iter->module_name);
-	} else
+		if (builtin_modules)
+			seq_printf(m, "%px %lx %c %s\t[%s]\n", value,
+				   iter->size, type, iter->name,
+				   iter->module_name);
+		else
+			seq_printf(m, "%px %c %s\t[%s]\n", value,
+				   type, iter->name, iter->module_name);
+	} else if (builtin_modules)
+		seq_printf(m, "%px %lx %c %s\n", value, iter->size,
+			   iter->type, iter->name);
+	else
 		seq_printf(m, "%px %c %s\n", value,
 			   iter->type, iter->name);
 	return 0;
+}
+
+static int s_show(struct seq_file *m, void *p)
+{
+	return s_show_internal(m, p, 0);
+}
+
+static int s_mod_show(struct seq_file *m, void *p)
+{
+	return s_show_internal(m, p, 1);
 }
 
 static const struct seq_operations kallsyms_op = {
@@ -659,7 +677,15 @@ int kallsyms_show_value(void)
 	}
 }
 
-static int kallsyms_open(struct inode *inode, struct file *file)
+static const struct seq_operations kallmodsyms_op = {
+	.start = s_start,
+	.next = s_next,
+	.stop = s_stop,
+	.show = s_mod_show
+};
+
+static int kallsyms_open_internal(struct inode *inode, struct file *file,
+	const struct seq_operations *ops)
 {
 	/*
 	 * We keep iterator in m->private, since normal case is to
@@ -667,13 +693,23 @@ static int kallsyms_open(struct inode *inode, struct file *file)
 	 * using get_symbol_offset for every symbol.
 	 */
 	struct kallsym_iter *iter;
-	iter = __seq_open_private(file, &kallsyms_op, sizeof(*iter));
+	iter = __seq_open_private(file, ops, sizeof(*iter));
 	if (!iter)
 		return -ENOMEM;
-	reset_iter(iter, 0);
+	kallsyms_iter_reset(iter, 0);
 
 	iter->show_value = kallsyms_show_value();
 	return 0;
+}
+
+static int kallsyms_open(struct inode *inode, struct file *file)
+{
+	return kallsyms_open_internal(inode, file, &kallsyms_op);
+}
+
+static int kallmodsyms_open(struct inode *inode, struct file *file)
+{
+	return kallsyms_open_internal(inode, file, &kallmodsyms_op);
 }
 
 #ifdef	CONFIG_KGDB_KDB
@@ -683,10 +719,10 @@ const char *kdb_walk_kallsyms(loff_t *pos)
 	if (*pos == 0) {
 		memset(&kdb_walk_kallsyms_iter, 0,
 		       sizeof(kdb_walk_kallsyms_iter));
-		reset_iter(&kdb_walk_kallsyms_iter, 0);
+		kallsyms_iter_reset(&kdb_walk_kallsyms_iter, 0);
 	}
 	while (1) {
-		if (!update_iter(&kdb_walk_kallsyms_iter, *pos))
+		if (!kallsyms_iter_update(&kdb_walk_kallsyms_iter, *pos))
 			return NULL;
 		++*pos;
 		/* Some debugging symbols have no name.  Ignore them. */
@@ -703,9 +739,19 @@ static const struct file_operations kallsyms_operations = {
 	.release = seq_release_private,
 };
 
+static const struct file_operations kallmodsyms_operations = {
+	.open = kallmodsyms_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = seq_release_private,
+};
+
 static int __init kallsyms_init(void)
 {
 	proc_create("kallsyms", 0444, NULL, &kallsyms_operations);
+#ifdef CONFIG_KALLMODSYMS
+	proc_create("kallmodsyms", 0444, NULL, &kallmodsyms_operations);
+#endif
 	return 0;
 }
 device_initcall(kallsyms_init);
