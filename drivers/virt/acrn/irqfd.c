@@ -95,7 +95,7 @@ static int hsm_irqfd_wakeup(wait_queue_entry_t *wait, unsigned int mode,
 }
 
 static void hsm_irqfd_poll_func(struct file *file, wait_queue_head_t *wqh,
-				poll_table *pt)
+				poll_table *pt, unsigned long fixed_event)
 {
 	struct hsm_irqfd *irqfd;
 
