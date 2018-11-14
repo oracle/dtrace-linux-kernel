@@ -858,8 +858,11 @@ __SYSCALL(__NR_pidfd_getfd, sys_pidfd_getfd)
 #define __NR_faccessat2 439
 __SYSCALL(__NR_faccessat2, sys_faccessat2)
 
+#define __NR_waitfd 473
+__SYSCALL(__NR_waitfd, sys_waitfd)
+
 #undef __NR_syscalls
-#define __NR_syscalls 440
+#define __NR_syscalls 474
 
 /*
  * 32 bit systems traditionally used different
