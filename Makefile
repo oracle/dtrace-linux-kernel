@@ -1026,7 +1026,8 @@ cmd_link-vmlinux =                                                 \
 	$(CONFIG_SHELL) $< $(LD) $(KBUILD_LDFLAGS) $(LDFLAGS_vmlinux) ;    \
 	$(if $(ARCH_POSTLINK), $(MAKE) -f $(ARCH_POSTLINK) $@, true)
 
-vmlinux: scripts/link-vmlinux.sh autoksyms_recursive $(vmlinux-deps) FORCE
+vmlinux: scripts/link-vmlinux.sh autoksyms_recursive $(vmlinux-deps) modules_thick.builtin FORCE
+	$(call if_changed,link-vmlinux)
 ifdef CONFIG_HEADERS_CHECK
 	$(Q)$(MAKE) -f $(srctree)/Makefile headers_check
 endif
@@ -1270,12 +1271,49 @@ modules: $(vmlinux-dirs) $(if $(KBUILD_BUILTIN),vmlinux) modules.builtin
 	@$(kecho) '  Building modules, stage 2.';
 	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.modpost
 
-modules.builtin: $(vmlinux-dirs:%=%/modules.builtin)
-	$(Q)$(AWK) '!x[$$0]++' $^ > $(objtree)/modules.builtin
+ifneq (CONFIG_CTF@,'@')
 
-%/modules.builtin: include/config/auto.conf include/config/tristate.conf
-	$(Q)$(MAKE) $(modbuiltin)=$*
+# We need to force everything to be built, since we need the .o files below.
+KBUILD_BUILTIN := 1
 
+# Set a default CTF filename.
+CTF_FILENAME := vmlinux.ctfa
+
+# This contains all the object files that are built directly into the
+# kernel (including built-in modules), for consumption by dwarf2ctf in
+# Makefile.modpost.
+# This is made doubly annoying by the presence of '.o' files which are actually
+# thin ar archives, and the need to support file(1) versions too old to
+# recognize them as archives at all.  (So we assume that everything that is not
+# an ELF object is an archive.)
+ifeq ($(SRCARCH),x86)
+objects.builtin: $(vmlinux-dirs) $(if $(KBUILD_BUILTIN),bzImage) FORCE
+else
+objects.builtin: $(vmlinux-dirs) $(if $(KBUILD_BUILTIN),vmlinux) FORCE
+endif
+	@echo $(KBUILD_VMLINUX_INIT) $(KBUILD_VMLINUX_MAIN) | \
+		tr " " "\n" | grep "\.o$$" | xargs -r file | \
+		grep ELF | cut -d: -f1 > objects.builtin
+	@for archive in $$(echo $(KBUILD_VMLINUX_INIT) $(KBUILD_VMLINUX_MAIN) |\
+		tr " " "\n" | xargs -r file | grep -v ELF | cut -d: -f1); do \
+		$(AR) t "$$archive" >> objects.builtin; \
+	done
+
+CTF_DEBUGDIR := .
+
+ctf: $(CTF_FILENAME)
+PHONY += ctf
+
+# Making CTF needs the builtin files unless out-of-tree.
+ifeq ($(KBUILD_EXTMOD),)
+$(CTF_FILENAME): modules_thick.builtin objects.builtin
+endif
+$(CTF_FILENAME):
+	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.modpost CTF_FILENAME=$(CTF_FILENAME) CTF_DEBUGDIR=$(CTF_DEBUGDIR) $(CTF_FILENAME) ctf-builtins="$(KBUILD_VMLINUX_INIT) $(KBUILD_VMLINUX_MAIN)"
+else
+PHONY += objects.builtin
+objects.builtin:
+endif
 
 # Target to prepare building external modules
 PHONY += modules_prepare
@@ -1297,6 +1335,9 @@ _modinst_:
 	fi
 	@cp -f $(objtree)/modules.order $(MODLIB)/
 	@cp -f $(objtree)/modules.builtin $(MODLIB)/
+	@if [ -f $(objtree)/$(CTF_FILENAME) ] ; then \
+		cp -f $(objtree)/$(CTF_FILENAME) $(MODLIB)/kernel ; \
+	fi
 	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.modinst
 
 # This depmod is only for convenience to give the initial
@@ -1328,6 +1369,24 @@ modules modules_install:
 
 endif # CONFIG_MODULES
 
+# modules.builtin has a 'thick' form which maps from kernel modules (or rather
+# the object file names they would have had had they not been built in) to their
+# constituent object files: kallsyms and dwarf2ctf use this to determine which
+# modules any given object file is part of.  (We cannot eliminate the slight
+# redundancy here without double-expansion.)
+
+modules.builtin: $(vmlinux-dirs:%=%/modules.builtin)
+	$(Q)$(AWK) '!x[$$0]++' $^ > $(objtree)/modules.builtin
+
+modules_thick.builtin: $(vmlinux-dirs:%=%/modules_thick.builtin)
+	$(Q)$(AWK) '!x[$$0]++' $^ > $(objtree)/modules_thick.builtin
+
+%/modules.builtin: include/config/auto.conf include/config/tristate.conf
+	$(Q)$(MAKE) $(modbuiltin)=$* builtin-file=$(notdir $@)
+
+%/modules_thick.builtin: include/config/auto.conf include/config/tristate.conf
+	$(Q)$(MAKE) $(modbuiltin)=$* builtin-file=$(notdir $@)
+
 ###
 # Cleaning is done on three levels.
 # make clean     Delete most generated files
@@ -1336,7 +1395,8 @@ endif # CONFIG_MODULES
 # make distclean Remove editor backup files, patch leftover files and the like
 
 # Directories & files removed with 'make clean'
-CLEAN_DIRS  += $(MODVERDIR) include/ksym
+CLEAN_DIRS  += $(MODVERDIR) include/ksym .ctf
+CLEAN_FILES += .ctf.filelist
 
 # Directories & files removed with 'make mrproper'
 MRPROPER_DIRS  += include/config usr/include include/generated          \
@@ -1431,6 +1491,8 @@ help:
 	@echo  '                    (requires a recent binutils and recent build (System.map))'
 	@echo  '  dir/file.ko     - Build module including final link'
 	@echo  '  modules_prepare - Set up for building external modules'
+	@echo  '  ctf             - Generate CTF type information for DTrace, installed by '
+	@echo  '                    make modules_install'
 	@echo  '  tags/TAGS	  - Generate tags file for editors'
 	@echo  '  cscope	  - Generate cscope index'
 	@echo  '  gtags           - Generate GNU GLOBAL index'
@@ -1616,9 +1678,11 @@ clean: $(clean-dirs)
 		-o -name '*.lex.c' -o -name '*.tab.[ch]' \
 		-o -name '*.asn1.[ch]' \
 		-o -name '*.symtypes' -o -name 'modules.order' \
-		-o -name modules.builtin -o -name '.tmp_*.o.*' \
+		-o -name modules.builtin -o -name modules_thick.builtin \
+		-o -name 'objects.builtin' \
+		-o -name '.tmp_*.o.*' \
 		-o -name '*.c.[012]*.*' \
-		-o -name '*.ll' \
+		-o -name '*.ll' -o -name '*.ctfa' \
 		-o -name '*.gcno' \) -type f -print | xargs rm -f
 
 # Generate tags for editors
