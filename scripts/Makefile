@@ -38,6 +38,7 @@ build_unifdef: $(obj)/unifdef
 
 subdir-$(CONFIG_MODVERSIONS) += genksyms
 subdir-y                     += mod
+subdir-$(CONFIG_CTF)         += dwarf2ctf
 subdir-$(CONFIG_SECURITY_SELINUX) += selinux
 subdir-$(CONFIG_GDB_SCRIPTS) += gdb
 
