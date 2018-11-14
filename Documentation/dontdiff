@@ -180,6 +180,7 @@ modpost
 modules.builtin
 modules.builtin.modinfo
 modules.nsdeps
+modules_thick.builtin
 modules.order
 modversions.h*
 nconf
