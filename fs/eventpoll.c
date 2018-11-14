@@ -153,6 +153,9 @@ struct epitem {
 	/* The file descriptor information this item refers to */
 	struct epoll_filefd ffd;
 
+	/* fd always raises this fixed event. */
+	unsigned long fixed_event;
+
 	/* List containing poll wait queues */
 	struct eppoll_entry *pwqlist;
 
@@ -1200,6 +1203,13 @@ out_unlock:
 	if (!(epi->event.events & EPOLLEXCLUSIVE))
 		ewake = 1;
 
+	/*
+	 * If this fd type has a hardwired event which should override the key
+	 * (e.g. if it is waiting on a non-file waitqueue), jam it in here.
+	 */
+	if (epi->fixed_event)
+		key = (void *)epi->fixed_event;
+
 	if (pollflags & POLLFREE) {
 		/*
 		 * If we race with ep_remove_wait_queue() it can miss
@@ -1224,7 +1234,7 @@ out_unlock:
  * target file wakeup lists.
  */
 static void ep_ptable_queue_proc(struct file *file, wait_queue_head_t *whead,
-				 poll_table *pt)
+				 poll_table *pt, unsigned long fixed_event)
 {
 	struct ep_pqueue *epq = container_of(pt, struct ep_pqueue, pt);
 	struct epitem *epi = epq->epi;
@@ -1232,6 +1242,12 @@ static void ep_ptable_queue_proc(struct file *file, wait_queue_head_t *whead,
 
 	if (unlikely(!epi))	// an earlier allocation has failed
 		return;
+
+	if (fixed_event & !(epi->event.events & fixed_event))
+		return;
+
+	if (fixed_event)
+		epi->fixed_event = fixed_event;
 
 	pwq = kmem_cache_alloc(pwq_cache, GFP_KERNEL);
 	if (unlikely(!pwq)) {
@@ -1454,6 +1470,7 @@ static int ep_insert(struct eventpoll *ep, const struct epoll_event *event,
 	epi->ep = ep;
 	ep_set_ffd(&epi->ffd, tfile, fd);
 	epi->event = *event;
+	epi->fixed_event = 0;
 	epi->next = EP_UNACTIVE_PTR;
 
 	if (tep)

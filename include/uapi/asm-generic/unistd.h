@@ -862,8 +862,11 @@ __SYSCALL(__NR_process_madvise, sys_process_madvise)
 #define __NR_epoll_pwait2 441
 __SC_COMP(__NR_epoll_pwait2, sys_epoll_pwait2, compat_sys_epoll_pwait2)
 
+#define __NR_waitfd 473
+__SYSCALL(__NR_waitfd, sys_waitfd)
+
 #undef __NR_syscalls
-#define __NR_syscalls 442
+#define __NR_syscalls 474
 
 /*
  * 32 bit systems traditionally used different
