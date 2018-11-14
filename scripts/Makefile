@@ -15,6 +15,16 @@ hostprogs-always-$(CONFIG_MODULE_SIG_FORMAT)		+= sign-file
 hostprogs-always-$(CONFIG_SYSTEM_TRUSTED_KEYRING)	+= extract-cert
 hostprogs-always-$(CONFIG_SYSTEM_EXTRA_CERTIFICATE)	+= insert-sys-cert
 
+kallsyms-objs   := kallsyms.o
+
+ifeq ($(CONFIG_KALLMODSYMS),y)
+kallsyms-objs   += eu_simple.o
+
+HOSTCFLAGS_eu_simple.o := -I$(srctree)/scripts
+HOSTCFLAGS_kallsyms.o := $(shell pkg-config --cflags glib-2.0) -I$(srctree)/scripts
+HOSTLDLIBS_kallsyms := $(shell pkg-config --libs glib-2.0) -ldw
+endif
+
 HOSTCFLAGS_sorttable.o = -I$(srctree)/tools/include
 HOSTCFLAGS_asn1_compiler.o = -I$(srctree)/include
 HOSTCFLAGS_sign-file.o = $(CRYPTO_CFLAGS)
