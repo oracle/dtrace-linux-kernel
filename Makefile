@@ -1286,7 +1286,7 @@ modules: $(if $(KBUILD_BUILTIN),vmlinux) modules.order
 modules.order: descend
 	$(Q)$(AWK) '!x[$$0]++' $(addsuffix /$@, $(build-dirs)) > $@
 
-ifneq (CONFIG_CTF@,'@')
+ifneq (CONFIG_CTF@CONFIG_KALLMODSYMS,'@')
 
 # We need to force everything to be built, since we need the .o files below.
 KBUILD_BUILTIN := 1
