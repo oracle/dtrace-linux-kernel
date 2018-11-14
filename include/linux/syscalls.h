@@ -1315,4 +1315,8 @@ static inline unsigned int ksys_personality(unsigned int personality)
 	return old;
 }
 
+#ifdef CONFIG_DTRACE
+asmlinkage long sys_waitfd(int which, pid_t upid, int options, int flags);
+#endif
+
 #endif
