@@ -836,6 +836,14 @@ __SYSCALL(__NR_io_uring_register, sys_io_uring_register)
 #undef __NR_syscalls
 #define __NR_syscalls 428
 
+#ifdef CONFIG_DTRACE
+#define __NR_waitfd 473
+__SYSCALL(__NR_waitfd, sys_waitfd)
+
+#undef __NR_syscalls
+#define __NR_syscalls 474
+#endif
+
 /*
  * 32 bit systems traditionally used different
  * syscalls for off_t and loff_t arguments, while
