@@ -674,7 +674,7 @@ $(KCONFIG_CONFIG):
 #
 # This exploits the 'multi-target pattern rule' trick.
 # The syncconfig should be executed only once to make all the targets.
-%/auto.conf %/auto.conf.cmd: $(KCONFIG_CONFIG)
+%/auto.conf %/auto.conf.cmd %/tristate.conf: $(KCONFIG_CONFIG)
 	$(Q)$(MAKE) -f $(srctree)/Makefile syncconfig
 else # !may-sync-config
 # External modules and some install targets need include/generated/autoconf.h
@@ -1074,7 +1074,7 @@ cmd_link-vmlinux =                                                 \
 	$(CONFIG_SHELL) $< $(LD) $(KBUILD_LDFLAGS) $(LDFLAGS_vmlinux) ;    \
 	$(if $(ARCH_POSTLINK), $(MAKE) -f $(ARCH_POSTLINK) $@, true)
 
-vmlinux: scripts/link-vmlinux.sh autoksyms_recursive $(vmlinux-deps) FORCE
+vmlinux: scripts/link-vmlinux.sh autoksyms_recursive $(vmlinux-deps) modules_thick.builtin FORCE
 	+$(call if_changed,link-vmlinux)
 
 targets := vmlinux
@@ -1286,6 +1286,45 @@ modules: $(if $(KBUILD_BUILTIN),vmlinux) modules.order
 modules.order: descend
 	$(Q)$(AWK) '!x[$$0]++' $(addsuffix /$@, $(build-dirs)) > $@
 
+ifneq (CONFIG_CTF@,'@')
+
+# We need to force everything to be built, since we need the .o files below.
+KBUILD_BUILTIN := 1
+
+# This contains all the object files that are built directly into the
+# kernel (including built-in modules), for consumption by dwarf2ctf in
+# Makefile.modpost.
+# This is made doubly annoying by the presence of '.o' files which are actually
+# thin ar archives, and the need to support file(1) versions too old to
+# recognize them as archives at all.  (So we assume that everything that is not
+# an ELF object is an archive.)
+ifeq ($(SRCARCH),x86)
+objects.builtin: $(vmlinux-dirs) $(if $(KBUILD_BUILTIN),bzImage) FORCE
+else
+objects.builtin: $(vmlinux-dirs) $(if $(KBUILD_BUILTIN),vmlinux) FORCE
+endif
+	@echo $(KBUILD_VMLINUX_OBJS) | \
+		tr " " "\n" | grep "\.o$$" | xargs -r file | \
+		grep ELF | cut -d: -f1 > objects.builtin
+	@for archive in $$(echo $(KBUILD_VMLINUX_OBJS) |\
+		tr " " "\n" | xargs -r file | grep -v ELF | cut -d: -f1); do \
+		$(AR) t "$$archive" >> objects.builtin; \
+	done
+
+ctf: vmlinux.ctfa
+PHONY += ctf
+
+# Making CTF needs the builtin files unless out-of-tree.
+ifeq ($(KBUILD_EXTMOD),)
+vmlinux.ctfa: modules_thick.builtin objects.builtin
+endif
+vmlinux.ctfa:
+	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.modfinal vmlinux.ctfa
+else
+PHONY += objects.builtin
+objects.builtin:
+endif
+
 # Target to prepare building external modules
 PHONY += modules_prepare
 modules_prepare: prepare
@@ -1307,6 +1346,9 @@ _modinst_:
 	@sed 's:^:kernel/:' modules.order > $(MODLIB)/modules.order
 	@cp -f modules.builtin $(MODLIB)/
 	@cp -f $(objtree)/modules.builtin.modinfo $(MODLIB)/
+	@if [ -f $(objtree)/vmlinux.ctfa ] ; then \
+		cp -f $(objtree)/vmlinux.ctfa $(MODLIB)/kernel ; \
+	fi
 	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.modinst
 
 # This depmod is only for convenience to give the initial
@@ -1338,6 +1380,23 @@ modules modules_install:
 
 endif # CONFIG_MODULES
 
+# modules_thick.builtin maps from kernel modules (or rather the object file
+# names they would have had had they not been built in) to their constituent
+# object files: dwarf2ctf uses this to determine which modules any given object
+# file is part of.  (We cannot eliminate the slight redundancy here without
+# double-expansion.)
+
+modthickbuiltin-dirs := $(addprefix _modthickbuiltin_, $(build-dirs))
+
+modules_thick.builtin: $(modthickbuiltin-dirs)
+	$(Q)$(AWK) '!x[$$0]++' $(addsuffix /$@, $(build-dirs)) > $@
+
+PHONY += $(modthickbuiltin-dirs)
+# tristate.conf is not included from this Makefile. Add it as a prerequisite
+# here to make it self-healing in case somebody accidentally removes it.
+$(modthickbuiltin-dirs): include/config/tristate.conf
+	$(Q)$(MAKE) $(modbuiltin)=$(patsubst _modthickbuiltin_%,%,$@) builtin-file=modules_thick.builtin
+
 ###
 # Cleaning is done on three levels.
 # make clean     Delete most generated files
@@ -1346,8 +1405,8 @@ endif # CONFIG_MODULES
 # make distclean Remove editor backup files, patch leftover files and the like
 
 # Directories & files removed with 'make clean'
-CLEAN_DIRS  += include/ksym
-CLEAN_FILES += modules.builtin modules.builtin.modinfo modules.nsdeps
+CLEAN_DIRS  += include/ksym .ctf
+CLEAN_FILES += modules.builtin modules.builtin.modinfo objects.builtin modules.nsdeps .ctf.filelist .ctf.filelist.raw
 
 # Directories & files removed with 'make mrproper'
 MRPROPER_DIRS  += include/config include/generated          \
@@ -1448,6 +1507,8 @@ help:
 	@echo  '                    (requires a recent binutils and recent build (System.map))'
 	@echo  '  dir/file.ko     - Build module including final link'
 	@echo  '  modules_prepare - Set up for building external modules'
+	@echo  '  ctf             - Generate CTF type information for DTrace, installed by '
+	@echo  '                    make modules_install'
 	@echo  '  tags/TAGS	  - Generate tags file for editors'
 	@echo  '  cscope	  - Generate cscope index'
 	@echo  '  gtags           - Generate GNU GLOBAL index'
@@ -1704,7 +1765,7 @@ clean: $(clean-dirs)
 		-o -name '*.symtypes' -o -name 'modules.order' \
 		-o -name '.tmp_*.o.*' \
 		-o -name '*.c.[012]*.*' \
-		-o -name '*.ll' \
+		-o -name '*.ll' -o -name '*.ctfa' \
 		-o -name '*.gcno' \) -type f -print | xargs rm -f
 
 # Generate tags for editors
