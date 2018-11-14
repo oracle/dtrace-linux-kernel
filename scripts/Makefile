@@ -28,6 +28,15 @@ HOSTLDLIBS_extract-cert = -lcrypto
 
 always		:= $(hostprogs-y) $(hostprogs-m)
 
+kallsyms-objs   := kallsyms.o
+
+ifeq ($(CONFIG_KALLMODSYMS),y)
+kallsyms-objs   += eu_simple.o
+
+HOSTCFLAGS_eu_simple.o := -I$(srctree)/scripts
+HOSTCFLAGS_kallsyms.o := $(shell pkg-config --cflags glib-2.0) -I$(srctree)/scripts
+HOSTLDLIBS_kallsyms := $(shell pkg-config --libs glib-2.0) -ldw
+endif
 # The following hostprogs-y programs are only build on demand
 hostprogs-y += unifdef
 
