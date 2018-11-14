@@ -1289,7 +1289,7 @@ modules: $(vmlinux-dirs) $(if $(KBUILD_BUILTIN),vmlinux) modules.builtin
 	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.modpost
 	$(Q)$(CONFIG_SHELL) $(srctree)/scripts/modules-check.sh
 
-ifneq (CONFIG_CTF@,'@')
+ifneq (CONFIG_CTF@CONFIG_KALLMODSYMS,'@')
 
 # We need to force everything to be built, since we need the .o files below.
 KBUILD_BUILTIN := 1
