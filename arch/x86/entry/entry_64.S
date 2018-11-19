@@ -38,6 +38,7 @@
 #include <asm/export.h>
 #include <asm/frame.h>
 #include <asm/nospec-branch.h>
+#include <asm/dtrace_util.h>
 #include <linux/err.h>
 
 #include "calling.h"
@@ -865,7 +866,7 @@ apicinterrupt IRQ_WORK_VECTOR			irq_work_interrupt		smp_irq_work_interrupt
  */
 #define CPU_TSS_IST(x) PER_CPU_VAR(cpu_tss_rw) + (TSS_ist + (x) * 8)
 
-.macro idtentry_part do_sym, has_error_code:req, read_cr2:req, paranoid:req, shift_ist=-1, ist_offset=0
+.macro idtentry_part do_sym, has_error_code:req, read_cr2:req, paranoid:req, shift_ist=-1, ist_offset=0, switch_stack=0
 
 	.if \paranoid
 	call	paranoid_entry
@@ -919,6 +920,13 @@ apicinterrupt IRQ_WORK_VECTOR			irq_work_interrupt		smp_irq_work_interrupt
 	.if \shift_ist != -1
 	addq	$\ist_offset, CPU_TSS_IST(\shift_ist)
 	.endif
+
+#ifdef CONFIG_DTRACE
+	.if \switch_stack == 0
+	test %rax,%rax
+	jnz dtrace_error_exit
+	.endif
+#endif
 
 	.if \paranoid
 	/* this procedure expect "no swapgs" flag in ebx */
@@ -1014,12 +1022,157 @@ SYM_CODE_START(\sym)
 	 * run in real process context if user_mode(regs).
 	 */
 .Lfrom_usermode_switch_stack_\@:
-	idtentry_part \do_sym, \has_error_code, \read_cr2, paranoid=0
+	idtentry_part \do_sym, \has_error_code, \read_cr2, paranoid=0, switch_stack=1
 	.endif
 
 _ASM_NOKPROBE(\sym)
 SYM_CODE_END(\sym)
 .endm
+
+#ifdef CONFIG_DTRACE
+SYM_CODE_START(dtrace_error_exit)
+	UNWIND_HINT_REGS
+	DISABLE_INTERRUPTS(CLBR_NONE)
+	TRACE_IRQS_OFF
+
+	/*
+	 * The iretq could re-enable interrupts:
+	 */
+	TRACE_IRQS_IRETQ
+
+	negq %rax
+
+	cmpl $DTRACE_INVOP_MOV_RSP_RBP,%eax
+	je dtrace_emu_mov
+	cmpl $DTRACE_INVOP_PUSH_BP,%eax
+	je dtrace_emu_push
+	cmpl $DTRACE_INVOP_LEAVE,%eax
+	je dtrace_emu_leave
+	cmpl $DTRACE_INVOP_NOP,%eax
+	je dtrace_emu_nop
+	cmpl $DTRACE_INVOP_RET,%eax
+	je dtrace_emu_ret
+
+	leaq dtrace_error_msg(%rip),%rdi
+	movq %rax,%rsi
+	movq (%rsp),%rdx
+	call printk
+
+	POP_REGS
+	addq	$8, %rsp	/* skip regs->orig_ax */
+	jmp dtrace_retint_kernel
+
+dtrace_emu_mov:
+	POP_REGS
+	addq	$8, %rsp	/* skip regs->orig_ax */
+
+	/* Emulate "mov %rsp, %rbp" instruction. */
+	pushq %rax			/* push temp */
+	movq 8(%rsp),%rax		/* load calling RIP */
+	addq $3,%rax			/* increment over trapping instr */
+	movq %rax,8(%rsp)		/* store calling RIP */
+	movq 32(%rsp),%rbp		/* load %rsp into %rbp */
+	popq %rax			/* pop off temp */
+
+	jmp dtrace_retint_kernel
+
+dtrace_emu_push:
+	POP_REGS
+	addq	$8, %rsp	/* skip regs->orig_ax */
+
+	/*
+	 * Emulate a "pushq %rbp" instruction.  We need to move the stack down
+	 * to make room for the extra address getting pushed.
+	 */
+	subq $16,%rsp			/* make room for %rbp */
+	pushq %rax			/* push temp */
+	movq 24(%rsp),%rax		/* load calling RIP */
+	addq $1,%rax			/* increment over trapping instr */
+	movq %rax,8(%rsp)		/* store calling RIP */
+	movq 32(%rsp),%rax		/* load calling CS */
+	movq %rax,16(%rsp)		/* store calling CS */
+	movq 40(%rsp),%rax		/* load calling RFLAGS */
+	movq %rax,24(%rsp)		/* store calling RFLAGS */
+	movq 48(%rsp),%rax		/* load calling RSP */
+	subq $8,%rax			/* make room for %rbp */
+	movq %rax,32(%rsp)		/* store calling RSP */
+	movq 56(%rsp),%rax		/* load calling SS */
+	movq %rax,40(%rsp)		/* store calling SS */
+	movq 32(%rsp),%rax		/* reload calling RSP */
+	movq %rbp,(%rax)		/* store %rbp there */
+	popq %rax			/* pop off temp */
+
+	jmp dtrace_retint_kernel
+
+dtrace_emu_nop:
+	POP_REGS
+	addq	$8, %rsp	/* skip regs->orig_ax */
+
+	/* Emulate a "nop" instruction. */
+	incq (%rsp)
+
+	jmp dtrace_retint_kernel
+
+dtrace_emu_leave:
+	POP_REGS
+	addq	$8, %rsp	/* skip regs->orig_ax */
+
+	/*
+	 * Emulate a "leave" instruction.  This is equivalent to the sequence:
+	 *	movq %rbp,%rsp
+	 *	popq %rbp
+	 * We can use the fact that on x86_64 %rsp is saved explicitly, so we
+	 * do not need to move any data around.
+	 */
+	pushq %rax			/* push temp */
+	movq 8(%rsp),%rax		/* load calling RIP */
+	addq $1,%rax			/* increment over trapping instr */
+	movq %rax,8(%rsp)		/* store calling RIP */
+	movq (%rbp),%rax		/* get new %rbp */
+	addq $8,%rbp			/* adjust new %rsp */
+	movq %rbp,32(%rsp)		/* store new %rsp */
+	movq %rax,%rbp			/* set new %rbp */
+	popq %rax			/* pop off temp */
+
+	jmp dtrace_retint_kernel
+
+dtrace_emu_ret:
+	POP_REGS
+	addq	$8, %rsp	/* skip regs->orig_ax */
+
+	/* Emulate a "ret" instruction. */
+	pushq %rax			/* push temp */
+	movq 32(%rsp),%rax		/* load %rsp */
+	movq (%rax),%rax		/* load calling RIP */
+	movq %rax,8(%rsp)		/* store calling RIP */
+	addq $8,32(%rsp)		/* adjust new %rsp */
+	popq %rax			/* pop off temp */
+
+	/* fallthrough */
+
+dtrace_retint_kernel:
+
+#ifdef CONFIG_PREEMPT
+	/* Interrupts are off */
+	/* Check if we need preemption */
+	bt      $9,2*8(%rsp) /* interrupts were off? (EFLAGS) */
+	jnc     1f
+0:      cmpl    $0,PER_CPU_VAR(__preempt_count)
+	jnz     1f
+	call    preempt_schedule_irq
+	jmp     0b
+1:
+#endif
+
+	INTERRUPT_RETURN
+
+SYM_CODE_END(dtrace_error_exit)
+
+.pushsection .rodata, "a"
+dtrace_error_msg:
+	.asciz "DTRACE: non-zero (%x) return from trap at %x\n"
+.popsection
+#endif
 
 idtentry divide_error			do_divide_error			has_error_code=0
 idtentry overflow			do_overflow			has_error_code=0
