@@ -25,6 +25,9 @@ extern void __init dtrace_os_init(void);
 extern void __init dtrace_psinfo_os_init(void);
 extern void __init dtrace_task_os_init(void);
 
+extern void *dtrace_alloc_text(struct module *, unsigned long);
+extern void dtrace_free_text(void *);
+
 extern void dtrace_mod_pdata_alloc(struct module *);
 extern void dtrace_mod_pdata_free(struct module *);
 extern int dtrace_destroy_prov(struct module *);
