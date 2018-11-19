@@ -62,6 +62,7 @@
 #include <linux/oom.h>
 #include <linux/compat.h>
 #include <linux/vmalloc.h>
+#include <linux/dtrace_os.h>
 
 #include <linux/uaccess.h>
 #include <asm/mmu_context.h>
@@ -1827,6 +1828,10 @@ static int __do_execve_file(int fd, struct filename *filename,
 		goto out;
 
 	/* execve succeeded */
+
+	/* Update DTrace per-task data. */
+	dtrace_task_exec(current);
+
 	current->fs->in_exec = 0;
 	current->in_execve = 0;
 	rseq_execve(current);

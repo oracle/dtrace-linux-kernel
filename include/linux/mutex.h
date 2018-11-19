@@ -20,6 +20,10 @@
 #include <linux/osq_lock.h>
 #include <linux/debug_locks.h>
 
+#ifdef CONFIG_SMP
+# include <asm/current.h>
+#endif
+
 struct ww_acquire_ctx;
 
 /*
@@ -209,5 +213,17 @@ enum mutex_trylock_recursive_enum {
  */
 extern /* __deprecated */ __must_check enum mutex_trylock_recursive_enum
 mutex_trylock_recursive(struct mutex *lock);
+
+#if defined(CONFIG_DEBUG_MUTEXES) || defined(CONFIG_SMP)
+static inline int mutex_owned(struct mutex *lock)
+{
+	return mutex_is_locked(lock) && __mutex_owner(lock) == current;
+}
+#else
+static inline int mutex_owned(struct mutex *lock)
+{
+	return mutex_is_locked(lock);
+}
+#endif
 
 #endif /* __LINUX_MUTEX_H */
