@@ -341,6 +341,8 @@ extern int  dl_cpu_busy(int cpu, struct task_struct *p);
 
 #ifdef CONFIG_CGROUP_SCHED
 
+#include <linux/dtrace_cpu.h>
+
 struct cfs_rq;
 struct rt_rq;
 
@@ -1100,6 +1102,9 @@ struct rq {
 	unsigned int		core_forceidle_seq;
 	unsigned int		core_forceidle_occupation;
 	u64			core_forceidle_start;
+#endif
+#ifdef CONFIG_DTRACE
+	struct cpuinfo		*dtrace_cpu_info;
 #endif
 };
 

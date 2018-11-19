@@ -98,6 +98,7 @@
 #include <linux/io_uring.h>
 #include <linux/bpf.h>
 #include <linux/sched/mm.h>
+#include <linux/dtrace_task_impl.h>
 
 #include <asm/pgalloc.h>
 #include <linux/uaccess.h>
@@ -539,6 +540,7 @@ void free_task(struct task_struct *tsk)
 {
 	release_user_cpus_ptr(tsk);
 	scs_release(tsk);
+	dtrace_task_free(tsk);
 
 #ifndef CONFIG_THREAD_INFO_IN_TASK
 	/*
@@ -1046,6 +1048,8 @@ static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
 #ifdef CONFIG_MEMCG
 	tsk->active_memcg = NULL;
 #endif
+
+	dtrace_task_dup(orig, tsk);
 	return tsk;
 
 free_stack:
@@ -2457,6 +2461,25 @@ static __latent_entropy struct task_struct *copy_process(
 
 	if (pidfile)
 		fd_install(pidfd, pidfile);
+
+#ifdef CONFIG_DTRACE
+	/*
+	 * We make this call fairly late into the copy_process() handling,
+	 * because we need to ensure that we can look up this task based on
+	 * its pid using find_task_by_vpid().  We also must ensure that the
+	 * tasklist_lock has been released.
+	 */
+	dtrace_task_copy(current, p);
+
+	/*
+	 * If we're called with stack_start != 0, this is almost certainly a
+	 * thread being created in current.  Make sure it gets its own psinfo
+	 * data, because we need to record a new bottom of stack value.
+	 */
+	if (p->mm && args->stack)
+		if (p->dt_task != NULL)
+			p->dt_task->dt_ustack = (void *)args->stack;
+#endif
 
 	proc_fork_connector(p);
 	sched_post_fork(p);
