@@ -238,7 +238,7 @@ extern void mce_disable_bank(int bank);
 /*
  * Exception handler
  */
-void do_machine_check(struct pt_regs *, long);
+int do_machine_check(struct pt_regs *, long);
 
 /*
  * Threshold handler
