@@ -53,6 +53,7 @@ DEFINE_IDTENTRY_SYSVEC(sysvec_hyperv_callback)
 		ack_APIC_irq();
 
 	set_irq_regs(old_regs);
+	return 0;
 }
 
 void hv_setup_vmbus_irq(void (*handler)(void))
@@ -83,6 +84,7 @@ DEFINE_IDTENTRY_SYSVEC(sysvec_hyperv_stimer0)
 	ack_APIC_irq();
 
 	set_irq_regs(old_regs);
+	return 0;
 }
 
 int hv_setup_stimer0_irq(int *irq, int *vector, void (*handler)(void))

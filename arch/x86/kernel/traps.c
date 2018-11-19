@@ -166,17 +166,20 @@ do_trap(int trapnr, int signr, char *str, struct pt_regs *regs,
 }
 NOKPROBE_SYMBOL(do_trap);
 
-static void do_error_trap(struct pt_regs *regs, long error_code, char *str,
+static int do_error_trap(struct pt_regs *regs, long error_code, char *str,
 	unsigned long trapnr, int signr, int sicode, void __user *addr)
 {
+	int ret;
+
 	RCU_LOCKDEP_WARN(!rcu_is_watching(), "entry code didn't wake RCU");
 
-	if (notify_die(DIE_TRAP, str, regs, error_code, trapnr, signr) !=
-			NOTIFY_STOP) {
+	ret = notify_die(DIE_TRAP, str, regs, error_code, trapnr, signr);
+	if ((ret & NOTIFY_STOP_MASK) != NOTIFY_STOP_MASK) {
 		cond_local_irq_enable(regs);
 		do_trap(trapnr, signr, str, regs, error_code, sicode, addr);
 		cond_local_irq_disable(regs);
 	}
+	return notifier_to_errno(ret);
 }
 
 /*
@@ -196,13 +199,14 @@ static __always_inline void __user *error_get_trap_addr(struct pt_regs *regs)
 
 DEFINE_IDTENTRY(exc_divide_error)
 {
-	do_error_trap(regs, 0, "divide_error", X86_TRAP_DE, SIGFPE,
-		      FPE_INTDIV, error_get_trap_addr(regs));
+	return do_error_trap(regs, 0, "divide_error", X86_TRAP_DE, SIGFPE,
+			     FPE_INTDIV, error_get_trap_addr(regs));
 }
 
 DEFINE_IDTENTRY(exc_overflow)
 {
-	do_error_trap(regs, 0, "overflow", X86_TRAP_OF, SIGSEGV, 0, NULL);
+	return do_error_trap(regs, 0, "overflow", X86_TRAP_OF, SIGSEGV,
+			     0, NULL);
 }
 
 #ifdef CONFIG_X86_F00F_BUG
@@ -253,37 +257,38 @@ DEFINE_IDTENTRY_RAW(exc_invalid_op)
 	 * in case exception entry is the one triggering WARNs.
 	 */
 	if (!user_mode(regs) && handle_bug(regs))
-		return;
+		return 0;
 
 	rcu_exit = idtentry_enter_cond_rcu(regs);
 	instrumentation_begin();
 	handle_invalid_op(regs);
 	instrumentation_end();
 	idtentry_exit_cond_rcu(regs, rcu_exit);
+	return 0;
 }
 
 DEFINE_IDTENTRY(exc_coproc_segment_overrun)
 {
-	do_error_trap(regs, 0, "coprocessor segment overrun",
-		      X86_TRAP_OLD_MF, SIGFPE, 0, NULL);
+	return do_error_trap(regs, 0, "coprocessor segment overrun",
+			     X86_TRAP_OLD_MF, SIGFPE, 0, NULL);
 }
 
 DEFINE_IDTENTRY_ERRORCODE(exc_invalid_tss)
 {
-	do_error_trap(regs, error_code, "invalid TSS", X86_TRAP_TS, SIGSEGV,
-		      0, NULL);
+	return do_error_trap(regs, error_code, "invalid TSS", X86_TRAP_TS,
+			     SIGSEGV, 0, NULL);
 }
 
 DEFINE_IDTENTRY_ERRORCODE(exc_segment_not_present)
 {
-	do_error_trap(regs, error_code, "segment not present", X86_TRAP_NP,
-		      SIGBUS, 0, NULL);
+	return do_error_trap(regs, error_code, "segment not present", X86_TRAP_NP,
+			     SIGBUS, 0, NULL);
 }
 
 DEFINE_IDTENTRY_ERRORCODE(exc_stack_segment)
 {
-	do_error_trap(regs, error_code, "stack segment", X86_TRAP_SS, SIGBUS,
-		      0, NULL);
+	return do_error_trap(regs, error_code, "stack segment", X86_TRAP_SS,
+			     SIGBUS, 0, NULL);
 }
 
 DEFINE_IDTENTRY_ERRORCODE(exc_alignment_check)
@@ -291,7 +296,7 @@ DEFINE_IDTENTRY_ERRORCODE(exc_alignment_check)
 	char *str = "alignment check";
 
 	if (notify_die(DIE_TRAP, str, regs, error_code, X86_TRAP_AC, SIGBUS) == NOTIFY_STOP)
-		return;
+		return 0;
 
 	if (!user_mode(regs))
 		die("Split lock detected\n", regs, error_code);
@@ -299,12 +304,13 @@ DEFINE_IDTENTRY_ERRORCODE(exc_alignment_check)
 	local_irq_enable();
 
 	if (handle_user_split_lock(regs, error_code))
-		return;
+		return 0;
 
 	do_trap(X86_TRAP_AC, SIGBUS, "alignment check", regs,
 		error_code, BUS_ADRALN, NULL);
 
 	local_irq_disable();
+	return 0;
 }
 
 #ifdef CONFIG_VMAP_STACK
@@ -401,7 +407,7 @@ DEFINE_IDTENTRY_DF(exc_double_fault)
 		regs->ip = (unsigned long)asm_exc_general_protection;
 		regs->sp = (unsigned long)&gpregs->orig_ax;
 
-		return;
+		return 0;
 	}
 #endif
 
@@ -460,13 +466,14 @@ DEFINE_IDTENTRY_DF(exc_double_fault)
 	die("double fault", regs, error_code);
 	panic("Machine halted.");
 	instrumentation_end();
+	return 0;
 }
 
 DEFINE_IDTENTRY(exc_bounds)
 {
 	if (notify_die(DIE_TRAP, "bounds", regs, 0,
 			X86_TRAP_BR, SIGSEGV) == NOTIFY_STOP)
-		return;
+		return 0;
 	cond_local_irq_enable(regs);
 
 	if (!user_mode(regs))
@@ -475,6 +482,7 @@ DEFINE_IDTENTRY(exc_bounds)
 	do_trap(X86_TRAP_BR, SIGSEGV, "bounds", regs, 0, 0, NULL);
 
 	cond_local_irq_disable(regs);
+	return 0;
 }
 
 enum kernel_gp_hint {
@@ -528,7 +536,7 @@ DEFINE_IDTENTRY_ERRORCODE(exc_general_protection)
 	enum kernel_gp_hint hint = GP_NO_HINT;
 	struct task_struct *tsk;
 	unsigned long gp_addr;
-	int ret;
+	int ret = 0;
 
 	cond_local_irq_enable(regs);
 
@@ -541,7 +549,7 @@ DEFINE_IDTENTRY_ERRORCODE(exc_general_protection)
 		local_irq_enable();
 		handle_vm86_fault((struct kernel_vm86_regs *) regs, error_code);
 		local_irq_disable();
-		return;
+		return 0;
 	}
 
 	tsk = current;
@@ -571,8 +579,10 @@ DEFINE_IDTENTRY_ERRORCODE(exc_general_protection)
 		goto exit;
 
 	ret = notify_die(DIE_GPF, desc, regs, error_code, X86_TRAP_GP, SIGSEGV);
-	if (ret == NOTIFY_STOP)
+	if ((ret & NOTIFY_STOP_MASK) == NOTIFY_STOP_MASK) {
+		ret = notifier_to_errno(ret);
 		goto exit;
+	}
 
 	if (error_code)
 		snprintf(desc, sizeof(desc), "segment-related " GPFSTR);
@@ -596,9 +606,10 @@ DEFINE_IDTENTRY_ERRORCODE(exc_general_protection)
 
 exit:
 	cond_local_irq_disable(regs);
+	return ret;
 }
 
-static bool do_int3(struct pt_regs *regs)
+static bool do_int3(struct pt_regs *regs, int *error_code)
 {
 	int res;
 
@@ -614,28 +625,37 @@ static bool do_int3(struct pt_regs *regs)
 #endif
 	res = notify_die(DIE_INT3, "int3", regs, 0, X86_TRAP_BP, SIGTRAP);
 
-	return res == NOTIFY_STOP;
+	if ((res & NOTIFY_STOP_MASK) == NOTIFY_STOP_MASK) {
+		*error_code = notifier_to_errno (res);
+		return true;
+	}
+
+	return false;
 }
 
-static void do_int3_user(struct pt_regs *regs)
+static int do_int3_user(struct pt_regs *regs)
 {
-	if (do_int3(regs))
-		return;
+	int ret = 0;
+	if (do_int3(regs, &ret))
+		return ret;
 
 	cond_local_irq_enable(regs);
 	do_trap(X86_TRAP_BP, SIGTRAP, "int3", regs, 0, 0, NULL);
 	cond_local_irq_disable(regs);
+	return 0;
 }
 
 DEFINE_IDTENTRY_RAW(exc_int3)
 {
+	int ret = 0;
+
 	/*
 	 * poke_int3_handler() is completely self contained code; it does (and
 	 * must) *NOT* call out to anything, lest it hits upon yet another
 	 * INT3.
 	 */
 	if (poke_int3_handler(regs))
-		return;
+		return 0;
 
 	/*
 	 * idtentry_enter_user() uses static_branch_{,un}likely() and therefore
@@ -647,20 +667,21 @@ DEFINE_IDTENTRY_RAW(exc_int3)
 	if (user_mode(regs)) {
 		idtentry_enter_user(regs);
 		instrumentation_begin();
-		do_int3_user(regs);
+		ret = do_int3_user(regs);
 		instrumentation_end();
 		idtentry_exit_user(regs);
 	} else {
 		nmi_enter();
 		instrumentation_begin();
 		trace_hardirqs_off_finish();
-		if (!do_int3(regs))
+		if (!do_int3(regs, &ret))
 			die("int3", regs, 0);
 		if (regs->flags & X86_EFLAGS_IF)
 			trace_hardirqs_on_prepare();
 		instrumentation_end();
 		nmi_exit();
 	}
+	return ret;
 }
 
 #ifdef CONFIG_X86_64
@@ -924,12 +945,14 @@ static __always_inline void exc_debug_user(struct pt_regs *regs,
 DEFINE_IDTENTRY_DEBUG(exc_debug)
 {
 	exc_debug_kernel(regs, debug_read_clear_dr6());
+	return 0;
 }
 
 /* User entry, runs on regular task stack */
 DEFINE_IDTENTRY_DEBUG_USER(exc_debug)
 {
 	exc_debug_user(regs, debug_read_clear_dr6());
+	return 0;
 }
 #else
 /* 32 bit does not have separate entry points. */
@@ -941,6 +964,7 @@ DEFINE_IDTENTRY_RAW(exc_debug)
 		exc_debug_user(regs, dr6);
 	else
 		exc_debug_kernel(regs, dr6);
+	return 0;
 }
 #endif
 
@@ -994,6 +1018,7 @@ exit:
 DEFINE_IDTENTRY(exc_coprocessor_error)
 {
 	math_error(regs, X86_TRAP_MF);
+	return 0;
 }
 
 DEFINE_IDTENTRY(exc_simd_coprocessor_error)
@@ -1002,10 +1027,11 @@ DEFINE_IDTENTRY(exc_simd_coprocessor_error)
 		/* AMD 486 bug: INVD in CPL 0 raises #XF instead of #GP */
 		if (!static_cpu_has(X86_FEATURE_XMM)) {
 			__exc_general_protection(regs, 0);
-			return;
+			return 0;
 		}
 	}
 	math_error(regs, X86_TRAP_XF);
+	return 0;
 }
 
 DEFINE_IDTENTRY(exc_spurious_interrupt_bug)
@@ -1029,6 +1055,7 @@ DEFINE_IDTENTRY(exc_spurious_interrupt_bug)
 	 * In theory this could be limited to 32bit, but the handler is not
 	 * hurting and who knows which other CPUs suffer from this.
 	 */
+	return 0;
 }
 
 DEFINE_IDTENTRY(exc_device_not_available)
@@ -1045,7 +1072,7 @@ DEFINE_IDTENTRY(exc_device_not_available)
 		math_emulate(&info);
 
 		cond_local_irq_disable(regs);
-		return;
+		return 0;
 	}
 #endif
 
@@ -1061,6 +1088,7 @@ DEFINE_IDTENTRY(exc_device_not_available)
 		 */
 		die("unexpected #NM exception", regs, 0);
 	}
+	return 0;
 }
 
 #ifdef CONFIG_X86_32
@@ -1073,6 +1101,7 @@ DEFINE_IDTENTRY_SW(iret_error)
 			ILL_BADSTK, (void __user *)NULL);
 	}
 	local_irq_disable();
+	return 0;
 }
 #endif
 

@@ -1313,6 +1313,7 @@ DEFINE_IDTENTRY_SYSVEC(sysvec_uv_bau_message)
 		stat->d_nomsg++;
 	else if (count > 1)
 		stat->d_multmsg++;
+	return 0;
 }
 
 /*

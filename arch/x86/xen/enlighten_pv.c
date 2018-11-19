@@ -598,12 +598,12 @@ static void xen_write_ldt_entry(struct desc_struct *dt, int entrynum,
 }
 
 #ifdef CONFIG_X86_64
-void noist_exc_debug(struct pt_regs *regs);
+int noist_exc_debug(struct pt_regs *regs);
 
 DEFINE_IDTENTRY_RAW(xenpv_exc_nmi)
 {
 	/* On Xen PV, NMI doesn't use IST.  The C part is the sane as native. */
-	exc_nmi(regs);
+	return exc_nmi(regs);
 }
 
 DEFINE_IDTENTRY_RAW(xenpv_exc_debug)
@@ -613,9 +613,9 @@ DEFINE_IDTENTRY_RAW(xenpv_exc_debug)
 	 * to the correct handler.
 	 */
 	if (user_mode(regs))
-		noist_exc_debug(regs);
+		return noist_exc_debug(regs);
 	else
-		exc_debug(regs);
+		return exc_debug(regs);
 }
 
 struct trap_array_entry {

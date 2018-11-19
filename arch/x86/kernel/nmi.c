@@ -479,11 +479,11 @@ static DEFINE_PER_CPU(unsigned long, nmi_dr7);
 DEFINE_IDTENTRY_RAW(exc_nmi)
 {
 	if (IS_ENABLED(CONFIG_SMP) && arch_cpu_is_offline(smp_processor_id()))
-		return;
+		return 0;
 
 	if (this_cpu_read(nmi_state) != NMI_NOT_RUNNING) {
 		this_cpu_write(nmi_state, NMI_LATCHED);
-		return;
+		return 0;
 	}
 	this_cpu_write(nmi_state, NMI_EXECUTING);
 	this_cpu_write(nmi_cr2, read_cr2());
@@ -509,6 +509,7 @@ nmi_restart:
 
 	if (user_mode(regs))
 		mds_user_clear_cpu_buffers();
+	return 0;
 }
 
 void stop_nmi(void)

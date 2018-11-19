@@ -34,7 +34,7 @@ void idtentry_exit_cond_rcu(struct pt_regs *regs, bool rcu_exit);
 #define DECLARE_IDTENTRY(vector, func)					\
 	asmlinkage void asm_##func(void);				\
 	asmlinkage void xen_asm_##func(void);				\
-	__visible void func(struct pt_regs *regs)
+	__visible int func(struct pt_regs *regs)
 
 /**
  * DEFINE_IDTENTRY - Emit code for simple IDT entry points
@@ -50,19 +50,21 @@ void idtentry_exit_cond_rcu(struct pt_regs *regs, bool rcu_exit);
  * which has to run before returning to the low level assembly code.
  */
 #define DEFINE_IDTENTRY(func)						\
-static __always_inline void __##func(struct pt_regs *regs);		\
+static __always_inline int __##func(struct pt_regs *regs);		\
 									\
-__visible noinstr void func(struct pt_regs *regs)			\
+__visible noinstr int func(struct pt_regs *regs)			\
 {									\
 	bool rcu_exit = idtentry_enter_cond_rcu(regs);			\
+	int ret;							\
 									\
 	instrumentation_begin();					\
-	__##func (regs);						\
+	ret = __##func (regs);						\
 	instrumentation_end();						\
 	idtentry_exit_cond_rcu(regs, rcu_exit);				\
+	return ret;							\
 }									\
 									\
-static __always_inline void __##func(struct pt_regs *regs)
+static __always_inline int __##func(struct pt_regs *regs)
 
 /* Special case for 32bit IRET 'trap' */
 #define DECLARE_IDTENTRY_SW	DECLARE_IDTENTRY
@@ -85,7 +87,7 @@ static __always_inline void __##func(struct pt_regs *regs)
 #define DECLARE_IDTENTRY_ERRORCODE(vector, func)			\
 	asmlinkage void asm_##func(void);				\
 	asmlinkage void xen_asm_##func(void);				\
-	__visible void func(struct pt_regs *regs, unsigned long error_code)
+	__visible int func(struct pt_regs *regs, unsigned long error_code)
 
 /**
  * DEFINE_IDTENTRY_ERRORCODE - Emit code for simple IDT entry points
@@ -95,22 +97,24 @@ static __always_inline void __##func(struct pt_regs *regs)
  * Same as DEFINE_IDTENTRY, but has an extra error_code argument
  */
 #define DEFINE_IDTENTRY_ERRORCODE(func)					\
-static __always_inline void __##func(struct pt_regs *regs,		\
-				     unsigned long error_code);		\
+static __always_inline int __##func(struct pt_regs *regs,		\
+				    unsigned long error_code);		\
 									\
-__visible noinstr void func(struct pt_regs *regs,			\
-			    unsigned long error_code)			\
+__visible noinstr int func(struct pt_regs *regs,			\
+			   unsigned long error_code)			\
 {									\
 	bool rcu_exit = idtentry_enter_cond_rcu(regs);			\
+	int ret;							\
 									\
 	instrumentation_begin();					\
-	__##func (regs, error_code);					\
+	ret = __##func (regs, error_code);				\
 	instrumentation_end();						\
 	idtentry_exit_cond_rcu(regs, rcu_exit);				\
+	return ret;							\
 }									\
 									\
-static __always_inline void __##func(struct pt_regs *regs,		\
-				     unsigned long error_code)
+static __always_inline int __##func(struct pt_regs *regs,		\
+				    unsigned long error_code)
 
 /**
  * DECLARE_IDTENTRY_RAW - Declare functions for raw IDT entry points
@@ -138,7 +142,7 @@ static __always_inline void __##func(struct pt_regs *regs,		\
  * is required before the enter/exit() helpers are invoked.
  */
 #define DEFINE_IDTENTRY_RAW(func)					\
-__visible noinstr void func(struct pt_regs *regs)
+__visible noinstr int func(struct pt_regs *regs)
 
 /**
  * DECLARE_IDTENTRY_RAW_ERRORCODE - Declare functions for raw IDT entry points
@@ -166,7 +170,7 @@ __visible noinstr void func(struct pt_regs *regs)
  * is required before the enter/exit() helpers are invoked.
  */
 #define DEFINE_IDTENTRY_RAW_ERRORCODE(func)				\
-__visible noinstr void func(struct pt_regs *regs, unsigned long error_code)
+__visible noinstr int func(struct pt_regs *regs, unsigned long error_code)
 
 /**
  * DECLARE_IDTENTRY_IRQ - Declare functions for device interrupt IDT entry
@@ -194,23 +198,25 @@ __visible noinstr void func(struct pt_regs *regs, unsigned long error_code)
  * KVM L1D flush request is set.
  */
 #define DEFINE_IDTENTRY_IRQ(func)					\
-static __always_inline void __##func(struct pt_regs *regs, u8 vector);	\
+static __always_inline int __##func(struct pt_regs *regs, u8 vector);	\
 									\
-__visible noinstr void func(struct pt_regs *regs,			\
-			    unsigned long error_code)			\
+__visible noinstr int func(struct pt_regs *regs,			\
+			   unsigned long error_code)			\
 {									\
 	bool rcu_exit = idtentry_enter_cond_rcu(regs);			\
+	int ret;							\
 									\
 	instrumentation_begin();					\
 	irq_enter_rcu();						\
 	kvm_set_cpu_l1tf_flush_l1d();					\
-	__##func (regs, (u8)error_code);				\
+	ret = __##func (regs, (u8)error_code);				\
 	irq_exit_rcu();							\
 	instrumentation_end();						\
 	idtentry_exit_cond_rcu(regs, rcu_exit);				\
+	return ret;							\
 }									\
 									\
-static __always_inline void __##func(struct pt_regs *regs, u8 vector)
+static __always_inline int __##func(struct pt_regs *regs, u8 vector)
 
 /**
  * DECLARE_IDTENTRY_SYSVEC - Declare functions for system vector entry points
@@ -237,9 +243,9 @@ static __always_inline void __##func(struct pt_regs *regs, u8 vector)
  * Runs the function on the interrupt stack if the entry hit kernel mode
  */
 #define DEFINE_IDTENTRY_SYSVEC(func)					\
-static void __##func(struct pt_regs *regs);				\
+static int __##func(struct pt_regs *regs);				\
 									\
-__visible noinstr void func(struct pt_regs *regs)			\
+__visible noinstr int func(struct pt_regs *regs)			\
 {									\
 	bool rcu_exit = idtentry_enter_cond_rcu(regs);			\
 									\
@@ -250,9 +256,10 @@ __visible noinstr void func(struct pt_regs *regs)			\
 	irq_exit_rcu();							\
 	instrumentation_end();						\
 	idtentry_exit_cond_rcu(regs, rcu_exit);				\
+	return 0;							\
 }									\
 									\
-static noinline void __##func(struct pt_regs *regs)
+static noinline int __##func(struct pt_regs *regs)
 
 /**
  * DEFINE_IDTENTRY_SYSVEC_SIMPLE - Emit code for simple system vector IDT
@@ -266,22 +273,24 @@ static noinline void __##func(struct pt_regs *regs)
  * interrupt vectors.
  */
 #define DEFINE_IDTENTRY_SYSVEC_SIMPLE(func)				\
-static __always_inline void __##func(struct pt_regs *regs);		\
+static __always_inline int __##func(struct pt_regs *regs);		\
 									\
-__visible noinstr void func(struct pt_regs *regs)			\
+__visible noinstr int func(struct pt_regs *regs)			\
 {									\
 	bool rcu_exit = idtentry_enter_cond_rcu(regs);			\
+	int ret;							\
 									\
 	instrumentation_begin();					\
 	__irq_enter_raw();						\
 	kvm_set_cpu_l1tf_flush_l1d();					\
-	__##func (regs);						\
+	ret = __##func (regs);						\
 	__irq_exit_raw();						\
 	instrumentation_end();						\
 	idtentry_exit_cond_rcu(regs, rcu_exit);				\
+	return ret;							\
 }									\
 									\
-static __always_inline void __##func(struct pt_regs *regs)
+static __always_inline int __##func(struct pt_regs *regs)
 
 /**
  * DECLARE_IDTENTRY_XENCB - Declare functions for XEN HV callback entry point
@@ -310,7 +319,7 @@ static __always_inline void __##func(struct pt_regs *regs)
  */
 #define DECLARE_IDTENTRY_IST(vector, func)				\
 	DECLARE_IDTENTRY_RAW(vector, func);				\
-	__visible void noist_##func(struct pt_regs *regs)
+	__visible int noist_##func(struct pt_regs *regs)
 
 /**
  * DEFINE_IDTENTRY_IST - Emit code for IST entry points
@@ -363,10 +372,10 @@ static __always_inline void __##func(struct pt_regs *regs)
  * - The C handler called from the C shim
  */
 #define DECLARE_IDTENTRY_DF(vector, func)				\
-	asmlinkage void asm_##func(void);				\
-	__visible void func(struct pt_regs *regs,			\
-			    unsigned long error_code,			\
-			    unsigned long address)
+	asmlinkage int asm_##func(void);				\
+	__visible int func(struct pt_regs *regs,			\
+			   unsigned long error_code,			\
+			   unsigned long address)
 
 /**
  * DEFINE_IDTENTRY_DF - Emit code for double fault on 32bit
@@ -376,9 +385,9 @@ static __always_inline void __##func(struct pt_regs *regs)
  * cr2 in the address argument.
  */
 #define DEFINE_IDTENTRY_DF(func)					\
-__visible noinstr void func(struct pt_regs *regs,			\
-			    unsigned long error_code,			\
-			    unsigned long address)
+__visible noinstr int func(struct pt_regs *regs,			\
+			   unsigned long error_code,			\
+			   unsigned long address)
 
 #endif	/* !CONFIG_X86_64 */
 
