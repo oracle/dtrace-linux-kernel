@@ -588,6 +588,7 @@ net-y		:= net/
 libs-y		:= lib/
 core-y		:= usr/
 virt-y		:= virt/
+dtrace-y	:= dtrace/
 endif # KBUILD_EXTMOD
 
 ifeq ($(dot-config),1)
