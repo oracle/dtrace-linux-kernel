@@ -64,6 +64,7 @@
 #include <linux/compat.h>
 #include <linux/vmalloc.h>
 #include <linux/io_uring.h>
+#include <linux/dtrace_os.h>
 
 #include <linux/uaccess.h>
 #include <asm/mmu_context.h>
@@ -1822,6 +1823,10 @@ static int bprm_execve(struct linux_binprm *bprm,
 		goto out;
 
 	/* execve succeeded */
+
+	/* Update DTrace per-task data. */
+	dtrace_task_exec(current);
+
 	current->fs->in_exec = 0;
 	current->in_execve = 0;
 	rseq_execve(current);
