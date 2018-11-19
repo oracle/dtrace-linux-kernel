@@ -18,6 +18,7 @@
 #include <linux/uaccess.h>		/* faulthandler_disabled()	*/
 #include <linux/efi.h>			/* efi_recover_from_page_fault()*/
 #include <linux/mm_types.h>
+#include <linux/dtrace_os.h>		/* dtrace_no_pf			*/
 
 #include <asm/cpufeature.h>		/* boot_cpu_has, ...		*/
 #include <asm/traps.h>			/* dotraplinkage, ...		*/
@@ -776,6 +777,16 @@ no_context(struct pt_regs *regs, unsigned long error_code,
 	    (((unsigned long)tsk->stack - 1 - address < PAGE_SIZE) ||
 	     address - ((unsigned long)tsk->stack + THREAD_SIZE) < PAGE_SIZE)) {
 		unsigned long stack = __this_cpu_ist_top_va(DF) - sizeof(void *);
+
+		/*
+		 * Allow for the possibility that we know what we are doing and
+		 * ignore this fault.  E.g. the address may come from a source
+		 * we cannot trust and it is OK if we cannot access it.
+		 */
+		if (notify_die(DIE_PAGE_FAULT, "page fault", regs, error_code,
+				14, SIGKILL) == NOTIFY_STOP)
+			return;
+
 		/*
 		 * We're likely to be running with very little stack space
 		 * left.  It's plausible that we'd hit this condition but
@@ -824,8 +835,13 @@ no_context(struct pt_regs *regs, unsigned long error_code,
 oops:
 	/*
 	 * Oops. The kernel tried to access some bad page. We'll have to
-	 * terminate things with extreme prejudice:
+	 * terminate things with extreme prejudice, unless a notifier decides
+	 * to let this one slide.
 	 */
+	if (notify_die(DIE_PAGE_FAULT, "page fault", regs, error_code, 14,
+		       SIGKILL) == NOTIFY_STOP)
+		return;
+
 	flags = oops_begin();
 
 	show_fault_oops(regs, error_code, address);
@@ -1310,6 +1326,10 @@ void do_user_addr_fault(struct pt_regs *regs,
 	tsk = current;
 	mm = tsk->mm;
 
+	/*
+	 * From here on, we know this must be a fault in userspace.
+	 */
+
 	/* kprobes don't want to hook the spurious faults: */
 	if (unlikely(kprobes_fault(regs)))
 		return;
@@ -1335,6 +1355,12 @@ void do_user_addr_fault(struct pt_regs *regs,
 		bad_area_nosemaphore(regs, hw_error_code, address);
 		return;
 	}
+
+	/*
+	 * DTrace doesn't want to either.
+	 */
+	if (unlikely(dtrace_no_pf(regs)))
+		return;
 
 	/*
 	 * If we're in an interrupt, have no user context or are running
