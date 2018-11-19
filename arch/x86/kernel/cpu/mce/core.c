@@ -2019,6 +2019,7 @@ DEFINE_IDTENTRY_MCE(exc_machine_check)
 	dr7 = local_db_save();
 	exc_machine_check_kernel(regs);
 	local_db_restore(dr7);
+	return 0;
 }
 
 /* The user mode variant. */
@@ -2029,6 +2030,7 @@ DEFINE_IDTENTRY_MCE_USER(exc_machine_check)
 	dr7 = local_db_save();
 	exc_machine_check_user(regs);
 	local_db_restore(dr7);
+	return 0;
 }
 #else
 /* 32bit unified entry point */
@@ -2042,6 +2044,7 @@ DEFINE_IDTENTRY_RAW(exc_machine_check)
 	else
 		exc_machine_check_kernel(regs);
 	local_db_restore(dr7);
+	return 0;
 }
 #endif
 

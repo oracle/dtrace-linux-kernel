@@ -936,6 +936,7 @@ DEFINE_IDTENTRY_SYSVEC(sysvec_irq_move_cleanup)
 	}
 
 	raw_spin_unlock(&vector_lock);
+	return 0;
 }
 
 static void __send_cleanup_vector(struct apic_chip_data *apicd)

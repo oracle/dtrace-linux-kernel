@@ -12,11 +12,11 @@ static __always_inline bool irqstack_active(void)
 	return __this_cpu_read(irq_count) != -1;
 }
 
-void asm_call_on_stack(void *sp, void (*func)(void), void *arg);
-void asm_call_sysvec_on_stack(void *sp, void (*func)(struct pt_regs *regs),
-			      struct pt_regs *regs);
-void asm_call_irq_on_stack(void *sp, void (*func)(struct irq_desc *desc),
-			   struct irq_desc *desc);
+int asm_call_on_stack(void *sp, void (*func)(void), void *arg);
+int asm_call_sysvec_on_stack(void *sp, int (*func)(struct pt_regs *regs),
+			     struct pt_regs *regs);
+int asm_call_irq_on_stack(void *sp, void (*func)(struct irq_desc *desc),
+			  struct irq_desc *desc);
 
 static __always_inline void __run_on_irqstack(void (*func)(void))
 {
@@ -27,15 +27,17 @@ static __always_inline void __run_on_irqstack(void (*func)(void))
 	__this_cpu_sub(irq_count, 1);
 }
 
-static __always_inline void
-__run_sysvec_on_irqstack(void (*func)(struct pt_regs *regs),
+static __always_inline int
+__run_sysvec_on_irqstack(int (*func)(struct pt_regs *regs),
 			 struct pt_regs *regs)
 {
 	void *tos = __this_cpu_read(hardirq_stack_ptr);
+	int ret;
 
 	__this_cpu_add(irq_count, 1);
-	asm_call_sysvec_on_stack(tos - 8, func, regs);
+	ret = asm_call_sysvec_on_stack(tos - 8, func, regs);
 	__this_cpu_sub(irq_count, 1);
+	return ret;
 }
 
 static __always_inline void
@@ -51,11 +53,11 @@ __run_irq_on_irqstack(void (*func)(struct irq_desc *desc),
 
 #else /* CONFIG_X86_64 */
 static inline bool irqstack_active(void) { return false; }
-static inline void __run_on_irqstack(void (*func)(void)) { }
-static inline void __run_sysvec_on_irqstack(void (*func)(struct pt_regs *regs),
-					    struct pt_regs *regs) { }
-static inline void __run_irq_on_irqstack(void (*func)(struct irq_desc *desc),
-					 struct irq_desc *desc) { }
+static inline int __run_on_irqstack(int (*func)(void)) { }
+static inline int __run_sysvec_on_irqstack(int (*func)(struct pt_regs *regs),
+					   struct pt_regs *regs) { }
+static inline int __run_irq_on_irqstack(int (*func)(struct irq_desc *desc),
+					struct irq_desc *desc) { }
 #endif /* !CONFIG_X86_64 */
 
 static __always_inline bool irq_needs_irq_stack(struct pt_regs *regs)
@@ -79,16 +81,16 @@ static __always_inline void run_on_irqstack_cond(void (*func)(void),
 		func();
 }
 
-static __always_inline void
-run_sysvec_on_irqstack_cond(void (*func)(struct pt_regs *regs),
+static __always_inline int
+run_sysvec_on_irqstack_cond(int (*func)(struct pt_regs *regs),
 			    struct pt_regs *regs)
 {
 	lockdep_assert_irqs_disabled();
 
 	if (irq_needs_irq_stack(regs))
-		__run_sysvec_on_irqstack(func, regs);
+		return __run_sysvec_on_irqstack(func, regs);
 	else
-		func(regs);
+		return func(regs);
 }
 
 static __always_inline void

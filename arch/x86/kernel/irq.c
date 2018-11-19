@@ -260,6 +260,7 @@ DEFINE_IDTENTRY_IRQ(common_interrupt)
 	}
 
 	set_irq_regs(old_regs);
+	return 0;
 }
 
 #ifdef CONFIG_X86_LOCAL_APIC
@@ -279,6 +280,7 @@ DEFINE_IDTENTRY_SYSVEC(sysvec_x86_platform_ipi)
 		x86_platform_ipi_callback();
 	trace_x86_platform_ipi_exit(X86_PLATFORM_IPI_VECTOR);
 	set_irq_regs(old_regs);
+	return 0;
 }
 #endif
 
@@ -302,6 +304,7 @@ DEFINE_IDTENTRY_SYSVEC_SIMPLE(sysvec_kvm_posted_intr_ipi)
 {
 	ack_APIC_irq();
 	inc_irq_stat(kvm_posted_intr_ipis);
+	return 0;
 }
 
 /*
@@ -312,6 +315,7 @@ DEFINE_IDTENTRY_SYSVEC(sysvec_kvm_posted_intr_wakeup_ipi)
 	ack_APIC_irq();
 	inc_irq_stat(kvm_posted_intr_wakeup_ipis);
 	kvm_posted_intr_wakeup_handler();
+	return 0;
 }
 
 /*
@@ -321,6 +325,7 @@ DEFINE_IDTENTRY_SYSVEC_SIMPLE(sysvec_kvm_posted_intr_nested_ipi)
 {
 	ack_APIC_irq();
 	inc_irq_stat(kvm_posted_intr_nested_ipis);
+	return 0;
 }
 #endif
 
