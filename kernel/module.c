@@ -46,6 +46,7 @@
 #include <asm/mmu_context.h>
 #include <linux/license.h>
 #include <asm/sections.h>
+#include <linux/dtrace_os.h>
 #include <linux/tracepoint.h>
 #include <linux/ftrace.h>
 #include <linux/livepatch.h>
@@ -90,6 +91,9 @@
  */
 static DEFINE_MUTEX(module_mutex);
 static LIST_HEAD(modules);
+#ifdef CONFIG_DTRACE
+struct list_head *dtrace_modules = &modules;
+#endif /* CONFIG_DTRACE */
 
 /* Work queue for freeing init sections in success case */
 static void do_free_init(struct work_struct *w);
@@ -956,6 +960,12 @@ SYSCALL_DEFINE2(delete_module, const char __user *, name_user,
 			ret = -EBUSY;
 			goto out;
 		}
+	}
+
+	/* Try destroying DTrace provider. */
+	if (!dtrace_destroy_prov(mod)) {
+		ret = -EBUSY;
+		goto out;
 	}
 
 	/* Stop the machine so refcounts can't move and disable module. */
@@ -2157,6 +2167,7 @@ static void cfi_cleanup(struct module *mod);
 /* Free a module, remove from lists, etc. */
 static void free_module(struct module *mod)
 {
+	dtrace_mod_pdata_free(mod);
 	trace_module_free(mod);
 
 	mod_sysfs_teardown(mod);
@@ -4049,6 +4060,9 @@ static int load_module(struct load_info *info, const char __user *uargs,
 
 	/* Ftrace init must be called in the MODULE_STATE_UNFORMED state */
 	ftrace_module_init(mod);
+
+	/* Allocate DTrace per-module data. */
+	dtrace_mod_pdata_alloc(mod);
 
 	/* Finally it's fully formed, ready to start executing. */
 	err = complete_formation(mod, info);
