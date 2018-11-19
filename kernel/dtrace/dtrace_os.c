@@ -18,6 +18,7 @@
 
 #include <linux/binfmts.h>
 #include <linux/dtrace_cpu.h>
+#include <linux/dtrace_fbt.h>
 #include <linux/dtrace_os.h>
 #include <linux/dtrace_sdt.h>
 #include <linux/fs.h>
@@ -103,6 +104,7 @@ void __init dtrace_os_init(void)
 	dtrace_kmod->core_layout.size = 0x2000000;
 #endif
 
+	dtrace_kmod->num_ftrace_callsites = dtrace_fbt_nfuncs;
 	dtrace_kmod->state = MODULE_STATE_LIVE;
 	atomic_inc(&dtrace_kmod->refcnt);
 
