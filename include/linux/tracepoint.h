@@ -19,6 +19,7 @@
 #include <linux/cpumask.h>
 #include <linux/rcupdate.h>
 #include <linux/tracepoint-defs.h>
+#include <linux/sdt.h>
 
 struct module;
 struct tracepoint;
@@ -232,6 +233,8 @@ static inline struct tracepoint *tracepoint_ptr_deref(tracepoint_ptr_t *p)
 	extern struct tracepoint __tracepoint_##name;			\
 	static inline void trace_##name(proto)				\
 	{								\
+		DTRACE_PROBE_TRACEPOINT(name, args);			\
+		DTRACE_PROTO_TRACEPOINT(name, proto);			\
 		if (static_key_false(&__tracepoint_##name.key))		\
 			__DO_TRACE(&__tracepoint_##name,		\
 				TP_PROTO(data_proto),			\
@@ -298,7 +301,10 @@ static inline struct tracepoint *tracepoint_ptr_deref(tracepoint_ptr_t *p)
 #else /* !TRACEPOINTS_ENABLED */
 #define __DECLARE_TRACE(name, proto, args, cond, data_proto, data_args) \
 	static inline void trace_##name(proto)				\
-	{ }								\
+	{								\
+		DTRACE_PROBE_TRACEPOINT(name, args);			\
+		DTRACE_PROTO_TRACEPOINT(name, proto);			\
+	}								\
 	static inline void trace_##name##_rcuidle(proto)		\
 	{ }								\
 	static inline int						\
