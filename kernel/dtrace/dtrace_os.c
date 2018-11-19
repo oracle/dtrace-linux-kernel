@@ -19,6 +19,7 @@
 #include <linux/binfmts.h>
 #include <linux/dtrace_cpu.h>
 #include <linux/dtrace_os.h>
+#include <linux/dtrace_sdt.h>
 #include <linux/fs.h>
 #include <linux/hardirq.h>
 #include <linux/interrupt.h>
@@ -67,13 +68,95 @@ void __init dtrace_os_init(void)
 		pr_debug("Can't allocate kmem cache for pdata\n");
 
 	/*
+	 * A little bit of magic...
+	 * We create a dummy module to represent the core Linux kernel.  The
+	 * only data we're interested in is the name, the SDT probe points data
+	 * (to be filled in by dtrace_sdt_register()), and the probe data.
+	 * DTrace uses an architecture-specific structure (hidden from us here)
+	 * to hold some data.
+	 */
+	dtrace_kmod = kmalloc(sizeof(struct module), GFP_KERNEL | __GFP_ZERO);
+	if (dtrace_kmod == NULL) {
+		pr_warn("%s: cannot allocate kernel pseudo-module\n",
+			__func__);
+		return;
+	}
+
+	strlcpy(dtrace_kmod->name, "vmlinux", MODULE_NAME_LEN);
+
+	/*
+	 * Some sizing info is required for kernel module. We are going to use
+	 * modules VA range for trampoline anyway so lets pretend a kernel has
+	 * no init section and VA range (0, MODULES_VADDR) is occupied by
+	 * kernel itself
+	 */
+#ifdef CONFIG_X86_64
+	dtrace_kmod->core_layout.base = (void *)__START_KERNEL_map;
+	dtrace_kmod->core_layout.size = KERNEL_IMAGE_SIZE;
+#elif defined(CONFIG_SPARC64)
+	/* Hardcoded see pgtable_64.h */
+	dtrace_kmod->core_layout.base = (void *)0x4000000;
+	dtrace_kmod->core_layout.size = 0x2000000;
+#endif
+
+	dtrace_kmod->state = MODULE_STATE_LIVE;
+	atomic_inc(&dtrace_kmod->refcnt);
+
+	dtrace_mod_pdata_alloc(dtrace_kmod);
+
+	INIT_LIST_HEAD(&dtrace_kmod->source_list);
+	INIT_LIST_HEAD(&dtrace_kmod->target_list);
+
+	/*
 	 * We need to set up a psinfo structure for PID 0 (swapper).
 	 */
 	dtrace_task_os_init();
 	dtrace_psinfo_os_init();
 	dtrace_task_init(&init_task);
 	dtrace_psinfo_alloc(&init_task);
+
+	dtrace_sdt_init();
+	dtrace_sdt_register(dtrace_kmod);
 }
+
+#define	MIN(a, b)	(((a) < (b)) ? (a) : (b))
+#define	MAX(a, b)	(((a) > (b)) ? (a) : (b))
+#define TRAMP_RANGE	0x80000000
+
+void *dtrace_alloc_text(struct module *mp, unsigned long size)
+{
+	unsigned long mp_start, mp_end;
+	unsigned long va_start, va_end;
+	void *trampoline;
+
+	/* module range */
+	mp_start = (unsigned long) mp->core_layout.base;
+	mp_end = mp_start + mp->core_layout.size;
+
+	if (mp->init_layout.size) {
+		mp_start = MIN(mp_start, (unsigned long)mp->init_layout.base);
+		mp_end = MAX(mp_end, (unsigned long)mp->init_layout.base +
+			     mp->init_layout.size);
+	}
+
+	/* get trampoline range */
+	va_end = MIN(mp_start + TRAMP_RANGE, MODULES_END);
+	va_start = (mp_end < TRAMP_RANGE) ? 0 : mp_end - TRAMP_RANGE;
+	va_start = MAX(va_start, MODULES_VADDR);
+
+	trampoline =  __vmalloc_node_range(size, 1, va_start, va_end,
+				    GFP_KERNEL, PAGE_KERNEL, 0, NUMA_NO_NODE,
+				    __builtin_return_address(0));
+
+	return trampoline;
+}
+EXPORT_SYMBOL(dtrace_alloc_text);
+
+void dtrace_free_text(void *ptr)
+{
+	return vfree(ptr);
+}
+EXPORT_SYMBOL(dtrace_free_text);
 
 /*
  * MODULE SUPPORT FUNCTIONS
