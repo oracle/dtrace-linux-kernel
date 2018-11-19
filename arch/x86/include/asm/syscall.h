@@ -24,7 +24,11 @@ typedef asmlinkage long (*sys_call_ptr_t)(unsigned long, unsigned long,
 					  unsigned long, unsigned long,
 					  unsigned long, unsigned long);
 #endif /* CONFIG_X86_64 */
+#if IS_ENABLED(CONFIG_DT_SYSTRACE)
+extern sys_call_ptr_t sys_call_table[];
+#else
 extern const sys_call_ptr_t sys_call_table[];
+#endif
 
 #if defined(CONFIG_X86_32)
 #define ia32_sys_call_table sys_call_table
@@ -33,7 +37,11 @@ extern const sys_call_ptr_t sys_call_table[];
 #endif
 
 #if defined(CONFIG_IA32_EMULATION)
+#if IS_ENABLED(CONFIG_DT_SYSTRACE)
+extern sys_call_ptr_t ia32_sys_call_table[];
+#else
 extern const sys_call_ptr_t ia32_sys_call_table[];
+#endif
 #endif
 
 #ifdef CONFIG_X86_X32_ABI
