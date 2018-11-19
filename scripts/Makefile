@@ -10,6 +10,7 @@ hostprogs-always-$(CONFIG_BUILDTIME_TABLE_SORT)		+= sorttable
 hostprogs-always-$(CONFIG_ASN1)				+= asn1_compiler
 hostprogs-always-$(CONFIG_MODULE_SIG_FORMAT)		+= sign-file
 hostprogs-always-$(CONFIG_SYSTEM_EXTRA_CERTIFICATE)	+= insert-sys-cert
+hostprogs-always-$(CONFIG_DTRACE)			+= kmodsdt
 
 HOSTCFLAGS_sorttable.o = -I$(srctree)/tools/include
 HOSTLDLIBS_sorttable = -lpthread
@@ -33,6 +34,11 @@ kallsyms-objs  := kallsyms.o
 
 ifdef CONFIG_KALLMODSYMS
 kallsyms-objs += modules_thick.o
+endif
+
+ifeq ($(CONFIG_DTRACE),y)
+HOSTCFLAGS_kmodsdt.o := -I$(srctree)/include/generated
+HOSTLDLIBS_kmodsdt := -lelf
 endif
 
 # The following programs are only built on demand
