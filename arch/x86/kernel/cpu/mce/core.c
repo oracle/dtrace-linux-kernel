@@ -1183,7 +1183,7 @@ static void __mc_scan_banks(struct mce *m, struct mce *final,
  * MCE broadcast. However some CPUs might be broken beyond repair,
  * so be always careful when synchronizing with others.
  */
-void do_machine_check(struct pt_regs *regs, long error_code)
+int do_machine_check(struct pt_regs *regs, long error_code)
 {
 	DECLARE_BITMAP(valid_banks, MAX_NR_BANKS);
 	DECLARE_BITMAP(toclear, MAX_NR_BANKS);
@@ -1218,7 +1218,7 @@ void do_machine_check(struct pt_regs *regs, long error_code)
 	int lmce = 1;
 
 	if (__mc_check_crashing_cpu(cpu))
-		return;
+		return 0;
 
 	ist_enter(regs);
 
@@ -1325,6 +1325,7 @@ void do_machine_check(struct pt_regs *regs, long error_code)
 
 out_ist:
 	ist_exit(regs);
+	return 0;
 }
 EXPORT_SYMBOL_GPL(do_machine_check);
 
@@ -1802,19 +1803,20 @@ static void __mcheck_cpu_init_timer(void)
 }
 
 /* Handle unconfigured int18 (should never happen) */
-static void unexpected_machine_check(struct pt_regs *regs, long error_code)
+static int unexpected_machine_check(struct pt_regs *regs, long error_code)
 {
 	pr_err("CPU#%d: Unexpected int18 (Machine Check)\n",
 	       smp_processor_id());
+	return 0;
 }
 
 /* Call the installed machine check handler for this CPU setup. */
-void (*machine_check_vector)(struct pt_regs *, long error_code) =
+int (*machine_check_vector)(struct pt_regs *, long error_code) =
 						unexpected_machine_check;
 
-dotraplinkage void do_mce(struct pt_regs *regs, long error_code)
+dotraplinkage int do_mce(struct pt_regs *regs, long error_code)
 {
-	machine_check_vector(regs, error_code);
+	return machine_check_vector(regs, error_code);
 }
 
 /*
