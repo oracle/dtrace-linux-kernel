@@ -1549,7 +1549,7 @@ DEFINE_IDTENTRY_RAW_ERRORCODE(exc_page_fault)
 	 * itself.
 	 */
 	if (kvm_handle_async_pf(regs, (u32)address))
-		return;
+		return 0;
 
 	/*
 	 * Entry handling for valid #PF from kernel mode is slightly
@@ -1568,4 +1568,5 @@ DEFINE_IDTENTRY_RAW_ERRORCODE(exc_page_fault)
 	instrumentation_end();
 
 	irqentry_exit(regs, state);
+	return 0;
 }
