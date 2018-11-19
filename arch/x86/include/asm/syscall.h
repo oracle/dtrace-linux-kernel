@@ -17,7 +17,11 @@
 #include <asm/unistd.h>
 
 typedef long (*sys_call_ptr_t)(const struct pt_regs *);
+#if IS_ENABLED(CONFIG_DT_SYSTRACE)
+extern sys_call_ptr_t sys_call_table[];
+#else
 extern const sys_call_ptr_t sys_call_table[];
+#endif
 
 #if defined(CONFIG_X86_32)
 #define ia32_sys_call_table sys_call_table
@@ -26,7 +30,11 @@ extern const sys_call_ptr_t sys_call_table[];
  * These may not exist, but still put the prototypes in so we
  * can use IS_ENABLED().
  */
+#if IS_ENABLED(CONFIG_DT_SYSTRACE)
+extern sys_call_ptr_t ia32_sys_call_table[];
+#else
 extern const sys_call_ptr_t ia32_sys_call_table[];
+#endif
 extern const sys_call_ptr_t x32_sys_call_table[];
 #endif
 
