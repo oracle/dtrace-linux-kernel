@@ -150,6 +150,7 @@ $M	%exclude /lib/modules/$KERNELRELEASE/source
 	%files headers
 	%defattr (-, root, root)
 	/usr/include
+	%exclude /usr/include/linux/dtrace
 $S$M
 $S$M	%files devel
 $S$M	%defattr (-, root, root)
