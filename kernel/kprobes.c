@@ -36,6 +36,10 @@
 #include <linux/cpu.h>
 #include <linux/jump_label.h>
 
+#ifdef CONFIG_DTRACE
+#include <linux/dtrace_fbt.h>
+#endif
+
 #include <asm/sections.h>
 #include <asm/cacheflush.h>
 #include <asm/errno.h>
@@ -2151,6 +2155,10 @@ int kprobe_add_ksym_blacklist(unsigned long entry)
 	if (!kernel_text_address(entry) ||
 	    !kallsyms_lookup_size_offset(entry, &size, &offset))
 		return -EINVAL;
+
+#ifdef CONFIG_DTRACE
+	dtrace_fbt_bl_add(entry, NULL);
+#endif
 
 	ent = kmalloc(sizeof(*ent), GFP_KERNEL);
 	if (!ent)

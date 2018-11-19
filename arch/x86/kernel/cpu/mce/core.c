@@ -1222,7 +1222,7 @@ static void __mc_scan_banks(struct mce *m, struct mce *final,
  * backing the user stack, tracing that reads the user stack will cause
  * potentially infinite recursion.
  */
-void notrace do_machine_check(struct pt_regs *regs, long error_code)
+int notrace do_machine_check(struct pt_regs *regs, long error_code)
 {
 	DECLARE_BITMAP(valid_banks, MAX_NR_BANKS);
 	DECLARE_BITMAP(toclear, MAX_NR_BANKS);
@@ -1257,7 +1257,7 @@ void notrace do_machine_check(struct pt_regs *regs, long error_code)
 	int lmce = 1;
 
 	if (__mc_check_crashing_cpu(cpu))
-		return;
+		return 0;
 
 	ist_enter(regs);
 
@@ -1366,6 +1366,7 @@ void notrace do_machine_check(struct pt_regs *regs, long error_code)
 
 out_ist:
 	ist_exit(regs);
+	return 0;
 }
 EXPORT_SYMBOL_GPL(do_machine_check);
 NOKPROBE_SYMBOL(do_machine_check);
@@ -1893,19 +1894,20 @@ bool filter_mce(struct mce *m)
 }
 
 /* Handle unconfigured int18 (should never happen) */
-static void unexpected_machine_check(struct pt_regs *regs, long error_code)
+static int unexpected_machine_check(struct pt_regs *regs, long error_code)
 {
 	pr_err("CPU#%d: Unexpected int18 (Machine Check)\n",
 	       smp_processor_id());
+	return 0;
 }
 
 /* Call the installed machine check handler for this CPU setup. */
-void (*machine_check_vector)(struct pt_regs *, long error_code) =
+int (*machine_check_vector)(struct pt_regs *, long error_code) =
 						unexpected_machine_check;
 
-dotraplinkage notrace void do_mce(struct pt_regs *regs, long error_code)
+dotraplinkage notrace int do_mce(struct pt_regs *regs, long error_code)
 {
-	machine_check_vector(regs, error_code);
+	return machine_check_vector(regs, error_code);
 }
 NOKPROBE_SYMBOL(do_mce);
 
