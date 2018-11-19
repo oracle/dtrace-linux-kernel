@@ -680,6 +680,7 @@ drivers-$(CONFIG_SAMPLES) += samples/
 drivers-$(CONFIG_NET) += net/
 drivers-y	+= virt/
 libs-y		:= lib/
+dtrace-y	:= dtrace/
 endif # KBUILD_EXTMOD
 
 # The all: target is the default when no target is given on the
