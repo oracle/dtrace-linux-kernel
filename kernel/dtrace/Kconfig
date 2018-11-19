@@ -23,6 +23,12 @@ config DT_CORE
 
 if DT_CORE
 
+config DT_PROFILE
+	tristate "Profile Interrupt Tracing"
+	default m
+	help
+	  The profile and tick providers, firing probes at specific intervals.
+
 config DT_SDT
 	tristate "Statically Defined Tracing"
 	default m
@@ -53,6 +59,12 @@ config DT_DT_TEST
 	default m
 	help
 	  A test provider used by the testsuite.
+
+config DT_DT_PERF
+	tristate "DTrace Performance Test Probe"
+	default m
+	help
+	  A test provider used for performance testing.
 
 config DT_DEBUG
 	bool "DTrace debugging"
