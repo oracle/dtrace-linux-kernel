@@ -30,6 +30,26 @@
 extern void queued_read_lock_slowpath(struct qrwlock *lock);
 extern void queued_write_lock_slowpath(struct qrwlock *lock);
 
+#ifdef CONFIG_DTRACE
+/**
+ * queued_peek_read_can_lock -- would read_trylock() be likely to succeed?
+ * @lock: Pointer to queue rwlock structure
+ */
+static inline int queued_peek_read_can_lock(struct qrwlock *lock)
+{
+	return !(atomic_read(&lock->cnts) & _QW_WMASK);
+}
+
+/**
+ * queued_peek_write_can_lock -- would write_trylock() be likely to succeed?
+ * @lock: Pointer to queue rwlock structure
+ */
+static inline int queued_peek_write_can_lock(struct qrwlock *lock)
+{
+	return !atomic_read(&lock->cnts);
+}
+#endif /* CONFIG_DTRACE */
+
 /**
  * queued_read_trylock - try to acquire read lock of a queue rwlock
  * @lock : Pointer to queue rwlock structure
@@ -120,6 +140,10 @@ static inline void queued_write_unlock(struct qrwlock *lock)
  * Remapping rwlock architecture specific functions to the corresponding
  * queue rwlock functions.
  */
+#ifdef CONFIG_DTRACE
+#define arch_peek_read_can_lock(l)	queued_peek_read_can_lock(l)
+#define arch_peek_write_can_lock(l)	queued_peek_write_can_lock(l)
+#endif /* CONFIG_DTRACE */
 #define arch_read_lock(l)	queued_read_lock(l)
 #define arch_write_lock(l)	queued_write_lock(l)
 #define arch_read_trylock(l)	queued_read_trylock(l)
