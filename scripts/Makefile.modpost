@@ -14,7 +14,7 @@
 # 2) modpost is then used to
 # 3)  create one <module>.mod.c file pr. module
 # 4)  create one Module.symvers file with CRC for all exported symbols
-# 5) compile all <module>.mod.c files
+# 5) compute SDT offsets, generate SDT stubs, and compile all .mod.c files
 # 6) for external modules, generate CTF for the module (there is an extra,
 #    externally-invoked target that does this for the entire kernel but does
 #    not invoke the rst of the module-building process)
@@ -106,18 +106,56 @@ vmlinux.o: FORCE
 # Declare generated files as targets for modpost
 $(modules:.ko=.mod.c): __modpost ;
 
-
-# Step 5), compile all *.mod.c files
+# Step 5), compile all *.mod.c files (includes the generation of SDT data
+# and SDT stubs)
 
 # modname is set to make c_flags define KBUILD_MODNAME
 modname = $(notdir $(@:.mod.o=))
 
 quiet_cmd_cc_o_c = CC      $@
       cmd_cc_o_c = $(CC) $(c_flags) $(KBUILD_CFLAGS_MODULE) $(CFLAGS_MODULE) \
-		   -c -o $@ $<
+		   -I$(dir $@) -c -o $@ $<
+
+quiet_cmd_as_o_S = AS      $@
+      cmd_as_o_S = $(CC) $(a_flags) -c -o $@ $<
+
+ifdef CONFIG_DTRACE
+
+sdtgen = $(srctree)/scripts/dtrace_sdt.sh
+
+quiet_cmd_sdtinfo = SDTINF  $@
+      cmd_sdtinfo = $(sdtgen) sdtinfo $@ $< kmod
+
+quiet_cmd_sdtstub = SDTSTB  $@
+      cmd_sdtstub = $(sdtgen) sdtstub $@ $<
+
+# We depend on the .mod.c file to ensure that modpost runs before sdtinfo.
+$(modules:.ko=.sdtinfo.c): %.sdtinfo.c: %.o %.mod.c
+	$(call cmd,sdtinfo)
+
+# We depend on the sdtinfo file because info generation rewrites the .o,
+# while sdtstubs reads it.
+$(modules:.ko=.sdtstub.S) : %.sdtstub.S: %.o %.sdtinfo.c
+	$(call cmd,sdtstub)
+
+$(modules:.ko=.mod.o): %.mod.o: %.mod.c %.sdtinfo.c FORCE
+	$(call if_changed_dep,cc_o_c)
+
+$(modules:.ko=.sdtstub.o): %.sdtstub.o: %.sdtstub.S
+	$(call if_changed,as_o_S)
+
+module-sdt-modular-prereq = %.sdtstub.o
+sdtinfo-prereq = $(modules:.ko=.sdtinfo.c)
+
+else
 
 $(modules:.ko=.mod.o): %.mod.o: %.mod.c FORCE
 	$(call if_changed_dep,cc_o_c)
+
+module-sdt-modular-prereq =
+sdtinfo-prereq =
+
+endif
 
 targets += $(modules:.ko=.mod.o)
 
@@ -171,7 +209,7 @@ $(all-module-ctfs): $(ctf-stamp)
 
 endif
 
-$(ctf-filelist): $(ctf-builtins-prereq) $(ctf-modules)
+$(ctf-filelist): $(ctf-builtins-prereq) $(ctf-modules) | $(sdtinfo-prereq)
 	@rm -f $(ctf-filelist);
 	@if [[ -n "$(ctf-dir-mk)" ]]; then \
 		mkdir -p "$(ctf-dir-mk)"; \
@@ -193,7 +231,8 @@ $(CTF_FILENAME): $(ctf-filelist)
 else
 
 # The CTF depends on the output CTF file list, and that depends
-# on the .o files for the modules
+# on the .o files for the modules, and on the sdtinfo files, if any
+# (for the same reason that the sdtstub does).
 $(ctf-stamp): $(ctf-filelist)
 	$(call if_changed,ctf)
 	@shopt -s nullglob; \
@@ -240,7 +279,7 @@ quiet_cmd_ld_ko_o = LD [M]  $@
         $(OBJCOPY) $(module-ctf-flags) $@.tmp $@ && rm -f $@.tmp ;	\
 	$(if $(ARCH_POSTLINK), $(MAKE) -f $(ARCH_POSTLINK) $@, true)
 
-$(modules): %.ko : %.o %.mod.o $(module-ctfs-modular-prereq) FORCE
+$(modules): %.ko : %.o %.mod.o $(module-sdt-modular-prereq) $(module-ctfs-modular-prereq) FORCE
 	$(call cmd_touch_ctf)
 	+$(call if_changed,ld_ko_o)
 
