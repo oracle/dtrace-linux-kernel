@@ -29,6 +29,7 @@
 #include <linux/mm_types_task.h>
 #include <linux/task_io_accounting.h>
 #include <linux/rseq.h>
+#include <linux/dtrace_task.h>
 
 /* task_struct member predeclarations (sorted alphabetically): */
 struct audit_context;
@@ -1166,6 +1167,9 @@ struct task_struct {
 	struct request_queue		*throttle_queue;
 #endif
 
+#ifdef CONFIG_DTRACE
+	struct dtrace_task		*dt_task;
+#endif
 #ifdef CONFIG_UPROBES
 	struct uprobe_task		*utask;
 #endif
