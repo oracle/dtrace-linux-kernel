@@ -2156,7 +2156,9 @@ static void check_exports(struct module *mod)
 		const char *basename;
 		exp = find_symbol(s->name);
 		if (!exp || exp->module == mod) {
-			if (!s->weak && nr_unresolved++ < MAX_UNRESOLVED_REPORTS)
+			if (!s->weak && nr_unresolved++ < MAX_UNRESOLVED_REPORTS &&
+			    !strstarts(s->name, "__dtrace_probe_") &&
+			    !strstarts(s->name, "__dtrace_isenabled_"))
 				modpost_log(warn_unresolved ? LOG_WARN : LOG_ERROR,
 					    "\"%s\" [%s.ko] undefined!\n",
 					    s->name, mod->name);
@@ -2199,6 +2201,13 @@ static void check_modname_len(struct module *mod)
  **/
 static void add_header(struct buffer *b, struct module *mod)
 {
+	const char *modname;
+
+	modname = strrchr(mod->name, '/');
+	if (modname != NULL)
+		modname++;
+	else
+		modname = mod->name;
 	buf_printf(b, "#include <linux/module.h>\n");
 	/*
 	 * Include build-salt.h after module.h in order to
@@ -2209,6 +2218,10 @@ static void add_header(struct buffer *b, struct module *mod)
 	buf_printf(b, "#include <linux/elfnote-lto.h>\n");
 	buf_printf(b, "#include <linux/vermagic.h>\n");
 	buf_printf(b, "#include <linux/compiler.h>\n");
+	buf_printf(b, "\n");
+	buf_printf(b, "#ifdef CONFIG_DTRACE\n");
+	buf_printf(b, "# include \"%s.sdtinfo.h\"\n", modname);
+	buf_printf(b, "#endif\n");
 	buf_printf(b, "\n");
 	buf_printf(b, "BUILD_SALT;\n");
 	buf_printf(b, "BUILD_LTO_INFO;\n");
@@ -2226,6 +2239,10 @@ static void add_header(struct buffer *b, struct module *mod)
 			      "\t.exit = cleanup_module,\n"
 			      "#endif\n");
 	buf_printf(b, "\t.arch = MODULE_ARCH_INIT,\n");
+	buf_printf(b, "#ifdef CONFIG_DTRACE\n");
+	buf_printf(b, "\t.sdt_probes = _sdt_probes,\n");
+	buf_printf(b, "\t.sdt_probec = _sdt_probec,\n");
+	buf_printf(b, "#endif\n");
 	buf_printf(b, "};\n");
 }
 

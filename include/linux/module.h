@@ -28,6 +28,7 @@
 #include <linux/srcu.h>
 #include <linux/static_call_types.h>
 #include <linux/cfi.h>
+#include <linux/sdt.h>
 
 #include <linux/percpu.h>
 #include <asm/module.h>
@@ -517,8 +518,11 @@ struct module {
 #endif
 
 #ifdef CONFIG_DTRACE
+	struct sdt_probedesc *sdt_probes;
+	unsigned int sdt_probec;
 	void *pdata;
 #endif
+
 #ifdef CONFIG_MODULE_UNLOAD
 	/* What modules depend on me? */
 	struct list_head source_list;

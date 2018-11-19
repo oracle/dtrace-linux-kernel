@@ -66,6 +66,34 @@ gen_symversions()
 	done
 }
 
+# Generate the SDT probe point stubs object file
+# ${1} output file
+sdtstub()
+{
+	info SDTSTB ${1}
+	${srctree}/scripts/dtrace_sdt.sh sdtstub .tmp_sdtstub.S \
+		${KBUILD_VMLINUX_OBJS}
+
+	local aflags="${KBUILD_AFLAGS} ${KBUILD_AFLAGS_KERNEL}               \
+		      ${NOSTDINC_FLAGS} ${LINUXINCLUDE} ${KBUILD_CPPFLAGS}"
+
+	${CC} ${aflags} -c -o ${1} .tmp_sdtstub.S
+}
+
+# Generate the SDT probe info for kernel image ${1}
+# ${2} output file
+sdtinfo()
+{
+	info SDTINF ${2}
+
+	${srctree}/scripts/dtrace_sdt.sh sdtinfo .tmp_sdtinfo.S ${1}
+
+	local aflags="${KBUILD_AFLAGS} ${KBUILD_AFLAGS_KERNEL}               \
+		      ${NOSTDINC_FLAGS} ${LINUXINCLUDE} ${KBUILD_CPPFLAGS}"
+
+	${CC} ${aflags} -c -o ${2} .tmp_sdtinfo.S
+}
+
 # Link of vmlinux.o used for section mismatch analysis: we also strip the CTF
 # section out at this stage, since ctfarchive gets it from the underlying object
 # files  and linking it further is a waste of time.
@@ -156,10 +184,12 @@ objtool_link()
 
 # Link of vmlinux
 # ${1} - output file
-# ${2}, ${3}, ... - optional extra .o files
+# ${2} - optional extra ld flag
+# ${3}, ${4}, ... - optional extra .o files
 vmlinux_link()
 {
 	local output=${1}
+	local extra_ldflag="${2}"
 	local objs
 	local libs
 	local ld
@@ -168,7 +198,8 @@ vmlinux_link()
 
 	info LD ${output}
 
-	# skip output file argument
+	# skip output file and extra_ldflag arguments
+	shift
 	shift
 
 	if [ -n "${CONFIG_LTO_CLANG}" ]; then
@@ -203,7 +234,7 @@ vmlinux_link()
 		ldflags="${ldflags} ${wl}-Map=${output}.map"
 	fi
 
-	${ld} ${ldflags} -o ${output}					\
+	${ld} ${ldflags} ${wl}${extra_ldflags} -o ${output}		\
 		${wl}--whole-archive ${objs} ${wl}--no-whole-archive	\
 		${wl}--start-group ${libs} ${wl}--end-group		\
 		${wl}-Map=.tmp_vmlinux.map $@ ${ldlibs}
@@ -301,7 +332,7 @@ kallsyms_step()
 	kallsymso=${kallsyms_vmlinux}.o
 	kallsyms_S=${kallsyms_vmlinux}.S
 
-	vmlinux_link ${kallsyms_vmlinux} "${kallsymso_prev}" ${btf_vmlinux_bin_o}
+	vmlinux_link ${kallsyms_vmlinux} "${2:-}" "${kallsymso_prev}" ${btf_vmlinux_bin_o} ${sdtstubo} ${sdtinfoo}
 	kallsyms ${kallsyms_vmlinux} ${kallsyms_S}
 
 	info AS ${kallsyms_S}
@@ -329,6 +360,8 @@ cleanup()
 	rm -f .tmp_System.map
 	rm -f .tmp_initcalls.lds
 	rm -f .tmp_symversions.lds
+	rm -f .tmp_sdtstub.*
+	rm -f .tmp_sdtinfo.*
 	rm -f .tmp_vmlinux*
 	rm -f System.map
 	rm -f vmlinux
@@ -364,6 +397,14 @@ fi;
 
 # final build of init/
 ${MAKE} -f "${srctree}/scripts/Makefile.build" obj=init need-builtin=1
+
+sdtstubo=""
+sdtinfoo=""
+if [ -n "${CONFIG_DTRACE}" ]; then
+	sdtstubo=.tmp_sdtstub.o
+	sdtinfoo=.tmp_sdtinfo.o
+	sdtstub ${sdtstubo}
+fi
 
 #link vmlinux.o
 modpost_link vmlinux.o
@@ -417,7 +458,23 @@ if [ -n "${CONFIG_KALLSYMS}" ]; then
 	# a)  Verify that the System.map from vmlinux matches the map from
 	#     ${kallsymso}.
 
+	# step 1
+	if [ -n "${CONFIG_DTRACE}" ]; then
+		sdtinfo vmlinux.o ${sdtinfoo}
+	fi
+
 	kallsyms_step 1
+
+	if [ -n "${CONFIG_DTRACE}" ]; then
+		if [ -n "${CONFIG_ARM64}" ]; then
+			kallsyms_step 1
+		else
+			kallsyms_step 1 -r
+		fi
+		sdtinfo ${kallsyms_vmlinux} ${sdtinfoo} vmlinux.o
+	fi
+
+	# step 2
 	kallsyms_step 2
 
 	# step 3
@@ -429,7 +486,7 @@ if [ -n "${CONFIG_KALLSYMS}" ]; then
 	fi
 fi
 
-vmlinux_link vmlinux "${kallsymso}" ${btf_vmlinux_bin_o}
+vmlinux_link vmlinux "" "${kallsymso}" ${btf_vmlinux_bin_o} ${sdtstubo} ${sdtinfoo}
 
 # fill in BTF IDs
 if [ -n "${CONFIG_DEBUG_INFO_BTF}" -a -n "${CONFIG_BPF}" ]; then
