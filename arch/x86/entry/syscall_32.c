@@ -20,6 +20,10 @@
 
 #define __SYSCALL(nr, sym) __ia32_##sym,
 
+#if IS_ENABLED(CONFIG_DT_SYSTRACE)
+__visible sys_call_ptr_t ia32_sys_call_table[] = {
+#else
 __visible const sys_call_ptr_t ia32_sys_call_table[] = {
+#endif
 #include <asm/syscalls_32.h>
 };
