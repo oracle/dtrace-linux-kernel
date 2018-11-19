@@ -150,3 +150,9 @@ x509.genkey
 
 # Clang's compilation database file
 /compile_commands.json
+
+#
+# Generated DTrace SDT files
+#
+*.sdtinfo.c
+*.sdtstub.S
