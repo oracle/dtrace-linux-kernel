@@ -490,12 +490,12 @@ static DEFINE_PER_CPU(unsigned long, nmi_cr2);
 static DEFINE_PER_CPU(int, update_debug_stack);
 #endif
 
-dotraplinkage notrace void
+dotraplinkage notrace int
 do_nmi(struct pt_regs *regs, long error_code)
 {
 	if (this_cpu_read(nmi_state) != NMI_NOT_RUNNING) {
 		this_cpu_write(nmi_state, NMI_LATCHED);
-		return;
+		return 0;
 	}
 	this_cpu_write(nmi_state, NMI_EXECUTING);
 	this_cpu_write(nmi_cr2, read_cr2());
@@ -537,6 +537,7 @@ nmi_restart:
 
 	if (user_mode(regs))
 		mds_user_clear_cpu_buffers();
+	return 0;
 }
 NOKPROBE_SYMBOL(do_nmi);
 
