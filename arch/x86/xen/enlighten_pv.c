@@ -533,18 +533,19 @@ static void xen_write_ldt_entry(struct desc_struct *dt, int entrynum,
 	preempt_enable();
 }
 
-void noist_exc_debug(struct pt_regs *regs);
+int noist_exc_debug(struct pt_regs *regs);
 
 DEFINE_IDTENTRY_RAW(xenpv_exc_nmi)
 {
 	/* On Xen PV, NMI doesn't use IST.  The C part is the same as native. */
-	exc_nmi(regs);
+	return exc_nmi(regs);
 }
 
 DEFINE_IDTENTRY_RAW_ERRORCODE(xenpv_exc_double_fault)
 {
 	/* On Xen PV, DF doesn't use IST.  The C part is the same as native. */
 	exc_double_fault(regs, error_code);
+	return 0;
 }
 
 DEFINE_IDTENTRY_RAW(xenpv_exc_debug)
@@ -554,9 +555,9 @@ DEFINE_IDTENTRY_RAW(xenpv_exc_debug)
 	 * to the correct handler.
 	 */
 	if (user_mode(regs))
-		noist_exc_debug(regs);
+		return noist_exc_debug(regs);
 	else
-		exc_debug(regs);
+		return exc_debug(regs);
 }
 
 DEFINE_IDTENTRY_RAW(exc_xen_unknown_trap)
@@ -566,6 +567,7 @@ DEFINE_IDTENTRY_RAW(exc_xen_unknown_trap)
 	pr_err("Unknown trap in Xen PV mode.");
 	BUG();
 	instrumentation_end();
+	return 0;
 }
 
 #ifdef CONFIG_X86_MCE
@@ -579,6 +581,7 @@ DEFINE_IDTENTRY_RAW(xenpv_exc_machine_check)
 		noist_exc_machine_check(regs);
 	else
 		exc_machine_check(regs);
+	return 0;
 }
 #endif
 
