@@ -36,6 +36,7 @@
 #include <linux/string.h>
 #include <linux/mutex.h>
 #include <linux/rculist.h>
+#include <linux/sdt.h>
 #include <linux/uaccess.h>
 #include <asm/cacheflush.h>
 #include <linux/set_memory.h>
@@ -43,6 +44,7 @@
 #include <linux/license.h>
 #include <asm/sections.h>
 #include <linux/dtrace_os.h>
+#include <linux/dtrace_sdt.h>
 #include <linux/tracepoint.h>
 #include <linux/ftrace.h>
 #include <linux/livepatch.h>
@@ -3689,6 +3691,18 @@ out_unlocked:
 static int complete_formation(struct module *mod, struct load_info *info)
 {
 	int err;
+
+#ifdef CONFIG_DTRACE
+	void *sdt_args, *sdt_names;
+	unsigned int sdt_args_len, sdt_names_len;
+
+	sdt_names = section_objs(info, "_dtrace_sdt_names", 1,
+				 &sdt_names_len);
+	sdt_args = section_objs(info, "_dtrace_sdt_args", 1,
+				&sdt_args_len);
+	dtrace_sdt_register_module(mod, sdt_names, sdt_names_len,
+				   sdt_args, sdt_args_len);
+#endif
 
 	mutex_lock(&module_mutex);
 
