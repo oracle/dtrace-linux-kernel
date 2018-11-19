@@ -229,6 +229,7 @@ DEFINE_IDTENTRY_SYSVEC_SIMPLE(sysvec_reschedule_ipi)
 	inc_irq_stat(irq_resched_count);
 	scheduler_ipi();
 	trace_reschedule_exit(RESCHEDULE_VECTOR);
+	return 0;
 }
 
 DEFINE_IDTENTRY_SYSVEC(sysvec_call_function)
