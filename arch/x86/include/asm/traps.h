@@ -61,41 +61,41 @@ asmlinkage void xen_machine_check(void);
 asmlinkage void xen_simd_coprocessor_error(void);
 #endif
 
-dotraplinkage void do_divide_error(struct pt_regs *regs, long error_code);
-dotraplinkage void do_debug(struct pt_regs *regs, long error_code);
-dotraplinkage void do_nmi(struct pt_regs *regs, long error_code);
-dotraplinkage void do_int3(struct pt_regs *regs, long error_code);
-dotraplinkage void do_overflow(struct pt_regs *regs, long error_code);
-dotraplinkage void do_bounds(struct pt_regs *regs, long error_code);
-dotraplinkage void do_invalid_op(struct pt_regs *regs, long error_code);
-dotraplinkage void do_device_not_available(struct pt_regs *regs, long error_code);
+dotraplinkage int do_divide_error(struct pt_regs *regs, long error_code);
+dotraplinkage int do_debug(struct pt_regs *regs, long error_code);
+dotraplinkage int do_nmi(struct pt_regs *regs, long error_code);
+dotraplinkage int do_int3(struct pt_regs *regs, long error_code);
+dotraplinkage int do_overflow(struct pt_regs *regs, long error_code);
+dotraplinkage int do_bounds(struct pt_regs *regs, long error_code);
+dotraplinkage int do_invalid_op(struct pt_regs *regs, long error_code);
+dotraplinkage int do_device_not_available(struct pt_regs *regs, long error_code);
 #if defined(CONFIG_X86_64) || defined(CONFIG_DOUBLEFAULT)
-dotraplinkage void do_double_fault(struct pt_regs *regs, long error_code, unsigned long cr2);
+dotraplinkage int do_double_fault(struct pt_regs *regs, long error_code, unsigned long cr2);
 #endif
-dotraplinkage void do_coprocessor_segment_overrun(struct pt_regs *regs, long error_code);
-dotraplinkage void do_invalid_TSS(struct pt_regs *regs, long error_code);
-dotraplinkage void do_segment_not_present(struct pt_regs *regs, long error_code);
-dotraplinkage void do_stack_segment(struct pt_regs *regs, long error_code);
+dotraplinkage int do_coprocessor_segment_overrun(struct pt_regs *regs, long error_code);
+dotraplinkage int do_invalid_TSS(struct pt_regs *regs, long error_code);
+dotraplinkage int do_segment_not_present(struct pt_regs *regs, long error_code);
+dotraplinkage int do_stack_segment(struct pt_regs *regs, long error_code);
 #ifdef CONFIG_X86_64
-dotraplinkage void do_double_fault(struct pt_regs *regs, long error_code, unsigned long address);
+dotraplinkage int do_double_fault(struct pt_regs *regs, long error_code, unsigned long address);
 asmlinkage __visible notrace struct pt_regs *sync_regs(struct pt_regs *eregs);
 asmlinkage __visible notrace
 struct bad_iret_stack *fixup_bad_iret(struct bad_iret_stack *s);
 void __init trap_init(void);
 #endif
-dotraplinkage void do_general_protection(struct pt_regs *regs, long error_code);
-dotraplinkage void do_page_fault(struct pt_regs *regs, unsigned long error_code, unsigned long address);
-dotraplinkage void do_spurious_interrupt_bug(struct pt_regs *regs, long error_code);
-dotraplinkage void do_coprocessor_error(struct pt_regs *regs, long error_code);
-dotraplinkage void do_alignment_check(struct pt_regs *regs, long error_code);
+dotraplinkage int do_general_protection(struct pt_regs *regs, long error_code);
+dotraplinkage int do_page_fault(struct pt_regs *regs, unsigned long error_code, unsigned long address);
+dotraplinkage int do_spurious_interrupt_bug(struct pt_regs *regs, long error_code);
+dotraplinkage int do_coprocessor_error(struct pt_regs *regs, long error_code);
+dotraplinkage int do_alignment_check(struct pt_regs *regs, long error_code);
 #ifdef CONFIG_X86_MCE
-dotraplinkage void do_machine_check(struct pt_regs *regs, long error_code);
+dotraplinkage int do_machine_check(struct pt_regs *regs, long error_code);
 #endif
-dotraplinkage void do_simd_coprocessor_error(struct pt_regs *regs, long error_code);
+dotraplinkage int do_simd_coprocessor_error(struct pt_regs *regs, long error_code);
 #ifdef CONFIG_X86_32
-dotraplinkage void do_iret_error(struct pt_regs *regs, long error_code);
+dotraplinkage int do_iret_error(struct pt_regs *regs, long error_code);
 #endif
-dotraplinkage void do_mce(struct pt_regs *regs, long error_code);
+dotraplinkage int do_mce(struct pt_regs *regs, long error_code);
 
 static inline int get_si_code(unsigned long condition)
 {

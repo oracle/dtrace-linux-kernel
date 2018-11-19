@@ -242,7 +242,7 @@ u32 kvm_read_and_reset_pf_reason(void)
 EXPORT_SYMBOL_GPL(kvm_read_and_reset_pf_reason);
 NOKPROBE_SYMBOL(kvm_read_and_reset_pf_reason);
 
-dotraplinkage void
+dotraplinkage int
 do_async_page_fault(struct pt_regs *regs, unsigned long error_code, unsigned long address)
 {
 	enum ctx_state prev_state;
@@ -263,6 +263,8 @@ do_async_page_fault(struct pt_regs *regs, unsigned long error_code, unsigned lon
 		rcu_irq_exit();
 		break;
 	}
+
+	return 0;
 }
 NOKPROBE_SYMBOL(do_async_page_fault);
 
