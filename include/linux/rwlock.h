@@ -59,6 +59,13 @@ do {								\
 # define do_raw_write_unlock(rwlock)	do {arch_write_unlock(&(rwlock)->raw_lock); __release(lock); } while (0)
 #endif
 
+#ifdef CONFIG_DTRACE
+#define peek_read_can_lock(rwlock) \
+	arch_peek_read_can_lock(&(rwlock)->raw_lock)
+#define peek_write_can_lock(rwlock) \
+	arch_peek_write_can_lock(&(rwlock)->raw_lock)
+#endif /* CONFIG_DTRACE */
+
 /*
  * Define the various rw_lock methods.  Note we define these
  * regardless of whether CONFIG_SMP or CONFIG_PREEMPT are set. The various

@@ -344,6 +344,7 @@ extern bool dl_cpu_busy(unsigned int cpu);
 #ifdef CONFIG_CGROUP_SCHED
 
 #include <linux/cgroup.h>
+#include <linux/dtrace_cpu.h>
 #include <linux/psi.h>
 
 struct cfs_rq;
@@ -1062,6 +1063,10 @@ struct rq {
 #endif
 	unsigned int		push_busy;
 	struct cpu_stop_work	push_work;
+
+#ifdef CONFIG_DTRACE
+	struct cpuinfo		*dtrace_cpu_info;
+#endif
 };
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
