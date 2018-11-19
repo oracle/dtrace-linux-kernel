@@ -194,6 +194,20 @@
 #define ERROR_INJECT_WHITELIST()
 #endif
 
+#ifdef CONFIG_DTRACE
+#define DTRACE_SDT_NAMES()	. = ALIGN(8);				\
+				__start_dtrace_sdt_names = .;		\
+				KEEP(*(_dtrace_sdt_names))		\
+				__stop_dtrace_sdt_names = .;
+#define DTRACE_SDT_ARGS()	. = ALIGN(8);				\
+				__start_dtrace_sdt_args = .;		\
+				KEEP(*(_dtrace_sdt_args))		\
+				__stop_dtrace_sdt_args = .;
+#else
+#define DTRACE_SDT_NAMES()
+#define DTRACE_SDT_ARGS()
+#endif
+
 #ifdef CONFIG_EVENT_TRACING
 #define FTRACE_EVENTS()	. = ALIGN(8);					\
 			__start_ftrace_events = .;			\
@@ -652,6 +666,8 @@
 	FTRACE_EVENTS()							\
 	TRACE_SYSCALLS()						\
 	KPROBE_BLACKLIST()						\
+	DTRACE_SDT_NAMES()						\
+	DTRACE_SDT_ARGS()						\
 	ERROR_INJECT_WHITELIST()					\
 	MEM_DISCARD(init.rodata)					\
 	CLK_OF_TABLES()							\
