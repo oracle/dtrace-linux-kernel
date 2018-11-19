@@ -14,6 +14,9 @@
 #include <linux/mm.h>
 #include <linux/notifier.h>
 #include <linux/timekeeper_internal.h>
+#if IS_ENABLED(CONFIG_DT_FASTTRAP)
+#include <linux/uprobes.h>
+#endif
 #include <asm/unistd.h>
 #include <linux/dtrace_cpu.h>
 #include <linux/dtrace_task.h>
@@ -94,7 +97,27 @@ static inline int dtrace_no_pf(struct pt_regs *regs)
 }
 
 extern void (*dtrace_helpers_cleanup)(struct task_struct *);
+extern void (*dtrace_fasttrap_probes_cleanup)(struct task_struct *);
 extern void (*dtrace_helpers_fork)(struct task_struct *, struct task_struct *);
+
+#if IS_ENABLED(CONFIG_DT_FASTTRAP)
+struct fasttrap_machtp {
+	struct inode		*fmtp_ino;
+	loff_t			fmtp_off;
+	struct uprobe_consumer	fmtp_cns;
+};
+
+extern int (*dtrace_tracepoint_hit)(struct fasttrap_machtp *,
+				    struct pt_regs *, int);
+
+extern struct task_struct *register_pid_provider(pid_t);
+extern void unregister_pid_provider(pid_t);
+
+extern int dtrace_copy_code(pid_t, uint8_t *, uintptr_t, size_t);
+extern int dtrace_tracepoint_enable(pid_t, uintptr_t, int,
+				    struct fasttrap_machtp *);
+extern int dtrace_tracepoint_disable(pid_t, struct fasttrap_machtp *);
+#endif /* CONFIG_DT_FASTTRAP || CONFIG_DT_FASTTRAP_MODULE */
 
 #else
 
