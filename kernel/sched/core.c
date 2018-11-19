@@ -13,6 +13,7 @@
 #include "sched.h"
 
 #include <linux/nospec.h>
+#include <linux/dtrace_os.h>
 
 #include <linux/kcov.h>
 #include <linux/scs.h>
@@ -4580,6 +4581,11 @@ static struct rq *finish_task_switch(struct task_struct *prev)
 		preempt_count_set(FORK_PREEMPT_COUNT);
 
 	rq->prev_mm = NULL;
+
+#ifdef CONFIG_DTRACE
+	if (dtrace_vtime_active)
+		dtrace_vtime_switch(prev, current);
+#endif
 
 	/*
 	 * A task struct has one reference for the use as "current".
@@ -9154,6 +9160,9 @@ void __init sched_init(void)
 		rq->core_forceidle = false;
 
 		rq->core_cookie = 0UL;
+#endif
+#ifdef CONFIG_DTRACE
+		rq->dtrace_cpu_info = per_cpu_info(i);
 #endif
 	}
 

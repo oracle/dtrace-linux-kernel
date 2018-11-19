@@ -68,9 +68,13 @@ EXPORT_SYMBOL(__mutex_init);
 /*
  * Internal helper function; C doesn't allow us to hide it :/
  *
- * DO NOT USE (outside of mutex code).
+ * DO NOT USE (outside of mutex code).  (DTrace uses it for mutex_owned when
+ * debugging is on, but when debugging is off, it is truly internal.)
  */
-static inline struct task_struct *__mutex_owner(struct mutex *lock)
+#if !defined(CONFIG_DEBUG_MUTEXES)
+static
+#endif
+inline struct task_struct *__mutex_owner(struct mutex *lock)
 {
 	return (struct task_struct *)(atomic_long_read(&lock->owner) & ~MUTEX_FLAGS);
 }

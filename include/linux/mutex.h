@@ -19,6 +19,9 @@
 #include <asm/processor.h>
 #include <linux/osq_lock.h>
 #include <linux/debug_locks.h>
+#ifdef CONFIG_SMP
+# include <asm/current.h>
+#endif
 
 struct ww_class;
 struct ww_acquire_ctx;
@@ -196,5 +199,18 @@ extern int mutex_trylock(struct mutex *lock);
 extern void mutex_unlock(struct mutex *lock);
 
 extern int atomic_dec_and_mutex_lock(atomic_t *cnt, struct mutex *lock);
+
+#if defined(CONFIG_DEBUG_MUTEXES) || defined(CONFIG_SMP)
+inline struct task_struct *__mutex_owner(struct mutex *lock);
+static inline int mutex_owned(struct mutex *lock)
+{
+	return mutex_is_locked(lock) && __mutex_owner(lock) == current;
+}
+#else
+static inline int mutex_owned(struct mutex *lock)
+{
+	return mutex_is_locked(lock);
+}
+#endif
 
 #endif /* __LINUX_MUTEX_H */

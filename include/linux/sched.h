@@ -35,6 +35,7 @@
 #include <linux/seqlock.h>
 #include <linux/kcsan.h>
 #include <asm/kmap_size.h>
+#include <linux/dtrace_task.h>
 
 /* task_struct member predeclarations (sorted alphabetically): */
 struct audit_context;
@@ -1347,6 +1348,9 @@ struct task_struct {
 	struct request_queue		*throttle_queue;
 #endif
 
+#ifdef CONFIG_DTRACE
+	struct dtrace_task		*dt_task;
+#endif
 #ifdef CONFIG_UPROBES
 	struct uprobe_task		*utask;
 #endif
