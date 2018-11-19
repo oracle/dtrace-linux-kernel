@@ -2101,7 +2101,9 @@ static int check_exports(struct module *mod)
 		const char *basename;
 		exp = find_symbol(s->name);
 		if (!exp || exp->module == mod) {
-			if (have_vmlinux && !s->weak) {
+			if (have_vmlinux && !s->weak &&
+			    !strstarts(s->name, "__dtrace_probe_") &&
+			    !strstarts(s->name, "__dtrace_isenabled_")) {
 				if (warn_unresolved) {
 					warn("\"%s\" [%s.ko] undefined!\n",
 					     s->name, mod->name);
@@ -2148,10 +2150,21 @@ static int check_modname_len(struct module *mod)
  **/
 static void add_header(struct buffer *b, struct module *mod)
 {
+	const char *modname;
+
+	modname = strrchr(mod->name, '/');
+	if (modname != NULL)
+		modname++;
+	else
+		modname = mod->name;
 	buf_printf(b, "#include <linux/build-salt.h>\n");
 	buf_printf(b, "#include <linux/module.h>\n");
 	buf_printf(b, "#include <linux/vermagic.h>\n");
 	buf_printf(b, "#include <linux/compiler.h>\n");
+	buf_printf(b, "\n");
+	buf_printf(b, "#ifdef CONFIG_DTRACE\n");
+	buf_printf(b, "# include \"%s.sdtinfo.c\"\n", modname);
+	buf_printf(b, "#endif\n");
 	buf_printf(b, "\n");
 	buf_printf(b, "BUILD_SALT;\n");
 	buf_printf(b, "\n");
@@ -2168,6 +2181,10 @@ static void add_header(struct buffer *b, struct module *mod)
 			      "\t.exit = cleanup_module,\n"
 			      "#endif\n");
 	buf_printf(b, "\t.arch = MODULE_ARCH_INIT,\n");
+	buf_printf(b, "#ifdef CONFIG_DTRACE\n");
+	buf_printf(b, "\t.sdt_probes = _sdt_probes,\n");
+	buf_printf(b, "\t.sdt_probec = _sdt_probec,\n");
+	buf_printf(b, "#endif\n");
 	buf_printf(b, "};\n");
 }
 
