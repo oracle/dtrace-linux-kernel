@@ -100,6 +100,8 @@
 #include <linux/init_syscalls.h>
 #include <linux/stackdepot.h>
 #include <net/net_namespace.h>
+#include <linux/dtrace_cpu.h>
+#include <linux/dtrace_os.h>
 
 #include <asm/io.h>
 #include <asm/bugs.h>
@@ -1133,6 +1135,10 @@ asmlinkage __visible void __init __no_sanitize_address start_kernel(void)
 	arch_post_acpi_subsys_init();
 	kcsan_init();
 
+#ifdef CONFIG_DTRACE
+	dtrace_os_init();
+#endif
+
 	/* Do the rest non-__init'ed, we're now alive */
 	arch_call_rest_init();
 
@@ -1598,6 +1604,10 @@ static noinline void __init kernel_init_freeable(void)
 	workqueue_init();
 
 	init_mm_internals();
+
+#ifdef CONFIG_DTRACE
+	dtrace_cpu_init();
+#endif
 
 	rcu_init_tasks_generic();
 	do_pre_smp_initcalls();
