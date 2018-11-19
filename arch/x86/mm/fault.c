@@ -1548,7 +1548,14 @@ trace_page_fault_entries(struct pt_regs *regs, unsigned long error_code,
 		trace_page_fault_kernel(address, regs, error_code);
 }
 
-dotraplinkage void
+/*
+ * We must have this function blacklisted from kprobes, tagged with notrace
+ * and call read_cr2() before calling anything else. To avoid calling any
+ * kind of tracing machinery before we've observed the CR2 value.
+ *
+ * exception_{enter,exit}() contains all sorts of tracepoints.
+ */
+dotraplinkage int notrace
 do_page_fault(struct pt_regs *regs, unsigned long hw_error_code,
 		unsigned long address)
 {
@@ -1556,12 +1563,13 @@ do_page_fault(struct pt_regs *regs, unsigned long hw_error_code,
 	trace_page_fault_entries(regs, hw_error_code, address);
 
 	if (unlikely(kmmio_fault(regs, address)))
-		return;
+		return 0;
 
 	/* Was the fault on kernel-controlled part of the address space? */
 	if (unlikely(fault_in_kernel_space(address)))
 		do_kern_addr_fault(regs, hw_error_code, address);
 	else
 		do_user_addr_fault(regs, hw_error_code, address);
+	return 0;
 }
 NOKPROBE_SYMBOL(do_page_fault);
