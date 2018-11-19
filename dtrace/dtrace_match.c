@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * FILE:	dtrace_match.c
  * DESCRIPTION:	DTrace - probe match implementation
@@ -53,22 +54,26 @@ int dtrace_match_probe(const dtrace_probe_t *prp, const dtrace_probekey_t *pkp,
 	if (pvp->dtpv_defunct)
 		return 0;
 
-	if ((rv = pkp->dtpk_pmatch(pvp->dtpv_name, pkp->dtpk_prov, 0)) <= 0)
+	rv = pkp->dtpk_pmatch(pvp->dtpv_name, pkp->dtpk_prov, 0);
+	if (rv <= 0)
 		return rv;
 
-	if ((rv = pkp->dtpk_mmatch(prp->dtpr_mod, pkp->dtpk_mod, 0)) <= 0)
+	rv = pkp->dtpk_mmatch(prp->dtpr_mod, pkp->dtpk_mod, 0);
+	if (rv <= 0)
 		return rv;
 
-	if ((rv = pkp->dtpk_fmatch(prp->dtpr_func, pkp->dtpk_func, 0)) <= 0)
+	rv = pkp->dtpk_fmatch(prp->dtpr_func, pkp->dtpk_func, 0);
+	if (rv <= 0)
 		return rv;
 
-	if ((rv = pkp->dtpk_nmatch(prp->dtpr_name, pkp->dtpk_name, 0)) <= 0)
+	rv = pkp->dtpk_nmatch(prp->dtpr_name, pkp->dtpk_name, 0);
+	if (rv <= 0)
 		return rv;
 
 	if (dtrace_match_priv(prp, priv, uid) == 0)
 		return 0;
 
-        return rv;
+	return rv;
 }
 
 int dtrace_match_glob(const char *s, const char *p, int depth)
@@ -90,7 +95,8 @@ top:
 	if (p == NULL)
 		return 0;
 
-	if ((c = *p++) == '\0')
+	c = *p++;
+	if (c == '\0')
 		return s1 == '\0';
 
 	switch (c) {
@@ -107,16 +113,20 @@ top:
 				p++;
 			}
 
-			if ((c = *p++) == '\0')
+			c = *p++;
+			if (c == '\0')
 				return 0;
 
 			do {
 				if (c == '-' && lc != '\0' && *p != ']') {
-					if ((c = *p++) == '\0')
+					c = *p++;
+					if (c == '\0')
 						return 0;
-					if (c == '\\' && (c = *p++) == '\0')
-						return 0;
-
+					if (c == '\\') {
+						c = *p++;
+						if (c == '\0')
+							return 0;
+					}
 					if (notflag) {
 						if (s1 < lc || s1 > c)
 							ok++;
@@ -124,9 +134,11 @@ top:
 							return 0;
 					} else if (lc <= s1 && s1 <= c)
 						ok++;
-				} else if (c == '\\' && (c = *p++) == '\0')
-					return 0;
-
+				} else if (c == '\\') {
+					c = *p++;
+					if (c == '\0')
+						return 0;
+				}
 				lc = c;
 
 				if (notflag) {
@@ -137,7 +149,8 @@ top:
 				} else if (s1 == c)
 					ok++;
 
-				if ((c = *p++) == '\0')
+				c = *p++;
+				if (c == '\0')
 					return 0;
 			} while (c != ']');
 
@@ -148,7 +161,8 @@ top:
 		}
 
 	case '\\':
-		if ((c = *p++) == '\0')
+		c = *p++;
+		if (c == '\0')
 			return 0;
 
 	default:
@@ -169,7 +183,8 @@ top:
 			return 1;
 
 		for (s = olds; *s != '\0'; s++) {
-			if ((gs = dtrace_match_glob(s, p, depth + 1)) != 0)
+			gs = dtrace_match_glob(s, p, depth + 1);
+			if (gs != 0)
 				return gs;
 		}
 
@@ -212,7 +227,8 @@ static int dtrace_match_one(int id, void *p, void *data)
 
 	pbm->nmatched++;
 
-	if ((rc = (pbm->matched)(probe, pbm->arg)) != DTRACE_MATCH_NEXT) {
+	rc = (pbm->matched)(probe, pbm->arg);
+	if (rc != DTRACE_MATCH_NEXT) {
 		if (rc == DTRACE_MATCH_FAIL)
 			return DTRACE_MATCH_FAIL;
 	}
@@ -228,7 +244,8 @@ int dtrace_match(const dtrace_probekey_t *pkp, uint32_t priv, kuid_t uid,
 	int		len, rc, best = INT_MAX, nmatched = 0;
 
 	if (pkp->dtpk_id != DTRACE_IDNONE) {
-		if ((probe = dtrace_probe_lookup_id(pkp->dtpk_id)) != NULL &&
+		probe = dtrace_probe_lookup_id(pkp->dtpk_id);
+		if (probe != NULL &&
 		    dtrace_match_probe(probe, pkp, priv, uid) > 0) {
 			if ((*matched)(probe, arg) == DTRACE_MATCH_FAIL)
 				return DTRACE_MATCH_FAIL;
@@ -243,22 +260,28 @@ int dtrace_match(const dtrace_probekey_t *pkp, uint32_t priv, kuid_t uid,
 	template.dtpr_func = (char *)pkp->dtpk_func;
 	template.dtpr_name = (char *)pkp->dtpk_name;
 
-	if (pkp->dtpk_mmatch == &dtrace_match_string &&
-	    (len = dtrace_hash_collisions(dtrace_bymod, &template)) < best) {
-		best = len;
-		hash = dtrace_bymod;
+	if (pkp->dtpk_mmatch == &dtrace_match_string) {
+		len = dtrace_hash_collisions(dtrace_bymod, &template);
+		if (len < best) {
+			best = len;
+			hash = dtrace_bymod;
+		}
 	}
 
-	if (pkp->dtpk_fmatch == &dtrace_match_string &&
-	    (len = dtrace_hash_collisions(dtrace_byfunc, &template)) < best) {
-		best = len;
-		hash = dtrace_byfunc;
+	if (pkp->dtpk_fmatch == &dtrace_match_string) {
+		len = dtrace_hash_collisions(dtrace_byfunc, &template);
+		if (len < best) {
+			best = len;
+			hash = dtrace_byfunc;
+		}
 	}
 
-	if (pkp->dtpk_nmatch == &dtrace_match_string &&
-	    (len = dtrace_hash_collisions(dtrace_byname, &template)) < best) {
-		best = len;
-		hash = dtrace_byname;
+	if (pkp->dtpk_nmatch == &dtrace_match_string) {
+		len = dtrace_hash_collisions(dtrace_byname, &template);
+		if (len < best) {
+			best = len;
+			hash = dtrace_byname;
+		}
 	}
 
 	if (hash == NULL) {
@@ -285,7 +308,8 @@ int dtrace_match(const dtrace_probekey_t *pkp, uint32_t priv, kuid_t uid,
 
 		nmatched++;
 
-		if ((rc = (*matched)(probe, arg)) != DTRACE_MATCH_NEXT) {
+		rc = (*matched)(probe, arg);
+		if (rc != DTRACE_MATCH_NEXT) {
 			if (rc == DTRACE_MATCH_FAIL)
 				return DTRACE_MATCH_FAIL;
 
