@@ -28,12 +28,12 @@
 
 int dtrace_instr_size(const asm_instr_t *addr)
 {
-	struct insn		insn;
+	struct insn	insn;
+        int		ret;
 
-	kernel_insn_init(&insn, addr, MAX_INSN_SIZE);
-	insn_get_length(&insn);
+        ret = insn_decode_kernel(&insn, addr);
 
-	return insn_complete(&insn) ? insn.length : -1;
+	return (ret >= 0) ? insn.length : -1;
 }
 EXPORT_SYMBOL(dtrace_instr_size);
 

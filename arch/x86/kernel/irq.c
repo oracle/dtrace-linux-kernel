@@ -303,6 +303,7 @@ DEFINE_IDTENTRY_SYSVEC_SIMPLE(sysvec_kvm_posted_intr_ipi)
 {
 	ack_APIC_irq();
 	inc_irq_stat(kvm_posted_intr_ipis);
+        return 0;
 }
 
 /*
@@ -322,6 +323,7 @@ DEFINE_IDTENTRY_SYSVEC_SIMPLE(sysvec_kvm_posted_intr_nested_ipi)
 {
 	ack_APIC_irq();
 	inc_irq_stat(kvm_posted_intr_nested_ipis);
+	return 0;
 }
 #endif
 
