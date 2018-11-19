@@ -29,6 +29,8 @@
 #include <linux/percpu.h>
 #include <asm/module.h>
 
+#include <linux/sdt.h>
+
 /* Not Yet Implemented */
 #define MODULE_SUPPORTED_DEVICE(name)
 
@@ -499,8 +501,11 @@ struct module {
 #endif
 
 #ifdef CONFIG_DTRACE
+	struct sdt_probedesc *sdt_probes;
+	unsigned int sdt_probec;
 	void *pdata;
 #endif
+
 #ifdef CONFIG_MODULE_UNLOAD
 	/* What modules depend on me? */
 	struct list_head source_list;
