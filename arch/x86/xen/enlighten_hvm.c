@@ -129,6 +129,7 @@ DEFINE_IDTENTRY_SYSVEC(sysvec_xen_hvm_callback)
 	xen_hvm_evtchn_do_upcall();
 
 	set_irq_regs(old_regs);
+	return 0;
 }
 
 #ifdef CONFIG_KEXEC_CORE

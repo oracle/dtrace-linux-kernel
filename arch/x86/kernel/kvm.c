@@ -285,6 +285,7 @@ DEFINE_IDTENTRY_SYSVEC(sysvec_kvm_asyncpf_interrupt)
 	}
 
 	set_irq_regs(old_regs);
+	return 0;
 }
 
 static void __init paravirt_ops_setup(void)
