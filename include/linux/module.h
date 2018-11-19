@@ -25,6 +25,8 @@
 #include <linux/percpu.h>
 #include <asm/module.h>
 
+#include <linux/sdt.h>
+
 /* In stripped ARM and x86-64 modules, ~ is surprisingly rare. */
 #define MODULE_SIG_STRING "~Module signature appended~\n"
 
@@ -460,8 +462,11 @@ struct module {
 #endif
 
 #ifdef CONFIG_DTRACE
+	sdt_probedesc_t *sdt_probes;
+	unsigned int sdt_probec;
 	void *pdata;
 #endif
+
 #ifdef CONFIG_MODULE_UNLOAD
 	/* What modules depend on me? */
 	struct list_head source_list;
