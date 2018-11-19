@@ -158,3 +158,9 @@ x509.genkey
 
 # Documentation toolchain
 sphinx_*/
+#
+# Generated DTrace SDT files
+#
+*.sdtinfo.c
+*.sdtinfo.h
+*.sdtstub.S
