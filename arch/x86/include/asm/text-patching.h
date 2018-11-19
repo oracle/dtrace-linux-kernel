@@ -33,6 +33,7 @@ struct text_poke_loc {
 	const u8 text[POKE_MAX_OPCODE_SIZE];
 };
 
+extern void add_nops(void *insns, unsigned int len);
 extern void text_poke_early(void *addr, const void *opcode, size_t len);
 
 /*
