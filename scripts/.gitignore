@@ -9,3 +9,4 @@ extract-cert
 sign-file
 insert-sys-cert
 /module.lds
+kmodsdt
