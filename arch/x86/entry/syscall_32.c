@@ -15,7 +15,11 @@
 
 #define __SYSCALL_I386(nr, sym) [nr] = __ia32_##sym,
 
+#if IS_ENABLED(CONFIG_DT_SYSTRACE)
+__visible sys_call_ptr_t ia32_sys_call_table[__NR_ia32_syscall_max+1] = {
+#else
 __visible const sys_call_ptr_t ia32_sys_call_table[__NR_ia32_syscall_max+1] = {
+#endif /* CONFIG_DT_SYSTRACE || CONFIG_DT_SYSTRACE_MODULE */
 	/*
 	 * Smells like a compiler bug -- it doesn't work
 	 * when the & below is removed.

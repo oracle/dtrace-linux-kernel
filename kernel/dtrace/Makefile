@@ -3,6 +3,7 @@
 #
 
 DT_CORE_ARCH_OBJS		= $(addprefix ../../arch/$(SRCARCH)/kernel/, \
+				    dtrace_syscall.o dtrace_syscall_stubs.o \
 				    dtrace_util.o)
 
 ifdef CONFIG_DT_CORE
