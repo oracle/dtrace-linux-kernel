@@ -22,7 +22,11 @@ extern asmlinkage long sys_ni_syscall(unsigned long, unsigned long, unsigned lon
 
 #define __SYSCALL_I386(nr, sym, qual) [nr] = sym,
 
+#if IS_ENABLED(CONFIG_DT_SYSTRACE)
+__visible sys_call_ptr_t ia32_sys_call_table[__NR_syscall_compat_max+1] = {
+#else
 __visible const sys_call_ptr_t ia32_sys_call_table[__NR_syscall_compat_max+1] = {
+#endif /* CONFIG_DT_SYSTRACE || CONFIG_DT_SYSTRACE_MODULE */
 	/*
 	 * Smells like a compiler bug -- it doesn't work
 	 * when the & below is removed.
