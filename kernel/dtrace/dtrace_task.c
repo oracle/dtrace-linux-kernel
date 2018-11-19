@@ -22,6 +22,14 @@
 
 struct kmem_cache	*dtrace_task_cachep;
 
+/*
+ * Fasttrap hooks that need to be called when a fasttrap meta provider
+ * is loaded and registered with the framework.
+ */
+void (*dtrace_helpers_cleanup)(struct task_struct *);
+EXPORT_SYMBOL(dtrace_helpers_cleanup);
+void (*dtrace_fasttrap_probes_cleanup)(struct task_struct *);
+EXPORT_SYMBOL(dtrace_fasttrap_probes_cleanup);
 void (*dtrace_helpers_fork)(struct task_struct *, struct task_struct *);
 EXPORT_SYMBOL(dtrace_helpers_fork);
 
@@ -75,6 +83,13 @@ static void dtrace_task_cleanup(struct task_struct *tsk)
 	/* Nothing to remove. */
 	if (tsk->dt_task == NULL)
 		return;
+
+	/* Handle fasttrap provider cleanups. */
+	if (tsk->dt_task->dt_helpers != NULL && dtrace_helpers_cleanup != NULL)
+		(*dtrace_helpers_cleanup)(tsk);
+
+	if (tsk->dt_task->dt_probes && dtrace_fasttrap_probes_cleanup != NULL)
+		(*dtrace_fasttrap_probes_cleanup)(tsk);
 
 	/* Release psinfo if any. */
 	psinfo = tsk->dt_task->dt_psinfo;
