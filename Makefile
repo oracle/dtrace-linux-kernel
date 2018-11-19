@@ -1678,6 +1678,7 @@ clean: $(clean-dirs)
 		-o -name '*.ko.*' -o -name '*.dtb' -o -name '*.dtb.S' \
 		-o -name '*.dwo' -o -name '*.lst' \
 		-o -name '*.su'  \
+		-o -name '*.sdtinfo.c' -o -name '*.sdtstub.S' \
 		-o -name '.*.d' -o -name '.*.tmp' -o -name '*.mod.c' \
 		-o -name '*.lex.c' -o -name '*.tab.[ch]' \
 		-o -name '*.asn1.[ch]' \
