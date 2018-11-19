@@ -23,6 +23,16 @@ config DT_CORE
 
 if DT_CORE
 
+config DT_FASTTRAP
+	tristate "Fasttrap Tracing"
+	default m
+	depends on ARCH_SUPPORTS_UPROBES
+	select UPROBE_EVENT
+	help
+	  Userspace tracing, providing the kernel support needed for tracing
+	  userspace programs.  Currently, only statically defined probes
+	  (USDT) are supported.
+
 config DT_PROFILE
 	tristate "Profile Interrupt Tracing"
 	default m
