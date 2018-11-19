@@ -4,6 +4,7 @@
 # the kernel for the build process.
 # ---------------------------------------------------------------------------
 # kallsyms:      Find all symbols in vmlinux
+# kmodsdt:       Post-process module .o files for SDT probes
 
 HOST_EXTRACFLAGS += -I$(srctree)/tools/include
 
@@ -15,6 +16,7 @@ always-$(CONFIG_ASN1)				+= asn1_compiler
 always-$(CONFIG_MODULE_SIG_FORMAT)		+= sign-file
 always-$(CONFIG_SYSTEM_TRUSTED_KEYRING)		+= extract-cert
 always-$(CONFIG_SYSTEM_EXTRA_CERTIFICATE)	+= insert-sys-cert
+always-$(CONFIG_DTRACE)				+= kmodsdt
 
 kallsyms-objs   := kallsyms.o
 
@@ -38,6 +40,11 @@ endif
 HOSTCFLAGS_sorttable.o += -I$(srctree)/tools/arch/x86/include
 HOSTCFLAGS_sorttable.o += -DUNWINDER_ORC_ENABLED
 HOSTLDLIBS_sorttable = -lpthread
+endif
+
+ifeq ($(CONFIG_DTRACE),y)
+HOSTCFLAGS_kmodsdt.o := -I$(srctree)/include/generated
+HOSTLDLIBS_kmodsdt := -lelf
 endif
 
 hostprogs := $(always-y) $(always-m)
