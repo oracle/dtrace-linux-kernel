@@ -69,4 +69,9 @@ static inline void arch_spin_unlock(arch_spinlock_t *lock)
 
 #define arch_spin_is_contended(lock)	(((void)(lock), 0))
 
+#ifdef CONFIG_DTRACE
+#define arch_peek_read_can_lock(lock)	(((void)(lock), 1))
+#define arch_peek_write_can_lock(lock)	(((void)(lock), 1))
+#endif /* CONFIG_DTRACE */
+
 #endif /* __LINUX_SPINLOCK_UP_H */

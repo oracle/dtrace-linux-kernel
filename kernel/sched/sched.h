@@ -321,6 +321,7 @@ extern bool dl_cpu_busy(unsigned int cpu);
 #ifdef CONFIG_CGROUP_SCHED
 
 #include <linux/cgroup.h>
+#include <linux/dtrace_cpu.h>
 #include <linux/psi.h>
 
 struct cfs_rq;
@@ -998,6 +999,9 @@ struct rq {
 #ifdef CONFIG_CPU_IDLE
 	/* Must be inspected within a rcu lock section */
 	struct cpuidle_state	*idle_state;
+#endif
+#ifdef CONFIG_DTRACE
+	struct cpuinfo *dtrace_cpu_info;
 #endif
 };
 
