@@ -13,6 +13,10 @@
 
 #define __SYSCALL(nr, sym) __x64_##sym,
 
+#if IS_ENABLED(CONFIG_DT_SYSTRACE)
+asmlinkage sys_call_ptr_t sys_call_table[] = {
+#else
 asmlinkage const sys_call_ptr_t sys_call_table[] = {
+#endif
 #include <asm/syscalls_64.h>
 };
