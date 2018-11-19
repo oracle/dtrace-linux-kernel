@@ -1,0 +1,11 @@
+#
+# Copyright (c) 2017, Oracle and/or its affiliates. All rights reserved.
+#
+
+DTARCHDIR = ../arch/x86/dtrace
+
+ccflags-y	+= -I$(srctree)/arch/x86/dtrace/include -Idtrace
+
+dtrace-obj	+= dtrace_asm_x86_64.o dtrace_isa_x86_64.o
+
+dtrace-y	+= $(addprefix $(DTARCHDIR)/, $(dtrace-obj))
