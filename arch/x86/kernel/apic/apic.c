@@ -1107,6 +1107,7 @@ DEFINE_IDTENTRY_SYSVEC(sysvec_apic_timer_interrupt)
 	trace_local_timer_exit(LOCAL_TIMER_VECTOR);
 
 	set_irq_regs(old_regs);
+	return 0;
 }
 
 int setup_profiling_timer(unsigned int multiplier)
@@ -2181,11 +2182,13 @@ DEFINE_IDTENTRY_IRQ(spurious_interrupt)
 	}
 out:
 	trace_spurious_apic_exit(vector);
+	return 0;
 }
 
 DEFINE_IDTENTRY_SYSVEC(sysvec_spurious_apic_interrupt)
 {
 	__spurious_interrupt(regs, SPURIOUS_APIC_VECTOR);
+	return 0;
 }
 
 /*
@@ -2228,6 +2231,7 @@ DEFINE_IDTENTRY_SYSVEC(sysvec_error_interrupt)
 	apic_printk(APIC_DEBUG, KERN_CONT "\n");
 
 	trace_error_apic_exit(ERROR_APIC_VECTOR);
+	return 0;
 }
 
 /**

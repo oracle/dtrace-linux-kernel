@@ -53,6 +53,7 @@ DEFINE_IDTENTRY_SYSVEC(sysvec_acrn_hv_callback)
 		acrn_intr_handler();
 
 	set_irq_regs(old_regs);
+	return 0;
 }
 
 const __initconst struct hypervisor_x86 x86_hyper_acrn = {

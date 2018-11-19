@@ -621,6 +621,7 @@ DEFINE_IDTENTRY_SYSVEC(sysvec_thermal)
 	smp_thermal_vector();
 	trace_thermal_apic_exit(THERMAL_APIC_VECTOR);
 	ack_APIC_irq();
+	return 0;
 }
 
 /* Thermal monitoring depends on APIC, ACPI and clock modulation */
