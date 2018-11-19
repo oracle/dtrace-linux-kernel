@@ -1260,7 +1260,7 @@ DEFINE_IDTENTRY_VC_SAFE_STACK(exc_vmm_communication)
 	 */
 	if (error_code == SVM_EXIT_EXCP_BASE + X86_TRAP_DB) {
 		vc_handle_trap_db(regs);
-		return;
+		return 0;
 	}
 
 	instrumentation_begin();
@@ -1326,7 +1326,7 @@ DEFINE_IDTENTRY_VC_SAFE_STACK(exc_vmm_communication)
 out:
 	instrumentation_end();
 
-	return;
+	return 0;
 
 fail:
 	if (user_mode(regs)) {
@@ -1359,6 +1359,7 @@ DEFINE_IDTENTRY_VC_IST(exc_vmm_communication)
 	instrumentation_begin();
 	panic("Can't handle #VC exception from unsupported context\n");
 	instrumentation_end();
+	return 0;
 }
 
 DEFINE_IDTENTRY_VC(exc_vmm_communication)
@@ -1367,6 +1368,7 @@ DEFINE_IDTENTRY_VC(exc_vmm_communication)
 		safe_stack_exc_vmm_communication(regs, error_code);
 	else
 		ist_exc_vmm_communication(regs, error_code);
+	return 0;
 }
 
 bool __init handle_vc_boot_ghcb(struct pt_regs *regs)

@@ -136,6 +136,7 @@ DEFINE_IDTENTRY_SYSVEC(sysvec_reboot)
 	ack_APIC_irq();
 	cpu_emergency_vmxoff();
 	stop_this_cpu(NULL);
+	return 0;
 }
 
 static int register_stop_handler(void)
@@ -229,6 +230,7 @@ DEFINE_IDTENTRY_SYSVEC_SIMPLE(sysvec_reschedule_ipi)
 	inc_irq_stat(irq_resched_count);
 	scheduler_ipi();
 	trace_reschedule_exit(RESCHEDULE_VECTOR);
+	return 0;
 }
 
 DEFINE_IDTENTRY_SYSVEC(sysvec_call_function)
@@ -238,6 +240,7 @@ DEFINE_IDTENTRY_SYSVEC(sysvec_call_function)
 	inc_irq_stat(irq_call_count);
 	generic_smp_call_function_interrupt();
 	trace_call_function_exit(CALL_FUNCTION_VECTOR);
+	return 0;
 }
 
 DEFINE_IDTENTRY_SYSVEC(sysvec_call_function_single)
@@ -247,6 +250,7 @@ DEFINE_IDTENTRY_SYSVEC(sysvec_call_function_single)
 	inc_irq_stat(irq_call_count);
 	generic_smp_call_function_single_interrupt();
 	trace_call_function_single_exit(CALL_FUNCTION_SINGLE_VECTOR);
+	return 0;
 }
 
 static int __init nonmi_ipi_setup(char *str)

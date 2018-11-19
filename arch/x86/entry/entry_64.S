@@ -38,7 +38,7 @@
 #include <asm/frame.h>
 #include <asm/trapnr.h>
 #include <asm/nospec-branch.h>
-#include <asm/fsgsbase.h>
+#include <asm/dtrace_util.h>
 #include <linux/err.h>
 
 #include "calling.h"
@@ -334,6 +334,15 @@ SYM_CODE_END(ret_from_fork)
 	.endif
 
 	call	\cfunc
+
+#ifdef CONFIG_DTRACE
+	/*
+	 * Nonzero exit from a trap handler means we want to emulate
+	 * an instruction.
+	 */
+	test %rax,%rax
+	jnz dtrace_error_return
+#endif
 
 	jmp	error_return
 .endm
@@ -1096,6 +1105,129 @@ SYM_CODE_START_LOCAL(error_return)
 	jz	restore_regs_and_return_to_kernel
 	jmp	swapgs_restore_regs_and_return_to_usermode
 SYM_CODE_END(error_return)
+
+#ifdef CONFIG_DTRACE
+/*
+ * Emulate an instruction (given by one of the DTRACE_INVOP constants) on exit
+ * from a trap handler.
+ */
+SYM_CODE_START_LOCAL(dtrace_error_return)
+	UNWIND_HINT_REGS
+
+	negq %rax
+
+	cmpl $DTRACE_INVOP_MOV_RSP_RBP,%eax
+	je dtrace_emu_mov
+	cmpl $DTRACE_INVOP_PUSH_BP,%eax
+	je dtrace_emu_push
+	cmpl $DTRACE_INVOP_LEAVE,%eax
+	je dtrace_emu_leave
+	cmpl $DTRACE_INVOP_NOP,%eax
+	je dtrace_emu_nop
+	cmpl $DTRACE_INVOP_RET,%eax
+	je dtrace_emu_ret
+
+	leaq dtrace_error_msg(%rip),%rdi
+	movq %rax,%rsi
+	movq (%rsp),%rdx
+	call printk
+
+	jmp error_return
+
+dtrace_emu_mov:
+	POP_REGS
+	addq	$8, %rsp	/* skip regs->orig_ax */
+
+	/* Emulate "mov %rsp, %rbp" instruction. */
+	pushq %rax			/* push temp */
+	movq 8(%rsp),%rax		/* load calling RIP */
+	addq $3,%rax			/* increment over trapping instr */
+	movq %rax,8(%rsp)		/* store calling RIP */
+	movq 32(%rsp),%rbp		/* load %rsp into %rbp */
+	popq %rax			/* pop off temp */
+
+	INTERRUPT_RETURN
+
+dtrace_emu_push:
+	POP_REGS
+	addq	$8, %rsp	/* skip regs->orig_ax */
+
+	/*
+	 * Emulate a "pushq %rbp" instruction.  We need to move the stack down
+	 * to make room for the extra address getting pushed.
+	 */
+	subq $16,%rsp			/* make room for %rbp */
+	pushq %rax			/* push temp */
+	movq 24(%rsp),%rax		/* load calling RIP */
+	addq $1,%rax			/* increment over trapping instr */
+	movq %rax,8(%rsp)		/* store calling RIP */
+	movq 32(%rsp),%rax		/* load calling CS */
+	movq %rax,16(%rsp)		/* store calling CS */
+	movq 40(%rsp),%rax		/* load calling RFLAGS */
+	movq %rax,24(%rsp)		/* store calling RFLAGS */
+	movq 48(%rsp),%rax		/* load calling RSP */
+	subq $8,%rax			/* make room for %rbp */
+	movq %rax,32(%rsp)		/* store calling RSP */
+	movq 56(%rsp),%rax		/* load calling SS */
+	movq %rax,40(%rsp)		/* store calling SS */
+	movq 32(%rsp),%rax		/* reload calling RSP */
+	movq %rbp,(%rax)		/* store %rbp there */
+	popq %rax			/* pop off temp */
+
+	INTERRUPT_RETURN
+
+dtrace_emu_nop:
+	POP_REGS
+	addq	$8, %rsp	/* skip regs->orig_ax */
+
+	/* Emulate a "nop" instruction. */
+	incq (%rsp)
+
+	INTERRUPT_RETURN
+
+dtrace_emu_leave:
+	POP_REGS
+	addq	$8, %rsp	/* skip regs->orig_ax */
+
+	/*
+	 * Emulate a "leave" instruction.  This is equivalent to the sequence:
+	 *	movq %rbp,%rsp
+	 *	popq %rbp
+	 * We can use the fact that on x86_64 %rsp is saved explicitly, so we
+	 * do not need to move any data around.
+	 */
+	pushq %rax			/* push temp */
+	movq 8(%rsp),%rax		/* load calling RIP */
+	addq $1,%rax			/* increment over trapping instr */
+	movq %rax,8(%rsp)		/* store calling RIP */
+	movq (%rbp),%rax		/* get new %rbp */
+	addq $8,%rbp			/* adjust new %rsp */
+	movq %rbp,32(%rsp)		/* store new %rsp */
+	movq %rax,%rbp			/* set new %rbp */
+	popq %rax			/* pop off temp */
+
+	INTERRUPT_RETURN
+
+dtrace_emu_ret:
+	POP_REGS
+	addq	$8, %rsp	/* skip regs->orig_ax */
+
+	/* Emulate a "ret" instruction. */
+	pushq %rax			/* push temp */
+	movq 32(%rsp),%rax		/* load %rsp */
+	movq (%rax),%rax		/* load calling RIP */
+	movq %rax,8(%rsp)		/* store calling RIP */
+	addq $8,32(%rsp)		/* adjust new %rsp */
+	popq %rax			/* pop off temp */
+
+	INTERRUPT_RETURN
+SYM_CODE_END(dtrace_error_return)
+
+.pushsection .rodata, "a"
+dtrace_error_msg:
+	.asciz "DTRACE: non-zero (%x) return from trap at %x\n"
+.popsection
+#endif
 
 /*
  * Runs on exception stack.  Xen PV does not go through this path at all,

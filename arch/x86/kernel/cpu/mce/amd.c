@@ -928,6 +928,7 @@ DEFINE_IDTENTRY_SYSVEC(sysvec_deferred_error)
 	deferred_error_int_vector();
 	trace_deferred_error_apic_exit(DEFERRED_ERROR_VECTOR);
 	ack_APIC_irq();
+	return 0;
 }
 
 /*

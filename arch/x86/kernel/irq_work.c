@@ -21,6 +21,7 @@ DEFINE_IDTENTRY_SYSVEC(sysvec_irq_work)
 	inc_irq_stat(apic_irq_work_irqs);
 	irq_work_run();
 	trace_irq_work_exit(IRQ_WORK_VECTOR);
+	return 0;
 }
 
 void arch_irq_work_raise(void)

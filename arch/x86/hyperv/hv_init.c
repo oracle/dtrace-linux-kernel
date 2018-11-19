@@ -161,6 +161,7 @@ DEFINE_IDTENTRY_SYSVEC(sysvec_hyperv_reenlightenment)
 	ack_APIC_irq();
 	inc_irq_stat(irq_hv_reenlightenment_count);
 	schedule_delayed_work(&hv_reenlightenment_work, HZ/10);
+	return 0;
 }
 
 void set_hv_tscchange_cb(void (*cb)(void))
