@@ -40,6 +40,10 @@
 #include <linux/shmem_fs.h>
 #include <linux/dtrace_task_impl.h>
 
+#if  IS_ENABLED(CONFIG_DT_FASTTRAP)
+# include <linux/uprobes.h>
+#endif /* CONFIG_DT_FASTTRAP || CONFIG_DT_FASTTRAP_MODULE */
+
 /*
  * OS SPECIFIC DTRACE SETUP
  */
@@ -413,3 +417,271 @@ void dtrace_disable(void)
 	dtrace_enabled = 0;
 }
 EXPORT_SYMBOL(dtrace_disable);
+
+/*
+ * USER SPACE TRACING (FASTTRAP) SUPPORT
+ */
+
+#if IS_ENABLED(CONFIG_DT_FASTTRAP)
+int (*dtrace_tracepoint_hit)(struct fasttrap_machtp *, struct pt_regs *, int);
+EXPORT_SYMBOL(dtrace_tracepoint_hit);
+
+struct task_struct *register_pid_provider(pid_t pid)
+{
+	struct task_struct	*p;
+
+	/*
+	 * Make sure the process exists, (FIXME: isn't a child created as the
+	 * result of a vfork(2)), and isn't a zombie (but may be in fork).
+	 */
+	rcu_read_lock();
+	p = find_task_by_vpid(pid);
+	if (p == NULL) {
+		rcu_read_unlock();
+		return NULL;
+	}
+
+	get_task_struct(p);
+	rcu_read_unlock();
+
+	if (p->state & TASK_DEAD || p->dt_task == NULL ||
+	    p->exit_state & (EXIT_ZOMBIE | EXIT_DEAD)) {
+		put_task_struct(p);
+		return NULL;
+	}
+
+	/*
+	 * Increment dtrace_probes so that the process knows to inform us
+	 * when it exits or execs. fasttrap_provider_free() decrements this
+	 * when we're done with this provider.
+	 */
+	if (p->dt_task != NULL)
+		p->dt_task->dt_probes++;
+	put_task_struct(p);
+
+	return p;
+}
+EXPORT_SYMBOL(register_pid_provider);
+
+void unregister_pid_provider(pid_t pid)
+{
+	struct task_struct	*p;
+
+	/*
+	 * Decrement dtrace_probes on the process whose provider we're
+	 * freeing. We don't have to worry about clobbering somone else's
+	 * modifications to it because we have locked the bucket that
+	 * corresponds to this process's hash chain in the provider hash
+	 * table. Don't sweat it if we can't find the process.
+	 */
+	rcu_read_lock();
+	read_lock(&tasklist_lock);
+	if ((p = find_task_by_vpid(pid)) == NULL) {
+		read_unlock(&tasklist_lock);
+		rcu_read_unlock();
+		return;
+	}
+
+	get_task_struct(p);
+	read_unlock(&tasklist_lock);
+	rcu_read_unlock();
+
+	if (p->dt_task != NULL)
+		p->dt_task->dt_probes--;
+	put_task_struct(p);
+}
+EXPORT_SYMBOL(unregister_pid_provider);
+
+int dtrace_copy_code(pid_t pid, uint8_t *buf, uintptr_t addr, size_t size)
+{
+	struct task_struct	*p;
+	struct inode		*ino;
+	struct vm_area_struct	*vma;
+	struct address_space	*map;
+	loff_t			off;
+	int			rc = 0;
+
+	/*
+	 * First we determine the inode and offset that 'addr' refers to in the
+	 * task referenced by 'pid'.
+	 */
+	rcu_read_lock();
+	p = find_task_by_vpid(pid);
+	if (!p) {
+		rcu_read_unlock();
+		pr_warn("PID %d not found\n", pid);
+		return -ESRCH;
+	}
+	get_task_struct(p);
+	rcu_read_unlock();
+
+	down_write(&p->mm->mmap_sem);
+	vma = find_vma(p->mm, addr);
+	if (vma == NULL || vma->vm_file == NULL) {
+		rc = -EFAULT;
+		goto out;
+	}
+
+	ino = vma->vm_file->f_mapping->host;
+	map = ino->i_mapping;
+	off = ((loff_t)vma->vm_pgoff << PAGE_SHIFT) + (addr - vma->vm_start);
+
+	if (map->a_ops->readpage == NULL && !shmem_mapping(ino->i_mapping)) {
+		rc = -EIO;
+		goto out;
+	}
+
+	/*
+	 * Armed with inode and offset, we can start reading pages...
+	 */
+	do {
+		int		len;
+		struct page	*page;
+		void		*kaddr;
+
+		/*
+		 * We cannot read beyond the end of the inode content.
+		 */
+		if (off >= i_size_read(ino))
+			break;
+
+		len = min_t(int, size, PAGE_SIZE - (off & ~PAGE_MASK));
+
+		/*
+		 * Make sure that the page we're tring to read is populated and
+		 * in page cache.
+		 */
+		if (map->a_ops->readpage)
+			page = read_mapping_page(map, off >> PAGE_SHIFT,
+						 vma->vm_file);
+		else
+			page = shmem_read_mapping_page(map, off >> PAGE_SHIFT);
+
+		if (IS_ERR(page)) {
+			rc = PTR_ERR(page);
+			break;
+		}
+
+		kaddr = kmap_atomic(page);
+		memcpy(buf, kaddr + (off & ~PAGE_MASK), len);
+		kunmap_atomic(kaddr);
+		put_page(page);
+
+		buf += len;
+		off += len;
+		size -= len;
+	} while (size > 0);
+
+out:
+	up_write(&p->mm->mmap_sem);
+	put_task_struct(p);
+
+	return rc;
+}
+EXPORT_SYMBOL(dtrace_copy_code);
+
+static int handler(struct uprobe_consumer *self, struct pt_regs *regs,
+		   int is_ret)
+{
+	struct fasttrap_machtp *mtp;
+	int			rc = 0;
+
+	mtp = container_of(self, struct fasttrap_machtp, fmtp_cns);
+
+	read_lock(&this_cpu_core->cpu_ft_lock);
+	if (dtrace_tracepoint_hit == NULL)
+		pr_warn("Fasttrap probes, but no handler\n");
+	else
+		rc = (*dtrace_tracepoint_hit)(mtp, regs, is_ret);
+	read_unlock(&this_cpu_core->cpu_ft_lock);
+
+	return rc;
+}
+
+static int prb_handler(struct uprobe_consumer *self, struct pt_regs *regs)
+{
+	return handler(self, regs, 0);
+}
+
+static int ret_handler(struct uprobe_consumer *self, unsigned long func,
+		       struct pt_regs *regs)
+{
+	return handler(self, regs, 1);
+}
+
+int dtrace_tracepoint_enable(pid_t pid, uintptr_t addr, int is_ret,
+			     struct fasttrap_machtp *mtp)
+{
+	struct task_struct	*p;
+	struct inode		*ino;
+	struct vm_area_struct	*vma;
+	loff_t			off;
+	int			rc = 0;
+
+	mtp->fmtp_ino = NULL;
+	mtp->fmtp_off = 0;
+
+	p = find_task_by_vpid(pid);
+	if (!p) {
+		pr_warn("PID %d not found\n", pid);
+		return -ESRCH;
+	}
+
+	if (p->dt_task == NULL) {
+		pr_warn("PID %d no dtrace_task\n", pid);
+		return -EFAULT;
+	}
+
+	vma = find_vma(p->mm, addr);
+	if (vma == NULL || vma->vm_file == NULL)
+		return -EFAULT;
+
+	ino = vma->vm_file->f_mapping->host;
+	off = ((loff_t)vma->vm_pgoff << PAGE_SHIFT) + (addr - vma->vm_start);
+
+	if (is_ret)
+		mtp->fmtp_cns.ret_handler = ret_handler;
+	else
+		mtp->fmtp_cns.handler = prb_handler;
+
+	rc = uprobe_register(ino, off, &mtp->fmtp_cns);
+
+	/*
+	 * If successful, increment the count of the number of
+	 * tracepoints active in the victim process.
+	 */
+	if (rc == 0) {
+		mtp->fmtp_ino = ino;
+		mtp->fmtp_off = off;
+
+		p->dt_task->dt_tp_count++;
+	}
+
+	return rc;
+}
+EXPORT_SYMBOL(dtrace_tracepoint_enable);
+
+int dtrace_tracepoint_disable(pid_t pid, struct fasttrap_machtp *mtp)
+{
+	struct task_struct	*p;
+
+	if (!mtp || !mtp->fmtp_ino)
+		return -ENOENT;
+
+	uprobe_unregister(mtp->fmtp_ino, mtp->fmtp_off, &mtp->fmtp_cns);
+
+	mtp->fmtp_ino = NULL;
+	mtp->fmtp_off = 0;
+
+	/*
+	 * Decrement the count of the number of tracepoints active in
+	 * the victim process (if it still exists).
+	 */
+	p = find_task_by_vpid(pid);
+	if (p != NULL && p->dt_task != NULL)
+		p->dt_task->dt_tp_count--;
+
+	return 0;
+}
+EXPORT_SYMBOL(dtrace_tracepoint_disable);
+#endif /* CONFIG_DT_FASTTRAP || CONFIG_DT_FASTTRAP_MODULE */
