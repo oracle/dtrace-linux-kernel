@@ -23,6 +23,15 @@ config DT_CORE
 
 if DT_CORE
 
+config DT_SYSTRACE
+	tristate "System Call Tracing"
+	default m
+	select FTRACE
+	select FTRACE_SYSCALLS
+	help
+	  Provides DTrace probes at the entry and exit of all system calls,
+	  in the syscall provider.
+
 config DT_DT_TEST
 	tristate "DTrace Test Probe"
 	default m
