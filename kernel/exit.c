@@ -62,6 +62,7 @@
 #include <linux/random.h>
 #include <linux/rcuwait.h>
 #include <linux/compat.h>
+#include <linux/dtrace_os.h>
 
 #include <linux/uaccess.h>
 #include <asm/unistd.h>
@@ -858,6 +859,9 @@ void __noreturn do_exit(long code)
 
 	tsk->exit_code = code;
 	taskstats_exit(tsk, group_dead);
+
+	/* Remove DTrace state for this task */
+	dtrace_task_free(tsk);
 
 	exit_mm();
 
