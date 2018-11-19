@@ -25,6 +25,7 @@ static inline void apply_paravirt(struct paravirt_patch_site *start,
  */
 #define POKE_MAX_OPCODE_SIZE	5
 
+extern void add_nops(void *insns, unsigned int len);
 extern void text_poke_early(void *addr, const void *opcode, size_t len);
 
 /*
