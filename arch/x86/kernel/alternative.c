@@ -101,7 +101,7 @@ const unsigned char * const x86_nops[ASM_NOP_MAX+1] =
 };
 
 /* Use this to add nops to a buffer, then text_poke the whole buffer. */
-static void __init_or_module add_nops(void *insns, unsigned int len)
+void __init_or_module add_nops(void *insns, unsigned int len)
 {
 	while (len > 0) {
 		unsigned int noplen = len;
