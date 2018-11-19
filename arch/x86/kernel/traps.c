@@ -255,9 +255,11 @@ do_trap(int trapnr, int signr, char *str, struct pt_regs *regs,
 }
 NOKPROBE_SYMBOL(do_trap);
 
-static void do_error_trap(struct pt_regs *regs, long error_code, char *str,
+static int do_error_trap(struct pt_regs *regs, long error_code, char *str,
 	unsigned long trapnr, int signr, int sicode, void __user *addr)
 {
+	int ret;
+
 	RCU_LOCKDEP_WARN(!rcu_is_watching(), "entry code didn't wake RCU");
 
 	/*
@@ -265,20 +267,21 @@ static void do_error_trap(struct pt_regs *regs, long error_code, char *str,
 	 * notifier chain.
 	 */
 	if (!user_mode(regs) && fixup_bug(regs, trapnr))
-		return;
+		return 0;
 
-	if (notify_die(DIE_TRAP, str, regs, error_code, trapnr, signr) !=
-			NOTIFY_STOP) {
+	ret = notify_die(DIE_TRAP, str, regs, error_code, trapnr, signr);
+	if ((ret & NOTIFY_STOP_MASK) != NOTIFY_STOP_MASK) {
 		cond_local_irq_enable(regs);
 		do_trap(trapnr, signr, str, regs, error_code, sicode, addr);
 	}
+	return notifier_to_errno(ret);
 }
 
 #define IP ((void __user *)uprobe_get_trap_addr(regs))
 #define DO_ERROR(trapnr, signr, sicode, addr, str, name)		   \
-dotraplinkage void do_##name(struct pt_regs *regs, long error_code)	   \
+dotraplinkage int do_##name(struct pt_regs *regs, long error_code)	   \
 {									   \
-	do_error_trap(regs, error_code, str, trapnr, signr, sicode, addr); \
+	return do_error_trap(regs, error_code, str, trapnr, signr, sicode, addr); \
 }
 
 DO_ERROR(X86_TRAP_DE,     SIGFPE,  FPE_INTDIV,   IP, "divide error",        divide_error)
@@ -323,7 +326,7 @@ __visible void __noreturn handle_stack_overflow(const char *message,
  * be lost.  If, for some reason, we need to return to a context with modified
  * regs, the shim code could be adjusted to synchronize the registers.
  */
-dotraplinkage void do_double_fault(struct pt_regs *regs, long error_code, unsigned long cr2)
+dotraplinkage int do_double_fault(struct pt_regs *regs, long error_code, unsigned long cr2)
 {
 	static const char str[] = "double fault";
 	struct task_struct *tsk = current;
@@ -374,7 +377,7 @@ dotraplinkage void do_double_fault(struct pt_regs *regs, long error_code, unsign
 		regs->ip = (unsigned long)general_protection;
 		regs->sp = (unsigned long)&gpregs->orig_ax;
 
-		return;
+		return 0;
 	}
 #endif
 
@@ -432,18 +435,19 @@ dotraplinkage void do_double_fault(struct pt_regs *regs, long error_code, unsign
 }
 #endif
 
-dotraplinkage void do_bounds(struct pt_regs *regs, long error_code)
+dotraplinkage int do_bounds(struct pt_regs *regs, long error_code)
 {
 	RCU_LOCKDEP_WARN(!rcu_is_watching(), "entry code didn't wake RCU");
 	if (notify_die(DIE_TRAP, "bounds", regs, error_code,
 			X86_TRAP_BR, SIGSEGV) == NOTIFY_STOP)
-		return;
+		return 0;
 	cond_local_irq_enable(regs);
 
 	if (!user_mode(regs))
 		die("bounds", regs, error_code);
 
 	do_trap(X86_TRAP_BR, SIGSEGV, "bounds", regs, error_code, 0, NULL);
+	return 0;
 }
 
 enum kernel_gp_hint {
@@ -490,26 +494,26 @@ static enum kernel_gp_hint get_kernel_gp_address(struct pt_regs *regs,
 
 #define GPFSTR "general protection fault"
 
-dotraplinkage void do_general_protection(struct pt_regs *regs, long error_code)
+dotraplinkage int do_general_protection(struct pt_regs *regs, long error_code)
 {
 	char desc[sizeof(GPFSTR) + 50 + 2*sizeof(unsigned long) + 1] = GPFSTR;
 	enum kernel_gp_hint hint = GP_NO_HINT;
 	struct task_struct *tsk;
 	unsigned long gp_addr;
-	int ret;
+	int ret = 0;
 
 	RCU_LOCKDEP_WARN(!rcu_is_watching(), "entry code didn't wake RCU");
 	cond_local_irq_enable(regs);
 
 	if (static_cpu_has(X86_FEATURE_UMIP)) {
 		if (user_mode(regs) && fixup_umip_exception(regs))
-			return;
+			return 0;
 	}
 
 	if (v8086_mode(regs)) {
 		local_irq_enable();
 		handle_vm86_fault((struct kernel_vm86_regs *) regs, error_code);
-		return;
+		return 0;
 	}
 
 	tsk = current;
@@ -521,11 +525,11 @@ dotraplinkage void do_general_protection(struct pt_regs *regs, long error_code)
 		show_signal(tsk, SIGSEGV, "", desc, regs, error_code);
 		force_sig(SIGSEGV);
 
-		return;
+		return 0;
 	}
 
 	if (fixup_exception(regs, X86_TRAP_GP, error_code, 0))
-		return;
+		return 0;
 
 	tsk->thread.error_code = error_code;
 	tsk->thread.trap_nr = X86_TRAP_GP;
@@ -537,11 +541,11 @@ dotraplinkage void do_general_protection(struct pt_regs *regs, long error_code)
 	if (!preemptible() &&
 	    kprobe_running() &&
 	    kprobe_fault_handler(regs, X86_TRAP_GP))
-		return;
+		return 0;
 
 	ret = notify_die(DIE_GPF, desc, regs, error_code, X86_TRAP_GP, SIGSEGV);
-	if (ret == NOTIFY_STOP)
-		return;
+        if ((ret & NOTIFY_STOP_MASK) == NOTIFY_STOP_MASK)
+		return notifier_to_errno(ret);
 
 	if (error_code)
 		snprintf(desc, sizeof(desc), "segment-related " GPFSTR);
@@ -563,13 +567,16 @@ dotraplinkage void do_general_protection(struct pt_regs *regs, long error_code)
 
 	die_addr(desc, regs, error_code, gp_addr);
 
+	return 0;
 }
 NOKPROBE_SYMBOL(do_general_protection);
 
-dotraplinkage void notrace do_int3(struct pt_regs *regs, long error_code)
+dotraplinkage int notrace do_int3(struct pt_regs *regs, long error_code)
 {
+	int ret;
+
 	if (poke_int3_handler(regs))
-		return;
+		return 0;
 
 	/*
 	 * Use ist_enter despite the fact that we don't use an IST stack.
@@ -591,9 +598,13 @@ dotraplinkage void notrace do_int3(struct pt_regs *regs, long error_code)
 		goto exit;
 #endif
 
-	if (notify_die(DIE_INT3, "int3", regs, error_code, X86_TRAP_BP,
-			SIGTRAP) == NOTIFY_STOP)
+	ret = notify_die(DIE_INT3, "int3", regs, error_code, X86_TRAP_BP,
+			 SIGTRAP);
+	if ((ret & NOTIFY_STOP_MASK) == NOTIFY_STOP_MASK) {
+		ret = notifier_to_errno(ret);
 		goto exit;
+	} else
+		ret = 0;
 
 	cond_local_irq_enable(regs);
 	do_trap(X86_TRAP_BP, SIGTRAP, "int3", regs, error_code, 0, NULL);
@@ -601,6 +612,7 @@ dotraplinkage void notrace do_int3(struct pt_regs *regs, long error_code)
 
 exit:
 	ist_exit(regs);
+	return ret;
 }
 NOKPROBE_SYMBOL(do_int3);
 
@@ -697,7 +709,7 @@ static bool is_sysenter_singlestep(struct pt_regs *regs)
  *
  * May run on IST stack.
  */
-dotraplinkage void do_debug(struct pt_regs *regs, long error_code)
+dotraplinkage int do_debug(struct pt_regs *regs, long error_code)
 {
 	struct task_struct *tsk = current;
 	int user_icebp = 0;
@@ -798,6 +810,7 @@ dotraplinkage void do_debug(struct pt_regs *regs, long error_code)
 
 exit:
 	ist_exit(regs);
+	return 0;
 }
 NOKPROBE_SYMBOL(do_debug);
 
@@ -846,26 +859,29 @@ static void math_error(struct pt_regs *regs, int error_code, int trapnr)
 			(void __user *)uprobe_get_trap_addr(regs));
 }
 
-dotraplinkage void do_coprocessor_error(struct pt_regs *regs, long error_code)
+dotraplinkage int do_coprocessor_error(struct pt_regs *regs, long error_code)
 {
 	RCU_LOCKDEP_WARN(!rcu_is_watching(), "entry code didn't wake RCU");
 	math_error(regs, error_code, X86_TRAP_MF);
+	return 0;
 }
 
-dotraplinkage void
+dotraplinkage int
 do_simd_coprocessor_error(struct pt_regs *regs, long error_code)
 {
 	RCU_LOCKDEP_WARN(!rcu_is_watching(), "entry code didn't wake RCU");
 	math_error(regs, error_code, X86_TRAP_XF);
+	return 0;
 }
 
-dotraplinkage void
+dotraplinkage int
 do_spurious_interrupt_bug(struct pt_regs *regs, long error_code)
 {
 	cond_local_irq_enable(regs);
+	return 0;
 }
 
-dotraplinkage void
+dotraplinkage int
 do_device_not_available(struct pt_regs *regs, long error_code)
 {
 	unsigned long cr0 = read_cr0();
@@ -880,7 +896,7 @@ do_device_not_available(struct pt_regs *regs, long error_code)
 
 		info.regs = regs;
 		math_emulate(&info);
-		return;
+		return 0;
 	}
 #endif
 
@@ -896,11 +912,12 @@ do_device_not_available(struct pt_regs *regs, long error_code)
 		 */
 		die("unexpected #NM exception", regs, error_code);
 	}
+	return 0;
 }
 NOKPROBE_SYMBOL(do_device_not_available);
 
 #ifdef CONFIG_X86_32
-dotraplinkage void do_iret_error(struct pt_regs *regs, long error_code)
+dotraplinkage int do_iret_error(struct pt_regs *regs, long error_code)
 {
 	RCU_LOCKDEP_WARN(!rcu_is_watching(), "entry code didn't wake RCU");
 	local_irq_enable();
@@ -910,6 +927,7 @@ dotraplinkage void do_iret_error(struct pt_regs *regs, long error_code)
 		do_trap(X86_TRAP_IRET, SIGILL, "iret exception", regs, error_code,
 			ILL_BADSTK, (void __user *)NULL);
 	}
+	return 0;
 }
 #endif
 
