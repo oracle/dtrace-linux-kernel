@@ -618,25 +618,6 @@ int sprint_backtrace_build_id(char *buffer, unsigned long address)
 	return __sprint_symbol(buffer, address, -1, 1, 1);
 }
 
-/* To avoid using get_symbol_offset for every symbol, we carry prefix along. */
-struct kallsym_iter {
-	loff_t pos;
-	loff_t pos_arch_end;
-	loff_t pos_mod_end;
-	loff_t pos_ftrace_mod_end;
-	loff_t pos_bpf_end;
-	unsigned long value;
-	unsigned int nameoff; /* If iterating in core kernel symbols. */
-	unsigned long size;
-	char type;
-	char name[KSYM_NAME_LEN];
-	char module_name[MODULE_NAME_LEN];
-	const char *builtin_module_names;
-	unsigned long hint_builtin_module_idx;
-	int exported;
-	int show_value;
-};
-
 int __weak arch_get_kallsym(unsigned int symnum, unsigned long *value,
 			    char *type, char *name)
 {
@@ -772,7 +753,7 @@ static unsigned long get_ksymbol_core(struct kallsym_iter *iter, int kallmodsyms
 	return off - iter->nameoff;
 }
 
-static void reset_iter(struct kallsym_iter *iter, loff_t new_pos)
+void kallsyms_iter_reset(struct kallsym_iter *iter, loff_t new_pos)
 {
 	iter->name[0] = '\0';
 	iter->nameoff = get_symbol_offset(new_pos);
@@ -784,13 +765,14 @@ static void reset_iter(struct kallsym_iter *iter, loff_t new_pos)
 		iter->pos_bpf_end = 0;
 	}
 }
+EXPORT_SYMBOL_GPL(kallsyms_iter_reset);
 
 /*
  * The end position (last + 1) of each additional kallsyms section is recorded
  * in iter->pos_..._end as each section is added, and so can be used to
  * determine which get_ksymbol_...() function to call next.
  */
-static int update_iter_mod(struct kallsym_iter *iter, loff_t pos)
+static int kallsyms_iter_update_mod(struct kallsym_iter *iter, loff_t pos)
 {
 	iter->pos = pos;
 
@@ -814,34 +796,35 @@ static int update_iter_mod(struct kallsym_iter *iter, loff_t pos)
 }
 
 /* Returns false if pos at or past end of file. */
-static int update_iter(struct kallsym_iter *iter, loff_t pos, int kallmodsyms)
+int kallsyms_iter_update(struct kallsym_iter *iter, loff_t pos, int kallmodsyms)
 {
 	/* Module symbols can be accessed randomly. */
 	if (pos >= kallsyms_num_syms)
-		return update_iter_mod(iter, pos);
+		return kallsyms_iter_update_mod(iter, pos);
 
 	/* If we're not on the desired position, reset to new position. */
 	if (pos != iter->pos)
-		reset_iter(iter, pos);
+		kallsyms_iter_reset(iter, pos);
 
 	iter->nameoff += get_ksymbol_core(iter, kallmodsyms);
 	iter->pos++;
 
 	return 1;
 }
+EXPORT_SYMBOL_GPL(kallsyms_iter_update);
 
 static void *s_next(struct seq_file *m, void *p, loff_t *pos)
 {
 	(*pos)++;
 
-	if (!update_iter(m->private, *pos, 0))
+	if (!kallsyms_iter_update(m->private, *pos, 0))
 		return NULL;
 	return p;
 }
 
 static void *s_start(struct seq_file *m, loff_t *pos)
 {
-	if (!update_iter(m->private, *pos, 0))
+	if (!kallsyms_iter_update(m->private, *pos, 0))
 		return NULL;
 	return m->private;
 }
@@ -946,14 +929,14 @@ static void *s_mod_next(struct seq_file *m, void *p, loff_t *pos)
 {
 	(*pos)++;
 
-	if (!update_iter(m->private, *pos, 1))
+	if (!kallsyms_iter_update(m->private, *pos, 1))
 		return NULL;
 	return p;
 }
 
 static void *s_mod_start(struct seq_file *m, loff_t *pos)
 {
-	if (!update_iter(m->private, *pos, 1))
+	if (!kallsyms_iter_update(m->private, *pos, 1))
 		return NULL;
 	return m->private;
 }
@@ -1013,7 +996,7 @@ static int kallsyms_open_internal(struct inode *inode, struct file *file,
 	iter = __seq_open_private(file, ops, sizeof(*iter));
 	if (!iter)
 		return -ENOMEM;
-	reset_iter(iter, 0);
+	kallsyms_iter_reset(iter, 0);
 
 	/*
 	 * Instead of checking this on every s_show() call, cache
@@ -1042,10 +1025,10 @@ const char *kdb_walk_kallsyms(loff_t *pos)
 	if (*pos == 0) {
 		memset(&kdb_walk_kallsyms_iter, 0,
 		       sizeof(kdb_walk_kallsyms_iter));
-		reset_iter(&kdb_walk_kallsyms_iter, 0);
+		kallsyms_iter_reset(&kdb_walk_kallsyms_iter, 0);
 	}
 	while (1) {
-		if (!update_iter(&kdb_walk_kallsyms_iter, *pos, 0))
+		if (!kallsyms_iter_update(&kdb_walk_kallsyms_iter, *pos, 0))
 			return NULL;
 		++*pos;
 		/* Some debugging symbols have no name.  Ignore them. */

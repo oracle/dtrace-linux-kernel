@@ -74,6 +74,25 @@ static inline void *dereference_symbol_descriptor(void *ptr)
 	return ptr;
 }
 
+/* To avoid using get_symbol_offset for every symbol, we carry prefix along. */
+struct kallsym_iter {
+	loff_t pos;
+	loff_t pos_arch_end;
+	loff_t pos_mod_end;
+	loff_t pos_ftrace_mod_end;
+	loff_t pos_bpf_end;
+	unsigned long value;
+	unsigned int nameoff; /* If iterating in core kernel symbols. */
+	unsigned long size;
+	char type;
+	char name[KSYM_NAME_LEN];
+	char module_name[MODULE_NAME_LEN];
+	const char *builtin_module_names;
+	unsigned long hint_builtin_module_idx;
+	int exported;
+	int show_value;
+};
+
 int kallsyms_on_each_symbol(int (*fn)(void *, const char *, struct module *,
 				      unsigned long),
 			    void *data);
@@ -104,6 +123,9 @@ int lookup_symbol_attrs(unsigned long addr, unsigned long *size, unsigned long *
 
 /* How and when do we show kallsyms values? */
 extern bool kallsyms_show_value(const struct cred *cred);
+
+void kallsyms_iter_reset(struct kallsym_iter *iter, loff_t new_pos);
+int kallsyms_iter_update(struct kallsym_iter *iter, loff_t pos, int kallmodsyms);
 
 #else /* !CONFIG_KALLSYMS */
 

@@ -1417,7 +1417,7 @@ DEFINE_IDTENTRY_VC_KERNEL(exc_vmm_communication)
 	 */
 	if (vc_is_db(error_code)) {
 		exc_debug(regs);
-		return;
+		return 0;
 	}
 
 	irq_state = irqentry_nmi_enter(regs);
@@ -1437,6 +1437,7 @@ DEFINE_IDTENTRY_VC_KERNEL(exc_vmm_communication)
 
 	instrumentation_end();
 	irqentry_nmi_exit(regs, irq_state);
+	return 0;
 }
 
 /*
@@ -1450,7 +1451,7 @@ DEFINE_IDTENTRY_VC_USER(exc_vmm_communication)
 	 */
 	if (vc_is_db(error_code)) {
 		noist_exc_debug(regs);
-		return;
+		return 0;
 	}
 
 	irqentry_enter_from_user_mode(regs);
@@ -1467,6 +1468,7 @@ DEFINE_IDTENTRY_VC_USER(exc_vmm_communication)
 
 	instrumentation_end();
 	irqentry_exit_to_user_mode(regs);
+	return 0;
 }
 
 bool __init handle_vc_boot_ghcb(struct pt_regs *regs)
