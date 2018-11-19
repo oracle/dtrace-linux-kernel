@@ -23,6 +23,22 @@ config DT_CORE
 
 if DT_CORE
 
+config DT_SDT
+	tristate "Statically Defined Tracing"
+	default m
+	select KALLSYMS
+	help
+	  Statically defined tracepoints in the kernel.
+
+config DT_SDT_PERF
+	bool "DTrace perf-events Probes"
+	default y
+        depends on DT_SDT
+        select TRACEPOINTS
+	help
+	  Provides the perf provider, containing a DTrace probe for each
+	  perf-events tracepoint in the system.
+
 config DT_SYSTRACE
 	tristate "System Call Tracing"
 	default m
