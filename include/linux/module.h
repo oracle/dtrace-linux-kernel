@@ -516,6 +516,9 @@ struct module {
 	struct pi_entry **printk_index_start;
 #endif
 
+#ifdef CONFIG_DTRACE
+	void *pdata;
+#endif
 #ifdef CONFIG_MODULE_UNLOAD
 	/* What modules depend on me? */
 	struct list_head source_list;
