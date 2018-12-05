@@ -127,6 +127,7 @@ vmlinux_link()
 			--start-group				\
 			${KBUILD_VMLINUX_LIBS}			\
 			--end-group				\
+			-Map=.tmp_vmlinux.map			\
 			${1}"
 
 		${LD} ${KBUILD_LDFLAGS} ${LDFLAGS_vmlinux} ${3} -o ${2}	\
@@ -138,6 +139,7 @@ vmlinux_link()
 			-Wl,--start-group			\
 			${KBUILD_VMLINUX_LIBS}			\
 			-Wl,--end-group				\
+			-Wl,-Map=.tmp_vmlinux.map		\
 			${1}"
 
 		${CC} ${CFLAGS_vmlinux} ${3} -o ${2}			\
@@ -155,6 +157,19 @@ kallsyms()
 	info KSYM ${2}
 	local kallsymopt;
 
+	# read the linker map to identify ranges of addresses:
+	#   - for each *.o file, report address, size, pathname
+	#       - most such lines will have four fields
+	#       - but sometimes there is a line break after the first field
+	#   - start reading at "Linker script and memory map"
+	#   - stop reading at ".brk"
+	${AWK} '
+	    /\.o$/ && start==1 { print $(NF-2), $(NF-1), $NF }
+	    /^Linker script and memory map/ { start = 1 }
+	    /^\.brk/ { exit(0) }
+	' .tmp_vmlinux.map | sort > .tmp_vmlinux.ranges
+
+	# get kallsyms options
 	if [ -n "${CONFIG_KALLSYMS_ALL}" ]; then
 		kallsymopt="${kallsymopt} --all-symbols"
 	fi
@@ -167,6 +182,7 @@ kallsyms()
 		kallsymopt="${kallsymopt} --base-relative"
 	fi
 
+	# set up compilation
 	local aflags="${KBUILD_AFLAGS} ${KBUILD_AFLAGS_KERNEL}               \
 		      ${NOSTDINC_FLAGS} ${LINUXINCLUDE} ${KBUILD_CPPFLAGS}"
 

@@ -55,7 +55,9 @@ struct sym_entry {
 	unsigned int start_pos;
 	unsigned char *sym;
 	unsigned int percpu_absolute;
+#ifdef CONFIG_KALLMODSYMS
 	unsigned int module;
+#endif
 };
 
 struct addr_range {
@@ -92,25 +94,25 @@ unsigned char best_table_len[256];
 
 #ifdef CONFIG_KALLMODSYMS
 /*
- * The list of builtin module names.
+ * The builtin module names.  The "offset" points to the name as if
+ * all builtin module names were concatenated to a single string.
  */
-static char **builtin_modules;
-static unsigned int builtin_module_size, builtin_module_len;
+static unsigned int builtin_module_size;	/* number allocated */
+static unsigned int builtin_module_len;		/* number assigned */
+static char **builtin_modules;			/* array of module names */
+static unsigned int *builtin_module_offsets;	/* offset */
 
 /*
- * A mapping from symbol name to the index of the module it is part of in the
- * builtin_modules list.  Symbols within the same module share pointers to the
- * same index allocation (thus this is nearly impossible to free safely, but
- * quite space-efficient).
+ * An ordered list of address ranges and how they map to built-in modules.
  */
-static GHashTable *symbol_to_module;
+struct addrmap_entry {
+	unsigned long long addr;
+	unsigned long long size;
+	unsigned int module;
+};
+static struct addrmap_entry *addrmap;
+static int addrmap_num, addrmap_alloced;
 #endif
-
-/*
- * For each builtin module, its offset from the start of the builtin_module
- * list, assuming consecutive placement.
- */
-static unsigned int *builtin_module_offsets;
 
 static void usage(void)
 {
@@ -151,11 +153,27 @@ static int check_symbol_range(const char *sym, unsigned long long addr,
 	return 1;
 }
 
+#ifdef CONFIG_KALLMODSYMS
+static int addrmap_compare(const void *keyp, const void *rangep)
+{
+	unsigned long long addr = *((const unsigned long long *)keyp);
+	const struct addrmap_entry *range = (const struct addrmap_entry *)rangep;
+
+	if (addr < range->addr)
+		return -1;
+	if (addr < range->addr + range->size)
+		return 0;
+	return 1;
+}
+#endif
+
 static int read_symbol(FILE *in, struct sym_entry *s)
 {
 	char sym[500], stype;
-	unsigned int *module;
 	int rc;
+#ifdef CONFIG_KALLMODSYMS
+	struct addrmap_entry *range;
+#endif
 
 	rc = fscanf(in, "%llx %llx %c %499s\n",
 		    &s->addr, &s->size, &stype, sym);
@@ -198,16 +216,14 @@ static int read_symbol(FILE *in, struct sym_entry *s)
 		return -1;
 
 #ifdef CONFIG_KALLMODSYMS
-	/* look up the builtin module this is part of (if any). */
-	module = g_hash_table_lookup(symbol_to_module, sym);
-#else
-	module = 0;
-#endif
-
-	if (module)
-		s->module = builtin_module_offsets[*module];
+	/* look up the builtin module this is part of (if any) */
+	range = (struct addrmap_entry *) bsearch(&s->addr,
+	    addrmap, addrmap_num, sizeof(*addrmap), &addrmap_compare);
+	if (range)
+		s->module = builtin_module_offsets[range->module];
 	else
 		s->module = 0;
+#endif
 
 	/* include the type field in the symbol name, so that it gets
 	 * compressed together */
@@ -834,117 +850,6 @@ static void record_relative_base(void)
 /* Built-in module list computation. */
 
 /*
- * Populate the symbol_to_module mapping for one built-in module, while
- * tracking whether it is known to exist in other modules.
- */
-static void read_module_symbols(unsigned int module_name_off,
-				struct simple_dwfl_multi *dwfl,
-				GHashTable *module_symbol_seen)
-{
-	Dwarf_Die *tu = NULL;
-	unsigned int *module_idx = NULL;
-	GHashTable *this_module_symbol_seen;
-	GHashTableIter copying_iter;
-	void *copying_name;
-	void *copying_dummy_value;
-
-	this_module_symbol_seen = g_hash_table_new_full(g_str_hash, g_str_equal,
-							free, NULL);
-
-	while ((tu = simple_dwfl_nextcu(dwfl)) != NULL) {
-		Dwarf_Die toplevel;
-		int sib_ret;
-
-		if (dwarf_tag(tu) != DW_TAG_compile_unit) {
-			fprintf(stderr, "Malformed DWARF: non-compile_unit at "
-				"top level in %s.\n", dwfl->paths[dwfl->i]);
-			exit(1);
-		}
-
-		switch (dwarf_child(tu, &toplevel)) {
-		case -1: fprintf(stderr, "Warning: looking for toplevel "
-				 "child of %s in %s: %s\n", dwarf_diename(tu),
-				 dwfl->paths[dwfl->i],
-				 dwarf_errmsg(dwarf_errno()));
-			continue;
-		case 1: /* No DIEs at all in this TU */
-			continue;
-		default: /* Child DIE's exist. */
-			break;
-		}
-
-		do {
-			if (((dwarf_tag(&toplevel) == DW_TAG_subprogram) ||
-			     (dwarf_tag(&toplevel) == DW_TAG_variable)) &&
-			    !dwarf_hasattr(&toplevel, DW_AT_declaration)) {
-				if (module_idx == NULL) {
-					module_idx = malloc(sizeof(unsigned int));
-					if (module_idx == NULL) {
-						fprintf(stderr, "out of memory\n");
-						exit(1);
-					}
-
-					*module_idx = module_name_off;
-				}
-				/*
-				 * If we have never seen this symbol before
-				 * outside of this module, we note that we have
-				 * now seen it in this module, and track it in
-				 * the symbol_to_module mapping.  Otherwise,
-				 * this symbol appears in multiple modules and
-				 * is not a per-module symbol: *remove* it from
-				 * that mapping, if it is present there.
-				 */
-				const char *topdie;
-				topdie = dwarf_diename(&toplevel);
-
-#define g_lookup(a,b) g_hash_table_lookup_extended(a,b,NULL,NULL)
-#define g_insert(a,b,c) g_hash_table_insert(a,b,c)
-#define g_remove(a,b) g_hash_table_remove(a,b)
-
-				if (!g_lookup(module_symbol_seen, topdie)) {
-
-					if (!g_lookup(symbol_to_module, topdie))
-						g_insert(symbol_to_module,
-							 strdup(topdie),
-							 module_idx);
-
-					if (!g_lookup(this_module_symbol_seen,
-						      topdie))
-						g_insert(this_module_symbol_seen,
-							 strdup(topdie), NULL);
-				} else {
-					g_remove(symbol_to_module, topdie);
-				}
-#undef g_lookup
-#undef g_insert
-#undef g_remove
-			}
-		} while ((sib_ret = dwarf_siblingof(&toplevel, &toplevel)) == 0);
-
-		if (sib_ret == -1) {
-			fprintf(stderr, "Warning: Cannot advance to next sibling "
-				"of %s in %s: %s\n", dwarf_diename(&toplevel),
-				dwfl->paths[dwfl->i],
-				dwarf_errmsg(dwarf_errno()));
-		}
-	}
-
-	/*
-	 * Work over all the symbols seen in this module and note that in future
-	 * they are to be considered symbols that were seen in some other
-	 * module.
-	 */
-	g_hash_table_iter_init(&copying_iter, this_module_symbol_seen);
-	while (g_hash_table_iter_next(&copying_iter, &copying_name,
-				      &copying_dummy_value))
-		g_hash_table_insert(module_symbol_seen,
-				    strdup((char *) copying_name), NULL);
-
-	g_hash_table_destroy(this_module_symbol_seen);
-}
-
-/*
  * Expand the builtin modules list.
  */
 static void expand_builtin_modules(void)
@@ -959,69 +864,107 @@ static void expand_builtin_modules(void)
 					 builtin_module_size);
 
 	if (!builtin_modules || !builtin_module_offsets) {
-		fprintf(stderr, "out of memory\n");
-		exit(1);
+		fprintf(stderr, "kallsyms failure: out of memory.\n");
+		exit(EXIT_FAILURE);
 	}
 }
 
 /*
- * Add a single built-in module (possibly composed of many files) to the modules
- * list.  Take the offset of the current module and return it (purely for
- * simplicity's sake in the caller).
+ * Add a single built-in module (possibly composed of many files) to the
+ * modules list.  Take the offset of the current module and return it
+ * (purely for simplicity's sake in the caller).
  */
-static size_t add_builtin_module(const char *module_name,
-				 char **module_paths, size_t offset,
-				 GHashTable *module_symbol_seen)
+static size_t add_builtin_module(const char *module_name, char **module_paths,
+				 GHashTable *obj2mod, size_t offset)
 {
-	struct simple_dwfl_multi *multi;
+	gpointer val = GUINT_TO_POINTER(builtin_module_len);
 
-	multi = simple_dwfl_new_multi(module_paths);
-	if (multi == NULL) {
-		fprintf(stderr, "Out of memory iterating over %s\n",
-			module_name);
-		exit(1);
+	/* map the module's object paths to the module offset */
+	while (*module_paths) {
+		g_hash_table_insert(obj2mod, strdup(*module_paths), val);
+		module_paths++;
 	}
 
-	read_module_symbols(builtin_module_len, multi, module_symbol_seen);
-	simple_dwfl_free_multi(multi);
-
-	if (builtin_module_size >= builtin_module_len)
+	/* add the module name */
+	if (builtin_module_size <= builtin_module_len)
 		expand_builtin_modules();
 	builtin_modules[builtin_module_len] = strdup(module_name);
 	builtin_module_offsets[builtin_module_len] = offset;
-	offset += strlen(module_name) + 1;
 	builtin_module_len++;
 
-	return offset;
+	return (offset + strlen(module_name) + 1);
 }
 
 /*
- * Populate the symbol_to_module mapping for all built-in modules,
- * and the list of built-in modules itself.
+ * Read the linker map.
+ */
+static void read_linker_map(GHashTable *obj2mod)
+{
+	unsigned long long addr, size;
+	char obj[PATH_MAX+1];
+	FILE *f = fopen(".tmp_vmlinux.ranges", "r");
+
+	if (!f) {
+		fprintf(stderr, "Cannot open '.tmp_vmlinux.ranges'.\n");
+		exit(1);
+	}
+
+	addrmap_num = 0;
+	addrmap_alloced = 4096;
+	addrmap = malloc(sizeof(*addrmap) * addrmap_alloced);
+	if (!addrmap)
+		goto oom;
+
+	/*
+	 * For each address range (addr,size) and object, add to addrmap
+	 * the range and the built-in module to which the object maps.
+	 */
+	while (fscanf(f, "%llx %llx %s\n", &addr, &size, obj) == 3) {
+		int m = GPOINTER_TO_UINT(g_hash_table_lookup(obj2mod, obj));
+
+		if (addr == 0 || size == 0 || m == 0)
+			continue;
+
+		if (addrmap_num >= addrmap_alloced) {
+			addrmap_alloced *= 2;
+			addrmap = realloc(addrmap,
+			    sizeof(*addrmap) * addrmap_alloced);
+			if (!addrmap)
+				goto oom;
+		}
+
+		addrmap[addrmap_num].addr = addr;
+		addrmap[addrmap_num].size = size;
+		addrmap[addrmap_num].module = m;
+		addrmap_num++;
+	}
+	fclose(f);
+	return;
+
+oom:
+	fprintf(stderr, "kallsyms: out of memory\n");
+	exit(1);
+}
+
+/*
+ * Read the list of built-in modules.  Construct:
+ *   - builtin_modules: array of module names
+ *   - builtin_module_offsets: array of offsets to find module names
+ *   - obj2mod: mapping from each object-file path to a module index
+ *       (which can be used in the arrays)
+ * Finally, read the linker map.
  */
 static void read_modules(const char *modules_builtin)
 {
 	struct modules_thick_iter *i;
 	size_t offset = 0;
-
-	/*
-	 * A hash containing a mapping from a symbol name if that symbol has
-	 * been seen in any modules so far.  This is used to filter out symbols
-	 * found in more than one built-in module, on the grounds that they are
-	 * probably symbols from the out-of-line representation of inline
-	 * functions in kernel header files shared between modules.
-	 */
-	GHashTable *module_symbol_seen;
 	char *module_name = NULL;
 	char **module_paths;
+	GHashTable *obj2mod;
 
-	symbol_to_module = g_hash_table_new_full(g_str_hash, g_str_equal,
-						 free, NULL);
-	module_symbol_seen = g_hash_table_new_full(g_str_hash, g_str_equal,
-						   free, NULL);
-
-	if (symbol_to_module == NULL || module_symbol_seen == NULL) {
-		fprintf(stderr, "Out of memory");
+	obj2mod = g_hash_table_new_full(g_str_hash, g_str_equal, free, NULL);
+	if (!obj2mod) {
+		fprintf(stderr, "kallsyms: out of memory\n");
 		exit(1);
 	}
 
@@ -1034,7 +977,12 @@ static void read_modules(const char *modules_builtin)
 				 builtin_module_size);
 	builtin_module_offsets = malloc(sizeof(*builtin_module_offsets) *
 				 builtin_module_size);
+	if (!builtin_modules || !builtin_module_offsets) {
+		fprintf(stderr, "kallsyms: out of memory\n");
+		exit(1);
+	}
 	builtin_modules[0] = strdup("");
+	builtin_module_offsets[0] = 0;
 	builtin_module_len = 1;
 	offset++;
 
@@ -1049,7 +997,7 @@ static void read_modules(const char *modules_builtin)
 
 	while ((module_paths = modules_thick_iter_next(i, &module_name)) != NULL) {
 		offset = add_builtin_module(module_name, module_paths,
-					    offset, module_symbol_seen);
+					    obj2mod, offset);
 		free(module_paths);
 		module_paths = NULL;
 	}
@@ -1057,7 +1005,12 @@ static void read_modules(const char *modules_builtin)
 	free(module_name);
 	modules_thick_iter_free(i);
 
-	g_hash_table_destroy(module_symbol_seen);
+	/*
+	 * Read linker map.
+	 */
+	read_linker_map(obj2mod);
+
+	g_hash_table_destroy(obj2mod);
 }
 #else
 static void read_modules(const char *unused) {}
