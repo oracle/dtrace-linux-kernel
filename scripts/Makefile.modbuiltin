@@ -48,8 +48,8 @@ $(modbuiltin-target): $(subdir-ym) FORCE
 $(modthickbuiltin-target): $(subdir-ym) FORCE
 	$(Q) $(foreach mod-o, $(filter %.o,$(obj-Y)),\
 		printf "%s:" $(addprefix $(obj)/,$(mod-o)) >> $@; \
-		printf " %s" $(strip $(addprefix $(obj)/,$($(mod-o:.o=-objs)) \
-			$($(mod-o:.o=-y)) $($(mod-o:.o=-Y)))) >> $@; \
+		printf " %s" $(sort $(strip $(addprefix $(obj)/,$($(mod-o:.o=-objs)) \
+			$($(mod-o:.o=-y)) $($(mod-o:.o=-Y))))) >> $@; \
 		printf "\n" >> $@; ) \
 	cat /dev/null $(modthickbuiltin-subdirs) >> $@;
 
