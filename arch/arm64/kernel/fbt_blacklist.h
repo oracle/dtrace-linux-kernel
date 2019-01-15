@@ -77,8 +77,9 @@ BL_DENTRY(void *, gup_pte_range)
 BL_DENTRY(void *, pte_mfn_to_pfn)
 
 /*
- * Functions used under 4.12 idr_find
+ * Functions used under 4.19 idr_find
  */
+BL_DENTRY(void *, idr_find)
 BL_DENTRY(void *, find_next_bit)
 BL_DENTRY(void *, _find_next_bit)
 BL_DENTRY(void *, radix_tree_lookup)
