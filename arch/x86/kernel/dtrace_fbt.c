@@ -47,7 +47,7 @@ void dtrace_fbt_init(fbt_add_probe_fn fbt_add_probe, struct module *mp,
 	loff_t			pos;
 	struct kallsym_iter	sym;
 	asm_instr_t		*paddr = NULL;
-	dt_fbt_bl_entry_t	*blent = NULL;
+	struct dt_fbt_bl_entry	*blent = NULL;
 
 	/*
 	 * Look up any unresolved symbols in the blacklist, and sort the list

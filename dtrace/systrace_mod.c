@@ -27,7 +27,7 @@ MODULE_DESCRIPTION("System Call Tracing");
 MODULE_VERSION("v0.1");
 MODULE_LICENSE("GPL");
 
-static const dtrace_pattr_t syscall_attr = {
+static const struct dtrace_pattr syscall_attr = {
 { DTRACE_STABILITY_EVOLVING, DTRACE_STABILITY_EVOLVING, DTRACE_CLASS_COMMON },
 { DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_UNKNOWN },
 { DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_ISA },
@@ -35,7 +35,7 @@ static const dtrace_pattr_t syscall_attr = {
 { DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_ISA },
 };
 
-static dtrace_pops_t syscall_pops = {
+static struct dtrace_pops syscall_pops = {
 	.dtps_provide = systrace_provide,
 	.dtps_provide_module = NULL,
 	.dtps_destroy_module = NULL,

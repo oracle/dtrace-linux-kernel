@@ -36,7 +36,7 @@
  */
 #define FBT_AFRAMES	3
 
-typedef struct fbt_probe {
+struct fbt_probe {
 	char			*fbp_name;	/* name of probe */
 	dtrace_id_t		fbp_id;		/* probe ID */
 	struct module		*fbp_module;	/* defining module */
@@ -48,6 +48,6 @@ typedef struct fbt_probe {
 	struct fbt_probe	*fbp_next;	/* next probe */
 	struct fbt_probe	*fbp_hashnext;	/* next on hash */
 	int			fbp_isret;
-} fbt_probe_t;
+};
 
 #endif /* _ARM64_FBT_ARCH_H */

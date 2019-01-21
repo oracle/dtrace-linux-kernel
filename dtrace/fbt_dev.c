@@ -29,7 +29,7 @@
 
 #define FBT_PROBETAB_SIZE	0x8000		/* 32k entries -- 128K total */
 
-fbt_probe_t		**fbt_probetab;
+struct fbt_probe		**fbt_probetab;
 int			fbt_probetab_size = FBT_PROBETAB_SIZE;
 int			fbt_probetab_mask;
 
@@ -37,13 +37,13 @@ static void *fbt_provide_probe(struct module *mp, char *func, int probetype,
 			       int stype, asm_instr_t *addr, uintptr_t off,
 			       void *pfbt, void *arg)
 {
-	fbt_probe_t	*fbp;
-	fbt_probe_t	*prev;
+	struct fbt_probe	*fbp;
+	struct fbt_probe	*prev;
 	int		*skipped = arg;
 
 	switch (probetype) {
 	case FBT_ENTRY:
-		fbp = kzalloc(sizeof(fbt_probe_t), GFP_KERNEL);
+		fbp = kzalloc(sizeof(struct fbt_probe), GFP_KERNEL);
 		fbp->fbp_name = kstrdup(func, GFP_KERNEL);
 		if (fbp->fbp_name == NULL)
 			goto err_probe;
@@ -71,12 +71,12 @@ static void *fbt_provide_probe(struct module *mp, char *func, int probetype,
 		if (!fbt_can_patch_return_arch(addr))
 			return pfbt;
 
-		fbp = kzalloc(sizeof(fbt_probe_t), GFP_KERNEL);
+		fbp = kzalloc(sizeof(struct fbt_probe), GFP_KERNEL);
 		fbp->fbp_name = kstrdup(func, GFP_KERNEL);
 		if (fbp->fbp_name == NULL)
 			goto err_probe;
 
-		prev = (fbt_probe_t *)pfbt;
+		prev = (struct fbt_probe *)pfbt;
 		if (prev != NULL) {
 			prev->fbp_next = fbp;
 			fbp->fbp_id = prev->fbp_id;
@@ -160,8 +160,8 @@ void fbt_provide_module(void *arg, struct module *mp)
 
 int fbt_enable(void *arg, dtrace_id_t id, void *parg)
 {
-	fbt_probe_t	*fbp = parg;
-	fbt_probe_t	*curr;
+	struct fbt_probe	*fbp = parg;
+	struct fbt_probe	*curr;
 
 	/*
 	 * Ensure that we have a reference to the module.
@@ -186,8 +186,8 @@ int fbt_enable(void *arg, dtrace_id_t id, void *parg)
 
 void fbt_disable(void *arg, dtrace_id_t id, void *parg)
 {
-	fbt_probe_t	*fbp = parg;
-	fbt_probe_t	*curr;
+	struct fbt_probe	*fbp = parg;
+	struct fbt_probe	*curr;
 
 	for (curr = fbp; curr != NULL; curr = curr->fbp_next)
 		fbt_disable_arch(curr, id, arg);
@@ -205,8 +205,8 @@ void fbt_disable(void *arg, dtrace_id_t id, void *parg)
 
 void fbt_destroy(void *arg, dtrace_id_t id, void *parg)
 {
-	fbt_probe_t	*fbp = parg;
-	fbt_probe_t	*hbp, *lst, *nxt;
+	struct fbt_probe	*fbp = parg;
+	struct fbt_probe	*hbp, *lst, *nxt;
 	int		ndx;
 	struct module	*mp = fbp->fbp_module;
 
