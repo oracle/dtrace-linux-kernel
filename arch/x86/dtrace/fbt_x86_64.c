@@ -101,13 +101,13 @@ uint64_t fbt_getarg(void *arg, dtrace_id_t id, void *parg, int argno,
 	return val;
 }
 
-void fbt_provide_probe_arch(fbt_probe_t *fbp, int type, int stype)
+void fbt_provide_probe_arch(fbt_probe_t *fbp, int probetype, int stype)
 {
-	fbp->fbp_patchval = type == FBT_ENTRY ? FBT_ENTRY_PATCHVAL
-					      : FBT_RETURN_PATCHVAL;
+	fbp->fbp_patchval = probetype == FBT_ENTRY ? FBT_ENTRY_PATCHVAL
+						   : FBT_RETURN_PATCHVAL;
 	fbp->fbp_savedval = *fbp->fbp_patchpoint;
-	fbp->fbp_rval = type == FBT_ENTRY ? DTRACE_INVOP_PUSH_BP
-					  : DTRACE_INVOP_RET;
+	fbp->fbp_rval = probetype == FBT_ENTRY ? DTRACE_INVOP_PUSH_BP
+					       : DTRACE_INVOP_RET;
 }
 
 int fbt_can_patch_return_arch(asm_instr_t *addr)

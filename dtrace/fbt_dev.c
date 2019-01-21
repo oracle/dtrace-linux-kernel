@@ -33,15 +33,15 @@ fbt_probe_t		**fbt_probetab;
 int			fbt_probetab_size = FBT_PROBETAB_SIZE;
 int			fbt_probetab_mask;
 
-static void *fbt_provide_probe(struct module *mp, char *func, int type, int
-			       stype, asm_instr_t *addr, uintptr_t off,
+static void *fbt_provide_probe(struct module *mp, char *func, int probetype,
+			       int stype, asm_instr_t *addr, uintptr_t off,
 			       void *pfbt, void *arg)
 {
 	fbt_probe_t	*fbp;
 	fbt_probe_t	*prev;
 	int		*skipped = arg;
 
-	switch (type) {
+	switch (probetype) {
 	case FBT_ENTRY:
 		fbp = kzalloc(sizeof(fbt_probe_t), GFP_KERNEL);
 		fbp->fbp_name = kstrdup(func, GFP_KERNEL);
@@ -57,7 +57,7 @@ static void *fbt_provide_probe(struct module *mp, char *func, int type, int
 		fbp->fbp_primary = 1; /* FIXME */
 		fbp->fbp_roffset = off;
 		fbp->fbp_patchpoint = addr;
-		fbt_provide_probe_arch(fbp, type, stype);
+		fbt_provide_probe_arch(fbp, probetype, stype);
 
 		fbp->fbp_hashnext = fbt_probetab[FBT_ADDR2NDX(fbp->fbp_patchpoint)];
 		fbt_probetab[FBT_ADDR2NDX(fbp->fbp_patchpoint)] = fbp;
@@ -92,7 +92,7 @@ static void *fbt_provide_probe(struct module *mp, char *func, int type, int
 		fbp->fbp_primary = 1; /* FIXME */
 		fbp->fbp_roffset = off;
 		fbp->fbp_patchpoint = addr;
-		fbt_provide_probe_arch(fbp, type, stype);
+		fbt_provide_probe_arch(fbp, probetype, stype);
 
 		fbp->fbp_hashnext = fbt_probetab[FBT_ADDR2NDX(fbp->fbp_patchpoint)];
 		fbt_probetab[FBT_ADDR2NDX(fbp->fbp_patchpoint)] = fbp;
@@ -102,7 +102,7 @@ static void *fbt_provide_probe(struct module *mp, char *func, int type, int
 		return fbp;
 	default:
 		pr_info("FBT: Invalid probe type %d (%d) for %s\n",
-			type, stype, func);
+			probetype, stype, func);
 
 		return NULL;
 	}
