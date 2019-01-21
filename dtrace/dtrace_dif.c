@@ -335,7 +335,7 @@ int dtrace_difo_validate(dtrace_difo_t *dp, dtrace_vstate_t *vstate,
 			if (diftype != DIF_TYPE_CTF)
 				err += efunc(pc, "invalid val type %u\n",
 					     diftype);
-			if (er2 >= nregs)
+			if (r2 >= nregs)
 				err += efunc(pc, "invalid register %u\n", r2);
 			if (rs >= nregs)
 				err += efunc(pc, "invalid register %u\n", rs);
