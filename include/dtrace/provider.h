@@ -822,7 +822,7 @@ extern void dtrace_probe(dtrace_id_t, uintptr_t, uintptr_t, uintptr_t,
   static int __init name##_init(void)					\
   {									\
 	int	ret = -ENOMEM;						\
-	dtrace_module_t *pdata = THIS_MODULE->pdata;			\
+	struct dtrace_module *pdata = THIS_MODULE->pdata;		\
 									\
 	if (pdata == NULL)						\
 		goto failed;						\
@@ -871,7 +871,7 @@ extern void dtrace_probe(dtrace_id_t, uintptr_t, uintptr_t, uintptr_t,
   static int __init name##_init(void)					\
   {									\
 	int	ret = -ENOMEM;						\
-	dtrace_module_t *pdata = THIS_MODULE->pdata;			\
+	struct dtrace_module *pdata = THIS_MODULE->pdata;		\
 									\
 	if (pdata == NULL)						\
 		goto failed;						\
@@ -905,7 +905,7 @@ extern void dtrace_probe(dtrace_id_t, uintptr_t, uintptr_t, uintptr_t,
   static int name##_prov_exit(void)					\
   {									\
 	int			ret = 0;				\
-	dtrace_mprovider_t	*prov;					\
+	struct dtrace_mprovider	*prov;					\
 									\
 	for (prov = plist; prov->dtmp_name != NULL; prov++) {		\
 		if (prov->dtmp_id != DTRACE_PROVNONE) {			\
@@ -927,8 +927,8 @@ extern void dtrace_probe(dtrace_id_t, uintptr_t, uintptr_t, uintptr_t,
   static int __init name##_init(void)					\
   {									\
 	int			ret = -ENOMEM;				\
-	dtrace_mprovider_t	*prov;					\
-	dtrace_module_t		*pdata = THIS_MODULE->pdata;		\
+	struct dtrace_mprovider	*prov;					\
+	struct dtrace_module	*pdata = THIS_MODULE->pdata;		\
 									\
 	if (pdata == NULL)						\
 		goto failed;						\
