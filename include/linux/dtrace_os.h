@@ -41,12 +41,12 @@ extern void dtrace_disable(void);
 extern ktime_t dtrace_gethrtime(void);
 extern ktime_t dtrace_getwalltime(void);
 
-typedef enum dtrace_vtime_state {
+enum dtrace_vtime_state {
 	DTRACE_VTIME_INACTIVE = 0,
 	DTRACE_VTIME_ACTIVE
-} dtrace_vtime_state_t;
+};
 
-extern dtrace_vtime_state_t dtrace_vtime_active;
+extern enum dtrace_vtime_state dtrace_vtime_active;
 
 typedef void for_each_module_fn(void *, struct module *);
 extern void dtrace_for_each_module(for_each_module_fn *fn, void *arg);
@@ -68,19 +68,19 @@ extern int dtrace_die_notifier(struct notifier_block *, unsigned long, void *);
 #define STACKTRACE_USER		0x02
 #define STACKTRACE_TYPE		0x0f
 
-typedef struct stacktrace_state {
+struct stacktrace_state {
 	uint64_t	*pcs;
 	uint64_t	*fps;
 	int		limit;
 	int		depth;
 	int		flags;
-} stacktrace_state_t;
+};
 
-extern void dtrace_stacktrace(stacktrace_state_t *);
-extern void dtrace_user_stacktrace(stacktrace_state_t *);
+extern void dtrace_stacktrace(struct stacktrace_state *);
+extern void dtrace_user_stacktrace(struct stacktrace_state *);
 extern void dtrace_handle_badaddr(struct pt_regs *);
-extern void dtrace_mod_pdata_init(dtrace_module_t *pdata);
-extern void dtrace_mod_pdata_cleanup(dtrace_module_t *pdata);
+extern void dtrace_mod_pdata_init(struct dtrace_module *pdata);
+extern void dtrace_mod_pdata_cleanup(struct dtrace_module *pdata);
 
 /*
  * This is only safe to call if we know this is a userspace fault
@@ -101,20 +101,22 @@ extern void (*dtrace_fasttrap_probes_cleanup)(struct task_struct *);
 extern void (*dtrace_helpers_fork)(struct task_struct *, struct task_struct *);
 
 #if IS_ENABLED(CONFIG_DT_FASTTRAP)
-typedef struct fasttrap_machtp {
+struct fasttrap_machtp {
 	struct inode		*fmtp_ino;
 	loff_t			fmtp_off;
 	struct uprobe_consumer	fmtp_cns;
-} fasttrap_machtp_t;
+};
 
-extern int (*dtrace_tracepoint_hit)(fasttrap_machtp_t *, struct pt_regs *, int);
+extern int (*dtrace_tracepoint_hit)(struct fasttrap_machtp *,
+				    struct pt_regs *, int);
 
 extern struct task_struct *register_pid_provider(pid_t);
 extern void unregister_pid_provider(pid_t);
 
 extern int dtrace_copy_code(pid_t, uint8_t *, uintptr_t, size_t);
-extern int dtrace_tracepoint_enable(pid_t, uintptr_t, int, fasttrap_machtp_t *);
-extern int dtrace_tracepoint_disable(pid_t, fasttrap_machtp_t *);
+extern int dtrace_tracepoint_enable(pid_t, uintptr_t, int,
+				    struct fasttrap_machtp *);
+extern int dtrace_tracepoint_disable(pid_t, struct fasttrap_machtp *);
 #endif /* CONFIG_DT_FASTTRAP || CONFIG_DT_FASTTRAP_MODULE */
 
 #else

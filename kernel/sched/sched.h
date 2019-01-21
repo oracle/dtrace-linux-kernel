@@ -951,7 +951,7 @@ struct rq {
 	struct cpuidle_state	*idle_state;
 #endif
 #ifdef CONFIG_DTRACE
-	cpuinfo_t *dtrace_cpu_info;
+	struct cpuinfo *dtrace_cpu_info;
 #endif
 };
 

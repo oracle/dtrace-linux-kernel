@@ -28,16 +28,15 @@
  * in the INACTIVE state, 0 is returned.  In this case, no error counter is
  * incremented -- it is up to the caller to take appropriate action.
  */
-int dtrace_speculation(dtrace_state_t *state)
+int dtrace_speculation(struct dtrace_state *state)
 {
-	int				i = 0;
-	dtrace_speculation_state_t	curr;
-	uint32_t			*stat =
-					    &state->dts_speculations_unavail,
-					count;
+	int		i = 0;
+	uint32_t	count, *stat = &state->dts_speculations_unavail;
+
+	enum dtrace_speculation_state curr;
 
 	while (i < state->dts_nspeculations) {
-		dtrace_speculation_t	*spec = &state->dts_speculations[i];
+		struct dtrace_speculation *spec = &state->dts_speculations[i];
 
 		curr = spec->dtsp_state;
 
@@ -74,13 +73,13 @@ int dtrace_speculation(dtrace_state_t *state)
  * nothing.  The state of the specified speculation is transitioned according
  * to the state transition diagram outlined in <sys/dtrace_impl.h>
  */
-void dtrace_speculation_commit(dtrace_state_t *state, processorid_t cpu,
+void dtrace_speculation_commit(struct dtrace_state *state, processorid_t cpu,
 			       dtrace_specid_t which)
 {
-	dtrace_speculation_t		*spec;
-	dtrace_buffer_t			*src, *dest;
+	struct dtrace_speculation	*spec;
+	struct dtrace_buffer		*src, *dest;
 	uintptr_t			daddr, saddr, dlimit;
-	dtrace_speculation_state_t	curr, new = 0;
+	enum dtrace_speculation_state	curr, new = 0;
 	intptr_t			offs;
 
 	if (which == 0)
@@ -219,12 +218,12 @@ out:
  * do nothing.  The state of the specified speculation is transitioned
  * according to the state transition diagram outlined in <sys/dtrace_impl.h>
  */
-void dtrace_speculation_discard(dtrace_state_t *state, processorid_t cpu,
+void dtrace_speculation_discard(struct dtrace_state *state, processorid_t cpu,
 				dtrace_specid_t which)
 {
-	dtrace_speculation_t		*spec;
-	dtrace_speculation_state_t	curr, new = 0;
-	dtrace_buffer_t			*buf;
+	struct dtrace_speculation	*spec;
+	enum dtrace_speculation_state	curr, new = 0;
+	struct dtrace_buffer		*buf;
 
 	if (which == 0)
 		return;
@@ -276,11 +275,11 @@ void dtrace_speculation_discard(dtrace_state_t *state, processorid_t cpu,
  * transitioned back to the INACTIVE state until all CPUs have cleaned the
  * speculation.
  */
-void dtrace_speculation_clean_here(dtrace_state_t *state)
+void dtrace_speculation_clean_here(struct dtrace_state *state)
 {
 	dtrace_icookie_t	cookie;
 	processorid_t		cpu = smp_processor_id();
-	dtrace_buffer_t		*dest = &state->dts_buffer[cpu];
+	struct dtrace_buffer	*dest = &state->dts_buffer[cpu];
 	dtrace_specid_t		i;
 	uint32_t		re_entry;
 
@@ -292,8 +291,8 @@ void dtrace_speculation_clean_here(dtrace_state_t *state)
 	}
 
 	for (i = 0; i < state->dts_nspeculations; i++) {
-		dtrace_speculation_t	*spec = &state->dts_speculations[i];
-		dtrace_buffer_t		*src = &spec->dtsp_buffer[cpu];
+		struct dtrace_speculation *spec = &state->dts_speculations[i];
+		struct dtrace_buffer      *src = &spec->dtsp_buffer[cpu];
 
 		if (src->dtb_tomax == NULL)
 			continue;
@@ -315,13 +314,13 @@ void dtrace_speculation_clean_here(dtrace_state_t *state)
 	DTRACE_SYNC_EXIT_CRITICAL(cookie, re_entry);
 }
 
-void dtrace_speculation_clean(dtrace_state_t *state)
+void dtrace_speculation_clean(struct dtrace_state *state)
 {
 	int		work = 0, rv;
 	dtrace_specid_t	i;
 
 	for (i = 0; i < state->dts_nspeculations; i++) {
-		dtrace_speculation_t	*spec = &state->dts_speculations[i];
+		struct dtrace_speculation *spec = &state->dts_speculations[i];
 
 		ASSERT(!spec->dtsp_cleaning);
 
@@ -345,9 +344,9 @@ void dtrace_speculation_clean(dtrace_state_t *state)
 	 * to inactive.
 	 */
 	for (i = 0; i < state->dts_nspeculations; i++) {
-		dtrace_speculation_t		*spec =
+		struct dtrace_speculation	*spec =
 						&state->dts_speculations[i];
-		dtrace_speculation_state_t	curr, new;
+		enum dtrace_speculation_state	curr, new;
 
 		if (!spec->dtsp_cleaning)
 			continue;
@@ -371,13 +370,14 @@ void dtrace_speculation_clean(dtrace_state_t *state)
  * the active CPU is not the specified CPU -- the speculation will be
  * atomically transitioned into the ACTIVEMANY state.
  */
-dtrace_buffer_t *dtrace_speculation_buffer(dtrace_state_t *state,
-					   processorid_t cpu,
-					   dtrace_specid_t which)
+struct dtrace_buffer *
+dtrace_speculation_buffer(struct dtrace_state *state,
+			  processorid_t cpu,
+			  dtrace_specid_t which)
 {
-	dtrace_speculation_t		*spec;
-	dtrace_speculation_state_t	curr, new = 0;
-	dtrace_buffer_t			*buf;
+	struct dtrace_speculation	*spec;
+	enum dtrace_speculation_state	curr, new = 0;
+	struct dtrace_buffer		*buf;
 
 	if (which == 0)
 		return NULL;

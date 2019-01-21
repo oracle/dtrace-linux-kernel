@@ -27,7 +27,7 @@ MODULE_DESCRIPTION("DTrace Test Probe");
 MODULE_VERSION("v0.1");
 MODULE_LICENSE("GPL");
 
-static const dtrace_pattr_t dt_test_attr = {
+static const struct dtrace_pattr dt_test_attr = {
 { DTRACE_STABILITY_EVOLVING, DTRACE_STABILITY_EVOLVING, DTRACE_CLASS_COMMON },
 { DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_UNKNOWN },
 { DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_ISA },
@@ -35,7 +35,7 @@ static const dtrace_pattr_t dt_test_attr = {
 { DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_ISA },
 };
 
-static dtrace_pops_t dt_test_pops = {
+static struct dtrace_pops dt_test_pops = {
 	.dtps_provide = dt_test_provide,
 	.dtps_provide_module = NULL,
 	.dtps_destroy_module = NULL,

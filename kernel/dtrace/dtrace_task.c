@@ -37,7 +37,7 @@ EXPORT_SYMBOL(dtrace_helpers_fork);
  * Reset per-task sate to default values. Modifies only part of
  * the state that does not persist across process forks.
  */
-static void dtrace_task_reinit(dtrace_task_t *dtsk)
+static void dtrace_task_reinit(struct dtrace_task *dtsk)
 {
 	dtsk->dt_predcache = 0;
 	dtsk->dt_stop = 0;
@@ -52,9 +52,9 @@ static void dtrace_task_reinit(dtrace_task_t *dtsk)
  * Allocate new per-task structure and initialize it with default
  * values.
  */
-static dtrace_task_t *dtrace_task_alloc(void)
+static struct dtrace_task *dtrace_task_alloc(void)
 {
-	dtrace_task_t *dtsk;
+	struct dtrace_task *dtsk;
 
 	/* Try to allocate new task. */
 	dtsk = kmem_cache_alloc(dtrace_task_cachep, GFP_KERNEL);
@@ -78,7 +78,7 @@ static dtrace_task_t *dtrace_task_alloc(void)
  */
 static void dtrace_task_cleanup(struct task_struct *tsk)
 {
-	dtrace_psinfo_t *psinfo;
+	struct dtrace_psinfo *psinfo;
 
 	/* Nothing to remove. */
 	if (tsk->dt_task == NULL)
@@ -138,8 +138,8 @@ void dtrace_task_init(struct task_struct *tsk)
  */
 void dtrace_task_dup(struct task_struct *src, struct task_struct *dst)
 {
-	dtrace_psinfo_t	*psinfo;
-	dtrace_task_t	*dtsk;
+	struct dtrace_psinfo *psinfo;
+	struct dtrace_task   *dtsk;
 
 	/* Nothing to clone. */
 	if (src->dt_task == NULL)
@@ -226,7 +226,7 @@ void dtrace_task_exec(struct task_struct *tsk)
  */
 void dtrace_task_free(struct task_struct *tsk)
 {
-	dtrace_task_t *dtsk = tsk->dt_task;
+	struct dtrace_task *dtsk = tsk->dt_task;
 
 	/* Nothing to do. */
 	if (dtsk == NULL)
@@ -245,7 +245,7 @@ void __init dtrace_task_os_init(void)
 {
 	/* Will panic if not initialized so no need to check for errors. */
 	dtrace_task_cachep = kmem_cache_create("dtrace_task_cache",
-				sizeof(dtrace_task_t), 0,
+				sizeof(struct dtrace_task), 0,
 				SLAB_HWCACHE_ALIGN | SLAB_PANIC,
 				NULL);
 }

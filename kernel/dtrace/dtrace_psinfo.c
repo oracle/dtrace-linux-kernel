@@ -30,7 +30,7 @@ struct kmem_cache	*dtrace_psinfo_cachep;
 /*
  * Free the psinfo_t structure.
  */
-void dtrace_psinfo_free(dtrace_psinfo_t *psinfo)
+void dtrace_psinfo_free(struct dtrace_psinfo *psinfo)
 {
 	kfree(psinfo->dtps_argv);
 	kfree(psinfo->dtps_envp);
@@ -42,14 +42,14 @@ void dtrace_psinfo_free(dtrace_psinfo_t *psinfo)
  */
 void dtrace_psinfo_alloc(struct task_struct *tsk)
 {
-	dtrace_psinfo_t		*psinfo;
+	struct dtrace_psinfo	*psinfo;
 	struct mm_struct	*mm = NULL;
 
 	if (unlikely(tsk->dt_task == NULL))
 		return;
 
 	if (likely(tsk->dt_task->dt_psinfo != NULL)) {
-		dtrace_psinfo_t *tmp = tsk->dt_task->dt_psinfo;
+		struct dtrace_psinfo *tmp = tsk->dt_task->dt_psinfo;
 		tsk->dt_task->dt_psinfo = NULL;
 
 		dtrace_psinfo_put(tmp);
@@ -205,7 +205,7 @@ fail:
 void __init dtrace_psinfo_os_init(void)
 {
 	dtrace_psinfo_cachep = kmem_cache_create("dtrace_psinfo_cache",
-				sizeof(dtrace_psinfo_t), 0,
+				sizeof(struct dtrace_psinfo), 0,
 				SLAB_HWCACHE_ALIGN | SLAB_PANIC,
 				NULL);
 

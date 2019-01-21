@@ -18,11 +18,12 @@
 
 #include "dtrace.h"
 
-dtrace_hash_t	*dtrace_bymod;
-dtrace_hash_t	*dtrace_byfunc;
-dtrace_hash_t	*dtrace_byname;
+struct dtrace_hash	*dtrace_bymod;
+struct dtrace_hash	*dtrace_byfunc;
+struct dtrace_hash	*dtrace_byname;
 
-int dtrace_match_priv(const dtrace_probe_t *prp, uint32_t priv, kuid_t uid)
+int dtrace_match_priv(const struct dtrace_probe *prp, uint32_t priv,
+		      kuid_t uid)
 {
 	if (priv != DTRACE_PRIV_ALL) {
 		uint32_t	ppriv =
@@ -45,10 +46,11 @@ int dtrace_match_priv(const dtrace_probe_t *prp, uint32_t priv, kuid_t uid)
 	return 1;
 }
 
-int dtrace_match_probe(const dtrace_probe_t *prp, const dtrace_probekey_t *pkp,
+int dtrace_match_probe(const struct dtrace_probe *prp,
+		       const struct dtrace_probekey *pkp,
 		       uint32_t priv, kuid_t uid)
 {
-	dtrace_provider_t	*pvp = prp->dtpr_provider;
+	struct dtrace_provider	*pvp = prp->dtpr_provider;
 	int			rv;
 
 	if (pvp->dtpv_defunct)
@@ -208,10 +210,10 @@ int dtrace_match_nonzero(const char *s, const char *p, int depth)
 }
 
 struct probe_match {
-	const dtrace_probekey_t *pkp;
+	const struct dtrace_probekey *pkp;
 	uint32_t		priv;
 	kuid_t			uid;
-	int			(*matched)(dtrace_probe_t *, void *);
+	int			(*matched)(struct dtrace_probe *, void *);
 	void			*arg;
 	int			nmatched;
 };
@@ -219,7 +221,7 @@ struct probe_match {
 static int dtrace_match_one(int id, void *p, void *data)
 {
 	struct probe_match	*pbm	= (struct probe_match *)data;
-	dtrace_probe_t		*probe	= (dtrace_probe_t *)p;
+	struct dtrace_probe	*probe	= (struct dtrace_probe *)p;
 	int			rc;
 
 	if (dtrace_match_probe(probe, pbm->pkp, pbm->priv, pbm->uid) <= 0)
@@ -236,12 +238,12 @@ static int dtrace_match_one(int id, void *p, void *data)
 	return 0;
 }
 
-int dtrace_match(const dtrace_probekey_t *pkp, uint32_t priv, kuid_t uid,
-		 int (*matched)(dtrace_probe_t *, void *), void *arg)
+int dtrace_match(const struct dtrace_probekey *pkp, uint32_t priv, kuid_t uid,
+		 int (*matched)(struct dtrace_probe *, void *), void *arg)
 {
-	dtrace_probe_t	template, *probe;
-	dtrace_hash_t	*hash = NULL;
-	int		len, rc, best = INT_MAX, nmatched = 0;
+	struct dtrace_probe	template, *probe;
+	struct dtrace_hash	*hash = NULL;
+	int			len, rc, best = INT_MAX, nmatched = 0;
 
 	if (pkp->dtpk_id != DTRACE_IDNONE) {
 		probe = dtrace_probe_lookup_id(pkp->dtpk_id);
@@ -335,7 +337,8 @@ static dtrace_probekey_f *dtrace_probekey_func(const char *p)
 	return &dtrace_match_string;
 }
 
-void dtrace_probekey(const dtrace_probedesc_t *pdp, dtrace_probekey_t *pkp)
+void dtrace_probekey(const struct dtrace_probedesc *pdp,
+		     struct dtrace_probekey *pkp)
 {
 	pkp->dtpk_prov = pdp->dtpd_provider;
 	pkp->dtpk_pmatch = dtrace_probekey_func(pdp->dtpd_provider);

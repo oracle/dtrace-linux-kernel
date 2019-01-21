@@ -29,7 +29,7 @@
 
 static uint8_t sdt_invop(struct pt_regs *regs)
 {
-	sdt_probe_t	*sdt = sdt_probetab[SDT_ADDR2NDX(regs->ip)];
+	struct sdt_probe	*sdt = sdt_probetab[SDT_ADDR2NDX(regs->ip)];
 
 	for (; sdt != NULL; sdt = sdt->sdp_hashnext) {
 		if ((uintptr_t)sdt->sdp_patchpoint == regs->ip) {
@@ -55,7 +55,7 @@ static uint8_t sdt_invop(struct pt_regs *regs)
 	return 0;
 }
 
-void sdt_provide_probe_arch(sdt_probe_t *sdp, struct module *mp, int idx)
+void sdt_provide_probe_arch(struct sdt_probe *sdp, struct module *mp, int idx)
 {
 	sdp->sdp_patchval = SDT_PATCHVAL;
 	sdp->sdp_savedval = *sdp->sdp_patchpoint;
@@ -70,12 +70,12 @@ void sdt_destroy_module(void *arg, struct module *mp)
 {
 }
 
-void sdt_enable_arch(sdt_probe_t *sdp, dtrace_id_t id, void *arg)
+void sdt_enable_arch(struct sdt_probe *sdp, dtrace_id_t id, void *arg)
 {
 	dtrace_invop_enable(sdp->sdp_patchpoint, sdp->sdp_patchval);
 }
 
-void sdt_disable_arch(sdt_probe_t *sdp, dtrace_id_t id, void *arg)
+void sdt_disable_arch(struct sdt_probe *sdp, dtrace_id_t id, void *arg)
 {
 	dtrace_invop_disable(sdp->sdp_patchpoint, sdp->sdp_savedval);
 }

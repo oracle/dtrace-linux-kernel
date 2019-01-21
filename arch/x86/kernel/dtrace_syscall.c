@@ -34,7 +34,7 @@ asmlinkage long systrace_syscall(const struct pt_regs *regs);
 asmlinkage long dtrace_stub_ptregs(uintptr_t, uintptr_t, uintptr_t, uintptr_t,
 				   uintptr_t, uintptr_t, uintptr_t);
 
-static systrace_info_t	systrace_info =
+static struct systrace_info	systrace_info =
 {
 	&systrace_probe,
 	systrace_stub,
@@ -53,7 +53,7 @@ asmlinkage long systrace_syscall(const struct pt_regs *regs)
 	long			rc = 0;
 	unsigned long		sysnum;
 	dtrace_id_t		id;
-	dtrace_syscalls_t	*sc;
+	struct dtrace_syscalls	*sc;
 
 	sysnum = syscall_get_nr(current, (struct pt_regs *) regs);
 	sc = &systrace_info.sysent[sysnum];
@@ -81,7 +81,8 @@ asmlinkage long systrace_syscall(const struct pt_regs *regs)
 	return rc;
 }
 
-systrace_info_t *dtrace_syscalls_init(void)
+struct systrace_info *
+dtrace_syscalls_init(void)
 {
 	int			i;
 

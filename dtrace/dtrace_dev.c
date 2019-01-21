@@ -38,8 +38,8 @@ extern int			dtrace_helptrace_enabled;
 int				dtrace_opens;
 int				dtrace_err_verbose;
 
-dtrace_pops_t			dtrace_provider_ops = {
-	(void (*)(void *, const dtrace_probedesc_t *))dtrace_nullop,
+struct dtrace_pops		dtrace_provider_ops = {
+	(void (*)(void *, const struct dtrace_probedesc *))dtrace_nullop,
 	(void (*)(void *, struct module *))dtrace_nullop,
 	(int (*)(void *, dtrace_id_t, void *))dtrace_enable_nullop,
 	(void (*)(void *, dtrace_id_t, void *))dtrace_nullop,
@@ -54,7 +54,7 @@ dtrace_pops_t			dtrace_provider_ops = {
 
 static size_t			dtrace_retain_max = 1024;
 
-dtrace_toxrange_t		*dtrace_toxrange;
+struct dtrace_toxrange		*dtrace_toxrange;
 int				dtrace_toxranges;
 static int			dtrace_toxranges_max;
 
@@ -62,7 +62,7 @@ struct kmem_cache		*dtrace_state_cachep;
 
 struct user_namespace		*init_user_namespace;
 
-static dtrace_pattr_t		dtrace_provider_attr = {
+static struct dtrace_pattr	dtrace_provider_attr = {
 { DTRACE_STABILITY_STABLE, DTRACE_STABILITY_STABLE, DTRACE_CLASS_COMMON },
 { DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_UNKNOWN },
 { DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_UNKNOWN },
@@ -86,17 +86,17 @@ int dtrace_enable_nullop(void)
 static void dtrace_ioctl_sizes(void)
 {
 #define DBG_PRINT(x) dt_dbg_ioctl("Size of %s: %lx\n", #x, sizeof(x))
-	DBG_PRINT(dtrace_providerdesc_t);
-	DBG_PRINT(dtrace_probedesc_t);
-	DBG_PRINT(dtrace_bufdesc_t);
-	DBG_PRINT(dtrace_eprobedesc_t);
-	DBG_PRINT(dtrace_argdesc_t);
-	DBG_PRINT(dtrace_conf_t);
-	DBG_PRINT(dtrace_status_t);
+	DBG_PRINT(struct dtrace_providerdesc);
+	DBG_PRINT(struct dtrace_probedesc);
+	DBG_PRINT(struct dtrace_bufdesc);
+	DBG_PRINT(struct dtrace_eprobedesc);
+	DBG_PRINT(struct dtrace_argdesc);
+	DBG_PRINT(struct dtrace_conf);
+	DBG_PRINT(struct dtrace_status);
 	DBG_PRINT(processorid_t);
-	DBG_PRINT(dtrace_aggdesc_t);
-	DBG_PRINT(dtrace_fmtdesc_t);
-	DBG_PRINT(dof_hdr_t);
+	DBG_PRINT(struct dtrace_aggdesc);
+	DBG_PRINT(struct dtrace_fmtdesc);
+	DBG_PRINT(struct dof_hdr);
 #undef DBG_PRINT
 }
 
@@ -104,9 +104,9 @@ static void dtrace_ioctl_sizes(void)
 
 static int dtrace_open(struct inode *inode, struct file *file)
 {
-	dtrace_state_t	*state;
-	uint32_t	priv;
-	kuid_t		uid;
+	struct dtrace_state	*state;
+	uint32_t		priv;
+	kuid_t			uid;
 
 	dtrace_cred2priv(file->f_cred, &priv, &uid);
 	if (priv == DTRACE_PRIV_NONE)
@@ -157,10 +157,11 @@ static int dtrace_open(struct inode *inode, struct file *file)
 static long dtrace_ioctl(struct file *file,
 			 unsigned int cmd, unsigned long arg)
 {
-	dtrace_state_t	*state = (dtrace_state_t *)file->private_data;
-	int		rval;
-	void __user	*argp = (void __user *)arg;
+	struct dtrace_state 	*state;
+	int 			rval;
+	void __user		*argp = (void __user *)arg;
 
+	state = (struct dtrace_state *) file->private_data;
 	if (state->dts_anon) {
 		ASSERT(dtrace_anon.dta_state == NULL);
 		state = state->dts_anon;
@@ -168,8 +169,8 @@ static long dtrace_ioctl(struct file *file,
 
 	switch (cmd) {
 	case DTRACEIOC_PROVIDER: {
-		dtrace_providerdesc_t	pvd;
-		dtrace_provider_t	*pvp;
+		struct dtrace_providerdesc	pvd;
+		struct dtrace_provider		*pvp;
 
 		dt_dbg_ioctl("IOCTL PROVIDER (cmd %#x), argp %p\n", cmd, argp);
 
@@ -192,9 +193,9 @@ static long dtrace_ioctl(struct file *file,
 			return -ESRCH;
 
 		memcpy(&pvd.dtvd_priv, &pvp->dtpv_priv,
-		       sizeof(dtrace_ppriv_t));
+		       sizeof(struct dtrace_ppriv));
 		memcpy(&pvd.dtvd_attr, &pvp->dtpv_attr,
-		       sizeof(dtrace_pattr_t));
+		       sizeof(struct dtrace_pattr));
 
 		if (copy_to_user(argp, &pvd, sizeof(pvd)) != 0)
 			return -EFAULT;
@@ -203,9 +204,9 @@ static long dtrace_ioctl(struct file *file,
 	}
 
 	case DTRACEIOC_EPROBE: {
-		dtrace_eprobedesc_t	epdesc;
-		dtrace_ecb_t		*ecb;
-		dtrace_action_t		*act;
+		struct dtrace_eprobedesc epdesc;
+		struct dtrace_ecb	*ecb;
+		struct dtrace_action	*act;
 		void			*buf;
 		size_t			size;
 		uint8_t			*dest;
@@ -248,8 +249,8 @@ static long dtrace_ioctl(struct file *file,
 		 * the temporary buffer to be able to drop dtrace_lock()
 		 * across the copy_to_user(), below.
 		 */
-		size = sizeof(dtrace_eprobedesc_t) +
-		       (epdesc.dtepd_nrecs * sizeof(dtrace_recdesc_t));
+		size = sizeof(struct dtrace_eprobedesc) +
+		       (epdesc.dtepd_nrecs * sizeof(struct dtrace_recdesc));
 
 		buf = vmalloc(size);
 		if (buf == NULL)
@@ -257,7 +258,7 @@ static long dtrace_ioctl(struct file *file,
 
 		dest = buf;
 		memcpy(dest, &epdesc, sizeof(epdesc));
-		dest += offsetof(dtrace_eprobedesc_t, dtepd_rec[0]);
+		dest += offsetof(struct dtrace_eprobedesc, dtepd_rec[0]);
 
 		for (act = ecb->dte_action; act != NULL; act = act->dta_next) {
 			if (DTRACEACT_ISAGG(act->dta_kind) || act->dta_intuple)
@@ -266,8 +267,9 @@ static long dtrace_ioctl(struct file *file,
 			if (nrecs-- == 0)
 				break;
 
-			memcpy(dest, &act->dta_rec, sizeof(dtrace_recdesc_t));
-			dest += sizeof(dtrace_recdesc_t);
+			memcpy(dest, &act->dta_rec,
+			       sizeof(struct dtrace_recdesc));
+			dest += sizeof(struct dtrace_recdesc);
 		}
 
 		mutex_unlock(&dtrace_lock);
@@ -283,12 +285,12 @@ static long dtrace_ioctl(struct file *file,
 	}
 
 	case DTRACEIOC_AGGDESC: {
-		dtrace_aggdesc_t	aggdesc;
-		dtrace_action_t		*act;
-		dtrace_aggregation_t	*agg;
+		struct dtrace_aggdesc	aggdesc;
+		struct dtrace_action	*act;
+		struct dtrace_aggregation *agg;
 		int			nrecs;
 		uint32_t		offs;
-		dtrace_recdesc_t	*lrec;
+		struct dtrace_recdesc	*lrec;
 		void			*buf;
 		size_t			size;
 		uint8_t			*dest;
@@ -345,8 +347,8 @@ static long dtrace_ioctl(struct file *file,
 		 * the temporary buffer to be able to drop dtrace_lock()
 		 * across the copyout(), below.
 		 */
-		size = sizeof(dtrace_aggdesc_t) +
-		       (aggdesc.dtagd_nrecs * sizeof(dtrace_recdesc_t));
+		size = sizeof(struct dtrace_aggdesc) +
+		       (aggdesc.dtagd_nrecs * sizeof(struct dtrace_recdesc));
 
 		buf = vmalloc(size);
 		if (buf == NULL)
@@ -354,10 +356,10 @@ static long dtrace_ioctl(struct file *file,
 
 		dest = buf;
 		memcpy(dest, &aggdesc, sizeof(aggdesc));
-		dest += offsetof(dtrace_aggdesc_t, dtagd_rec[0]);
+		dest += offsetof(struct dtrace_aggdesc, dtagd_rec[0]);
 
 		for (act = agg->dtag_first; ; act = act->dta_next) {
-			dtrace_recdesc_t	rec = act->dta_rec;
+			struct dtrace_recdesc	rec = act->dta_rec;
 
 			/*
 			 * See the comment in the above loop for why we pass
@@ -373,7 +375,7 @@ static long dtrace_ioctl(struct file *file,
 
 			rec.dtrd_offset -= offs;
 			memcpy(dest, &rec, sizeof(rec));
-			dest += sizeof(dtrace_recdesc_t);
+			dest += sizeof(struct dtrace_recdesc);
 
 			if (act == &agg->dtag_action)
 				break;
@@ -392,9 +394,9 @@ static long dtrace_ioctl(struct file *file,
 	}
 
 	case DTRACEIOC_ENABLE: {
-		dof_hdr_t		*dof;
-		dtrace_enabling_t	*enab = NULL;
-		dtrace_vstate_t		*vstate;
+		struct dof_hdr		*dof;
+		struct dtrace_enabling	*enab = NULL;
+		struct dtrace_vstate	*vstate;
 		int			err = 0;
 		int			rv;
 
@@ -458,9 +460,9 @@ static long dtrace_ioctl(struct file *file,
 	}
 
 	case DTRACEIOC_REPLICATE: {
-		dtrace_repldesc_t	desc;
-		dtrace_probedesc_t	*match = &desc.dtrpd_match;
-		dtrace_probedesc_t	*create = &desc.dtrpd_create;
+		struct dtrace_repldesc	desc;
+		struct dtrace_probedesc	*match = &desc.dtrpd_match;
+		struct dtrace_probedesc	*create = &desc.dtrpd_create;
 		int			err;
 
 		dt_dbg_ioctl("IOCTL REPLICATE (cmd %#x), argp %p\n",
@@ -489,9 +491,9 @@ static long dtrace_ioctl(struct file *file,
 	case DTRACEIOC_PROBEMATCH:
 	case DTRACEIOC_PROBES: {
 		int			id;
-		dtrace_probe_t		*probe = NULL;
-		dtrace_probedesc_t	desc;
-		dtrace_probekey_t	pkey;
+		struct dtrace_probe	*probe = NULL;
+		struct dtrace_probedesc	desc;
+		struct dtrace_probekey	pkey;
 		uint32_t		priv;
 		kuid_t			uid;
 
@@ -574,9 +576,9 @@ static long dtrace_ioctl(struct file *file,
 	}
 
 	case DTRACEIOC_PROBEARG: {
-		dtrace_argdesc_t	desc;
-		dtrace_probe_t		*probe;
-		dtrace_provider_t	*prov;
+		struct dtrace_argdesc	desc;
+		struct dtrace_probe	*probe;
+		struct dtrace_provider	*prov;
 
 		dt_dbg_ioctl("IOCTL PROBEARG (cmd %#x), argp %p\n", cmd, argp);
 
@@ -666,7 +668,7 @@ static long dtrace_ioctl(struct file *file,
 	}
 
 	case DTRACEIOC_DOFGET: {
-		dof_hdr_t	hdr, *dof;
+		struct dof_hdr	hdr, *dof;
 		uint64_t	len;
 
 		dt_dbg_ioctl("IOCTL DOFGET (cmd %#x), argp %p\n", cmd, argp);
@@ -689,9 +691,9 @@ static long dtrace_ioctl(struct file *file,
 
 	case DTRACEIOC_AGGSNAP:
 	case DTRACEIOC_BUFSNAP: {
-		dtrace_bufdesc_t	desc;
+		struct dtrace_bufdesc	desc;
 		caddr_t			cached;
-		dtrace_buffer_t		*buf;
+		struct dtrace_buffer	*buf;
 
 		dt_dbg_ioctl("IOCTL %s (cmd %#x), argp %p\n",
 			     cmd == DTRACEIOC_AGGSNAP ? "AGGSNAP"
@@ -822,7 +824,7 @@ static long dtrace_ioctl(struct file *file,
 	}
 
 	case DTRACEIOC_CONF: {
-		dtrace_conf_t	conf;
+		struct dtrace_conf	conf;
 
 		dt_dbg_ioctl("IOCTL CONF (cmd %#x), argp %p\n", cmd, argp);
 
@@ -840,10 +842,10 @@ static long dtrace_ioctl(struct file *file,
 	}
 
 	case DTRACEIOC_STATUS: {
-		dtrace_status_t	stat;
-		dtrace_dstate_t	*dstate;
-		int		i, j;
-		uint64_t	nerrs;
+		struct dtrace_status	stat;
+		struct dtrace_dstate	*dstate;
+		int			i, j;
+		uint64_t		nerrs;
 
 		dt_dbg_ioctl("IOCTL STATUS (cmd %#x), argp %p\n", cmd, argp);
 
@@ -872,8 +874,9 @@ static long dtrace_ioctl(struct file *file,
 		dstate = &state->dts_vstate.dtvs_dynvars;
 
 		for (i = 0; i < NR_CPUS; i++) {
-			dtrace_dstate_percpu_t	*dcpu = &dstate->dtds_percpu[i];
+			struct dtrace_dstate_percpu *dcpu;
 
+			dcpu = &dstate->dtds_percpu[i];
 			stat.dtst_dyndrops += dcpu->dtdsc_drops;
 			stat.dtst_dyndrops_dirty += dcpu->dtdsc_dirty_drops;
 			stat.dtst_dyndrops_rinsing += dcpu->dtdsc_rinsing_drops;
@@ -884,8 +887,8 @@ static long dtrace_ioctl(struct file *file,
 			nerrs += state->dts_buffer[i].dtb_errors;
 
 			for (j = 0; j < state->dts_nspeculations; j++) {
-				dtrace_speculation_t	*spec;
-				dtrace_buffer_t		*buf;
+				struct dtrace_speculation	*spec;
+				struct dtrace_buffer		*buf;
 
 				spec = &state->dts_speculations[j];
 				buf = &spec->dtsp_buffer[i];
@@ -910,7 +913,7 @@ static long dtrace_ioctl(struct file *file,
 	}
 
 	case DTRACEIOC_FORMAT: {
-		dtrace_fmtdesc_t	fmt;
+		struct dtrace_fmtdesc	fmt;
 		char			*str;
 		int			len;
 
@@ -969,7 +972,7 @@ static long dtrace_ioctl(struct file *file,
 
 static int dtrace_close(struct inode *inode, struct file *file)
 {
-	dtrace_state_t	*state = file->private_data;
+	struct dtrace_state	*state = file->private_data;
 
 	mutex_lock(&cpu_lock);
 	mutex_lock(&dtrace_lock);
@@ -1003,7 +1006,7 @@ static long dtrace_helper_ioctl(struct file *file,
 			 unsigned int cmd, unsigned long arg)
 {
 	int		rval;
-	dof_helper_t	help, *dhp = NULL;
+	struct dof_helper help, *dhp = NULL;
 	void __user	*argp = (void __user *)arg;
 
 	switch (cmd) {
@@ -1022,7 +1025,7 @@ static long dtrace_helper_ioctl(struct file *file,
 		/* fallthrough */
 
 	case DTRACEHIOC_ADD: {
-		dof_hdr_t	*dof = dtrace_dof_copyin(argp, &rval);
+		struct dof_hdr	*dof = dtrace_dof_copyin(argp, &rval);
 
 		if (dof == NULL)
 			return rval;
@@ -1110,7 +1113,7 @@ static struct miscdevice helper_dev = {
 
 static void dtrace_module_loaded(struct module *mp)
 {
-	dtrace_provider_t *prv;
+	struct dtrace_provider *prv;
 
 	mutex_lock(&module_mutex);
 	mutex_lock(&dtrace_provider_lock);
@@ -1140,8 +1143,8 @@ static void dtrace_module_loaded(struct module *mp)
 
 static void dtrace_module_unloaded(struct module *mp)
 {
-	dtrace_probe_t template, *probe, *first, *next;
-	dtrace_provider_t *prv;
+	struct dtrace_probe	template, *probe, *first, *next;
+	struct dtrace_provider	*prv;
 
 	template.dtpr_mod = mp->name;
 
@@ -1242,9 +1245,9 @@ static void dtrace_toxrange_add(uintptr_t base, uintptr_t limit)
 {
 	if (dtrace_toxranges >= dtrace_toxranges_max) {
 		int			osize, nsize;
-		dtrace_toxrange_t	*range;
+		struct dtrace_toxrange	*range;
 
-		osize = dtrace_toxranges_max * sizeof(dtrace_toxrange_t);
+		osize = dtrace_toxranges_max * sizeof(struct dtrace_toxrange);
 
 		if (osize == 0) {
 			ASSERT(dtrace_toxrange == NULL);
@@ -1254,7 +1257,7 @@ static void dtrace_toxrange_add(uintptr_t base, uintptr_t limit)
 		} else
 			dtrace_toxranges_max <<= 1;
 
-		nsize = dtrace_toxranges_max * sizeof(dtrace_toxrange_t);
+		nsize = dtrace_toxranges_max * sizeof(struct dtrace_toxrange);
 		range = vzalloc(nsize);
 		if (range == NULL) {
 			pr_warn("Failed to add toxic range: out of memory\n");
@@ -1398,8 +1401,8 @@ int dtrace_dev_init(void)
 #endif
 
 	dtrace_state_cachep = kmem_cache_create("dtrace_state_cache",
-				sizeof(dtrace_dstate_percpu_t) * NR_CPUS, 0,
-				SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL);
+				sizeof(struct dtrace_dstate_percpu) * NR_CPUS,
+				0, SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL);
 
 	/* From now on the failures are results of failed allocations. */
 	rc = -ENOMEM;
@@ -1408,23 +1411,23 @@ int dtrace_dev_init(void)
 	 * Create the probe hashtables.
 	 */
 	dtrace_bymod = dtrace_hash_create(
-				offsetof(dtrace_probe_t, dtpr_mod),
-				offsetof(dtrace_probe_t, dtpr_nextmod),
-				offsetof(dtrace_probe_t, dtpr_prevmod));
+				offsetof(struct dtrace_probe, dtpr_mod),
+				offsetof(struct dtrace_probe, dtpr_nextmod),
+				offsetof(struct dtrace_probe, dtpr_prevmod));
 	if (dtrace_bymod == NULL)
 		goto errout;
 
 	dtrace_byfunc = dtrace_hash_create(
-				offsetof(dtrace_probe_t, dtpr_func),
-				offsetof(dtrace_probe_t, dtpr_nextfunc),
-				offsetof(dtrace_probe_t, dtpr_prevfunc));
+				offsetof(struct dtrace_probe, dtpr_func),
+				offsetof(struct dtrace_probe, dtpr_nextfunc),
+				offsetof(struct dtrace_probe, dtpr_prevfunc));
 	if (dtrace_byfunc == NULL)
 		goto errout;
 
 	dtrace_byname = dtrace_hash_create(
-				offsetof(dtrace_probe_t, dtpr_name),
-				offsetof(dtrace_probe_t, dtpr_nextname),
-				offsetof(dtrace_probe_t, dtpr_prevname));
+				offsetof(struct dtrace_probe, dtpr_name),
+				offsetof(struct dtrace_probe, dtpr_nextname),
+				offsetof(struct dtrace_probe, dtpr_prevname));
 	if (dtrace_byname == NULL)
 		goto errout;
 

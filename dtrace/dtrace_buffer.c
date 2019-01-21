@@ -29,7 +29,7 @@ dtrace_optval_t		dtrace_nonroot_maxsize = (16 * 1024 * 1024);
  * interrupts serializes the execution with any execution of dtrace_probe() on
  * the same CPU.
  */
-void dtrace_buffer_switch(dtrace_buffer_t *buf)
+void dtrace_buffer_switch(struct dtrace_buffer *buf)
 {
 	caddr_t			tomax = buf->dtb_tomax;
 	caddr_t			xamot = buf->dtb_xamot;
@@ -63,9 +63,9 @@ void dtrace_buffer_switch(dtrace_buffer_t *buf)
  * on a CPU.  As with dtrace_buffer_switch(), the atomicity of the operation
  * is guaranteed by the disabling of interrupts.
  */
-void dtrace_buffer_activate(dtrace_state_t *state)
+void dtrace_buffer_activate(struct dtrace_state *state)
 {
-	dtrace_buffer_t		*buf;
+	struct dtrace_buffer	*buf;
 	dtrace_icookie_t	cookie;
 
 	local_irq_save(cookie);
@@ -85,11 +85,11 @@ void dtrace_buffer_activate(dtrace_state_t *state)
 	local_irq_restore(cookie);
 }
 
-int dtrace_buffer_alloc(dtrace_buffer_t *bufs, size_t size, int flags,
+int dtrace_buffer_alloc(struct dtrace_buffer *bufs, size_t size, int flags,
 			processorid_t cpuid)
 {
 	processorid_t	cpu;
-	dtrace_buffer_t	*buf;
+	struct dtrace_buffer	*buf;
 
 	ASSERT(MUTEX_HELD(&dtrace_lock));
 	ASSERT(MUTEX_HELD(&cpu_lock));
@@ -162,14 +162,14 @@ err:
 
 	return -ENOMEM;
 }
-void dtrace_buffer_drop(dtrace_buffer_t *buf)
+void dtrace_buffer_drop(struct dtrace_buffer *buf)
 {
 	buf->dtb_drops++;
 }
 
-intptr_t dtrace_buffer_reserve(dtrace_buffer_t *buf, size_t needed,
-			       size_t align, dtrace_state_t *state,
-			       dtrace_mstate_t *mstate)
+intptr_t dtrace_buffer_reserve(struct dtrace_buffer *buf, size_t needed,
+			       size_t align, struct dtrace_state *state,
+			       struct dtrace_mstate *mstate)
 {
 	intptr_t	offs = buf->dtb_offset, soffs;
 	intptr_t	woffs;
@@ -418,7 +418,7 @@ out:
 	return offs;
 }
 
-void dtrace_buffer_polish(dtrace_buffer_t *buf)
+void dtrace_buffer_polish(struct dtrace_buffer *buf)
 {
 	ASSERT(buf->dtb_flags & DTRACEBUF_RING);
 	ASSERT(MUTEX_HELD(&dtrace_lock));
@@ -462,12 +462,12 @@ void dtrace_buffer_polish(dtrace_buffer_t *buf)
 	}
 }
 
-void dtrace_buffer_free(dtrace_buffer_t *bufs)
+void dtrace_buffer_free(struct dtrace_buffer *bufs)
 {
 	int	cpu;
 
 	for_each_online_cpu(cpu) {
-		dtrace_buffer_t	*buf = &bufs[cpu];
+		struct dtrace_buffer	*buf = &bufs[cpu];
 
 		if (buf->dtb_tomax == NULL) {
 			ASSERT(buf->dtb_xamot == NULL);
