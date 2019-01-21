@@ -240,7 +240,7 @@ void dtrace_dof_destroy(dof_hdr_t *dof)
  * a type other than DOF_SECT_NONE is specified, the header is checked against
  * this type and NULL is returned if the types do not match.
  */
-static dof_sec_t *dtrace_dof_sect(dof_hdr_t *dof, uint32_t type,
+static dof_sec_t *dtrace_dof_sect(dof_hdr_t *dof, uint32_t doftype,
 				  dof_secidx_t i)
 {
 	dof_sec_t	*sec = (dof_sec_t *)(uintptr_t)((uintptr_t)dof +
@@ -257,7 +257,7 @@ static dof_sec_t *dtrace_dof_sect(dof_hdr_t *dof, uint32_t type,
 		return NULL;
 	}
 
-	if (type != DOF_SECT_NONE && type != sec->dofs_type) {
+	if (doftype != DOF_SECT_NONE && doftype != sec->dofs_type) {
 		dtrace_dof_error(dof, "referenced section is the wrong type");
 		return NULL;
 	}
