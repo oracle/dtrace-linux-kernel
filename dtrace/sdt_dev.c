@@ -30,7 +30,7 @@
 
 #define SDT_PROBETAB_SIZE	0x1000		/* 4k entries -- 16K total */
 
-sdt_probe_t		**sdt_probetab;
+struct sdt_probe	**sdt_probetab;
 int			sdt_probetab_size;
 int			sdt_probetab_mask;
 
@@ -69,10 +69,11 @@ static char *cleanup_type(const char *vartype, int arg_strip)
  * Set up the args lists, extracting them from their sdpd entry and parsing them
  * into an sdt_argdesc array for each probe.
  */
-static sdt_argdesc_t *sdt_setup_args(sdt_probedesc_t *sdpd,
-				     size_t *sdp_nargdesc)
+static struct sdt_argdesc *
+sdt_setup_args(sdt_probedesc_t *sdpd,
+	       size_t *sdp_nargdesc)
 {
-	sdt_argdesc_t *args;
+	struct sdt_argdesc *args;
 	char *argstr;
 	char *p;
 	int arg_strip = 0;
@@ -258,9 +259,9 @@ oom:
 void sdt_provide_module(void *arg, struct module *mp)
 {
 	char			*modname = mp->name;
-	dtrace_mprovider_t	*prov;
+	struct dtrace_mprovider	*prov;
 	sdt_probedesc_t		*sdpd;
-	sdt_probe_t		*sdp, *prv;
+	struct sdt_probe	*sdp, *prv;
 	int			idx, len;
 	int			probes_skipped = 0;
 
@@ -299,9 +300,9 @@ void sdt_provide_module(void *arg, struct module *mp)
 	     idx++, sdpd++) {
 		char			*name = sdpd->sdpd_name, *nname;
 		int			i, j;
-		dtrace_mprovider_t	*prov;
+		struct dtrace_mprovider	*prov;
 		dtrace_id_t		id;
-		sdt_probe_type_t	ptype;
+		enum fasttrap_probe_type ptype;
 
 		if (name[0] == '?') {
 			ptype = SDTPT_IS_ENABLED;
@@ -335,7 +336,7 @@ void sdt_provide_module(void *arg, struct module *mp)
 
 		nname[i] = '\0';
 
-		sdp = kzalloc(sizeof(sdt_probe_t), GFP_KERNEL);
+		sdp = kzalloc(sizeof(struct sdt_probe), GFP_KERNEL);
 		if (sdp == NULL) {
 			probes_skipped++;
 			continue;
@@ -394,8 +395,8 @@ void sdt_provide_module(void *arg, struct module *mp)
 
 int sdt_enable(void *arg, dtrace_id_t id, void *parg)
 {
-	sdt_probe_t	*sdp = parg;
-	sdt_probe_t	*curr;
+	struct sdt_probe	*sdp = parg;
+	struct sdt_probe	*curr;
 
 	/*
 	 * Ensure that we have a reference to the module.
@@ -420,8 +421,8 @@ int sdt_enable(void *arg, dtrace_id_t id, void *parg)
 
 void sdt_disable(void *arg, dtrace_id_t id, void *parg)
 {
-	sdt_probe_t	*sdp = parg;
-	sdt_probe_t	*curr;
+	struct sdt_probe	*sdp = parg;
+	struct sdt_probe	*curr;
 
 	for (curr = sdp; curr != NULL; curr = curr->sdp_next)
 		sdt_disable_arch(curr, id, arg);
@@ -438,9 +439,9 @@ void sdt_disable(void *arg, dtrace_id_t id, void *parg)
 }
 
 void sdt_getargdesc(void *arg, dtrace_id_t id, void *parg,
-		    dtrace_argdesc_t *desc)
+		    struct dtrace_argdesc *desc)
 {
-	sdt_probe_t	*sdp = parg;
+	struct sdt_probe	*sdp = parg;
 
 	desc->dtargd_native[0] = '\0';
 	desc->dtargd_xlate[0] = '\0';
@@ -469,14 +470,14 @@ void sdt_getargdesc(void *arg, dtrace_id_t id, void *parg,
 
 void sdt_destroy(void *arg, dtrace_id_t id, void *parg)
 {
-	sdt_probe_t	*sdp = parg;
+	struct sdt_probe *sdp = parg;
 
 	PDATA(sdp->sdp_module)->sdt_probe_cnt--;
 
 	while (sdp != NULL) {
-		sdt_probe_t	*old = sdp, *last, *hash;
-		int		ndx;
-		size_t		i;
+		struct sdt_probe *old = sdp, *last, *hash;
+		int ndx;
+		size_t i;
 
 		ndx = SDT_ADDR2NDX(sdp->sdp_patchpoint);
 		last = NULL;
@@ -542,7 +543,7 @@ int sdt_dev_init(void)
 		sdt_probetab_size = SDT_PROBETAB_SIZE;
 
 	sdt_probetab_mask = sdt_probetab_size - 1;
-	sdt_probetab = vzalloc(sdt_probetab_size * sizeof(sdt_probe_t *));
+	sdt_probetab = vzalloc(sdt_probetab_size * sizeof(struct sdt_probe *));
 	if (sdt_probetab == NULL)
 		return -ENOMEM;
 

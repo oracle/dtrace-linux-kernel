@@ -28,7 +28,7 @@ typedef enum fasttrap_probe_type {
 
 typedef struct fasttrap_probe_spec {
 	pid_t ftps_pid;				/* task PID */
-	fasttrap_probe_type_t ftps_type;	/* probe type */
+	enum fasttrap_probe_type ftps_type;	/* probe type */
 	char ftps_func[DTRACE_FUNCNAMELEN];	/* probe function */
 	char ftps_mod[DTRACE_MODNAMELEN];	/* probe module */
 	uint64_t ftps_pc;			/* probe address */

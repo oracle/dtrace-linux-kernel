@@ -46,8 +46,8 @@ typedef struct dtrace_probedesc {
 } dtrace_probedesc_t;
 
 typedef struct dtrace_repldesc {
-	dtrace_probedesc_t dtrpd_match;		/* probe descr. to match */
-	dtrace_probedesc_t dtrpd_create;	/* probe descr. to create */
+	struct dtrace_probedesc dtrpd_match;	/* probe descr. to match */
+	struct dtrace_probedesc dtrpd_create;	/* probe descr. to create */
 } dtrace_repldesc_t;
 
 typedef struct dtrace_preddesc {
@@ -66,9 +66,9 @@ typedef struct dtrace_actdesc {
 } dtrace_actdesc_t;
 
 typedef struct dtrace_ecbdesc {
-	dtrace_actdesc_t *dted_action;		/* action description(s) */
-	dtrace_preddesc_t dted_pred;		/* predicate description */
-	dtrace_probedesc_t dted_probe;		/* probe description */
+	struct dtrace_actdesc *dted_action;	/* action description(s) */
+	struct dtrace_preddesc dted_pred;	/* predicate description */
+	struct dtrace_probedesc dted_probe;	/* probe description */
 	uint64_t dted_uarg;			/* library argument */
 	int dted_refcnt;			/* reference count */
 } dtrace_ecbdesc_t;

@@ -27,7 +27,7 @@ MODULE_DESCRIPTION("Function Boundary Tracing");
 MODULE_VERSION("v0.1");
 MODULE_LICENSE("GPL");
 
-static const dtrace_pattr_t fbt_attr = {
+static const struct dtrace_pattr fbt_attr = {
 { DTRACE_STABILITY_EVOLVING, DTRACE_STABILITY_EVOLVING, DTRACE_CLASS_COMMON },
 { DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_UNKNOWN },
 { DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_ISA },
@@ -35,7 +35,7 @@ static const dtrace_pattr_t fbt_attr = {
 { DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_ISA },
 };
 
-static dtrace_pops_t fbt_pops = {
+static struct dtrace_pops fbt_pops = {
 	.dtps_provide = NULL,
 	.dtps_provide_module = fbt_provide_module,
 	.dtps_destroy_module = fbt_destroy_module,

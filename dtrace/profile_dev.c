@@ -36,19 +36,19 @@
 #define PROF_PREFIX_PROFILE	"profile-"
 #define PROF_PREFIX_TICK	"tick-"
 
-typedef struct profile_probe {
+struct profile_probe {
 	char		prof_name[PROF_NAMELEN];
 	dtrace_id_t	prof_id;
 	int		prof_kind;
 	ktime_t		prof_interval;
 	cyclic_id_t	prof_cyclic;
-} profile_probe_t;
+};
 
-typedef struct profile_probe_percpu {
+struct profile_probe_percpu {
 	ktime_t		profc_expected;
 	ktime_t		profc_interval;
-	profile_probe_t	*profc_probe;
-} profile_probe_percpu_t;
+	struct profile_probe	*profc_probe;
+};
 
 static ktime_t	profile_interval_min = KTIME_INIT(0, NANOSEC / 5000);
 static int	profile_aframes;
@@ -80,7 +80,7 @@ static atomic_t	profile_total;		/* current number of profile probes */
 
 static void profile_tick_fn(uintptr_t arg)
 {
-	profile_probe_t	*prof = (profile_probe_t *)arg;
+	struct profile_probe	*prof = (struct profile_probe *)arg;
 	unsigned long	pc = 0, upc = 0;
 	struct pt_regs	*regs = get_irq_regs();
 
@@ -107,8 +107,8 @@ static void profile_tick_fn(uintptr_t arg)
 
 static void profile_prof_fn(uintptr_t arg)
 {
-	profile_probe_percpu_t	*pcpu = (profile_probe_percpu_t *)arg;
-	profile_probe_t		*prof = pcpu->profc_probe;
+	struct profile_probe_percpu *pcpu = (struct profile_probe_percpu *)arg;
+	struct profile_probe	*prof = pcpu->profc_probe;
 	ktime_t			late;
 	struct pt_regs		*regs = get_irq_regs();
 	unsigned long		pc = 0, upc = 0;
@@ -141,10 +141,10 @@ static void profile_prof_fn(uintptr_t arg)
 static void profile_online(void *arg, processorid_t cpu, cyc_handler_t *hdlr,
 			   cyc_time_t *when)
 {
-	profile_probe_t		*prof = arg;
-	profile_probe_percpu_t	*pcpu;
+	struct profile_probe		*prof = arg;
+	struct profile_probe_percpu	*pcpu;
 
-	pcpu = kzalloc(sizeof(profile_probe_percpu_t), GFP_KERNEL);
+	pcpu = kzalloc(sizeof(struct profile_probe_percpu), GFP_KERNEL);
 	pcpu->profc_probe = prof;
 
 	hdlr->cyh_func = profile_prof_fn;
@@ -160,7 +160,7 @@ static void profile_online(void *arg, processorid_t cpu, cyc_handler_t *hdlr,
 
 static void profile_offline(void *arg, processorid_t cpu, void *oarg)
 {
-	profile_probe_percpu_t	*pcpu = oarg;
+	struct profile_probe_percpu	*pcpu = oarg;
 
 	if (pcpu->profc_probe == arg) {
 		kfree(pcpu);
@@ -169,14 +169,14 @@ static void profile_offline(void *arg, processorid_t cpu, void *oarg)
 
 	WARN_ONCE(1, "%s: called with mismatched probe info (%p vs %p)"
 		  " - leaking %lu bytes\n", __func__, pcpu->profc_probe, arg,
-		  sizeof(profile_probe_percpu_t));
+		  sizeof(struct profile_probe_percpu));
 
 }
 
 static void profile_create(ktime_t interval, const char *name, int kind)
 {
-	profile_probe_t	*prof;
-	int		nr_frames = 0; /* FIXME */
+	struct profile_probe *prof;
+	int nr_frames = 0; /* FIXME */
 
 	if (profile_aframes)
 		nr_frames = profile_aframes;
@@ -187,7 +187,7 @@ static void profile_create(ktime_t interval, const char *name, int kind)
 	if (dtrace_probe_lookup(profile_id, NULL, NULL, name) != 0)
 		return;
 
-	prof = kzalloc(sizeof(profile_probe_t), GFP_KERNEL);
+	prof = kzalloc(sizeof(struct profile_probe), GFP_KERNEL);
 	if (prof == NULL) {
 		pr_warn("Unable to create probe %s: out of memory\n", name);
 		return;
@@ -217,7 +217,7 @@ errout:
 	return;
 }
 
-void profile_provide(void *arg, const dtrace_probedesc_t *desc)
+void profile_provide(void *arg, const struct dtrace_probedesc *desc)
 {
 	int		i, j, rate, kind;
 	long		val = 0, mult = 1, mult_s = 0, mult_ns = 0, len;
@@ -366,7 +366,7 @@ void profile_provide(void *arg, const dtrace_probedesc_t *desc)
 
 int profile_enable(void *arg, dtrace_id_t id, void *parg)
 {
-	profile_probe_t		*prof = parg;
+	struct profile_probe	*prof = parg;
 	cyc_time_t		when;
 
 	if (!ktime_nz(prof->prof_interval)) {
@@ -407,7 +407,7 @@ int profile_enable(void *arg, dtrace_id_t id, void *parg)
 
 void profile_disable(void *arg, dtrace_id_t id, void *parg)
 {
-	profile_probe_t	*prof = parg;
+	struct profile_probe	*prof = parg;
 
 	if (prof->prof_cyclic == CYCLIC_NONE) {
 		WARN_ONCE(1, "%s: trying to disable probe %s without cyclic\n",
@@ -430,7 +430,7 @@ int profile_usermode(void *arg, dtrace_id_t id, void *parg)
 
 void profile_destroy(void *arg, dtrace_id_t id, void *parg)
 {
-	profile_probe_t	*prof = parg;
+	struct profile_probe	*prof = parg;
 
 	if (prof->prof_cyclic == CYCLIC_NONE) {
 		kfree(prof);

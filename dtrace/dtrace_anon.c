@@ -18,11 +18,12 @@
 
 #include "dtrace.h"
 
-dtrace_anon_t	dtrace_anon;
+struct dtrace_anon	dtrace_anon;
 
-dtrace_state_t *dtrace_anon_grab(void)
+struct dtrace_state *
+dtrace_anon_grab(void)
 {
-	dtrace_state_t	*state;
+	struct dtrace_state	*state;
 
 	ASSERT(MUTEX_HELD(&dtrace_lock));
 
@@ -46,8 +47,8 @@ dtrace_state_t *dtrace_anon_grab(void)
 void dtrace_anon_property(void)
 {
 	int		i, rv;
-	dtrace_state_t	*state;
-	dof_hdr_t	*dof;
+	struct dtrace_state *state;
+	struct dof_hdr	*dof;
 	char		c[32];             /* enough for "dof-data-" + digits */
 
 	ASSERT(MUTEX_HELD(&dtrace_lock));

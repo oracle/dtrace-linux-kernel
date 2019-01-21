@@ -47,7 +47,7 @@ static struct task_struct	*dtrace_panicked;
 /*
  * Free probe structure (including partially filled in ones).
  */
-void dtrace_probe_free(dtrace_probe_t *probe)
+void dtrace_probe_free(struct dtrace_probe *probe)
 {
 	if (probe == NULL)
 		return;
@@ -68,8 +68,8 @@ dtrace_id_t dtrace_probe_create(dtrace_provider_id_t prov, const char *mod,
 				const char *func, const char *name,
 				int aframes, void *arg)
 {
-	dtrace_probe_t		*probe;
-	dtrace_provider_t	*provider = (dtrace_provider_t *)prov;
+	struct dtrace_probe	*probe;
+	struct dtrace_provider	*provider = (struct dtrace_provider *)prov;
 	dtrace_id_t		id;
 
 	probe = kmem_cache_alloc(dtrace_probe_cachep, GFP_KERNEL);
@@ -150,9 +150,10 @@ err_probe:
 }
 EXPORT_SYMBOL(dtrace_probe_create);
 
-int dtrace_probe_enable(const dtrace_probedesc_t *desc, dtrace_enabling_t *enab)
+int dtrace_probe_enable(const struct dtrace_probedesc *desc,
+			struct dtrace_enabling *enab)
 {
-	dtrace_probekey_t	pkey;
+	struct dtrace_probekey	pkey;
 	uint32_t		priv;
 	kuid_t			uid;
 
@@ -176,13 +177,14 @@ int dtrace_probe_enable(const dtrace_probedesc_t *desc, dtrace_enabling_t *enab)
  */
 void *dtrace_probe_arg(dtrace_provider_id_t id, dtrace_id_t pid)
 {
-	dtrace_probe_t	*probe;
-	void		*rval = NULL;
+	struct dtrace_probe *probe;
+	void *rval = NULL;
 
 	mutex_lock(&dtrace_lock);
 
 	probe = dtrace_probe_lookup_id(pid);
-	if (probe != NULL && probe->dtpr_provider == (dtrace_provider_t *)id)
+	if (probe != NULL &&
+	    probe->dtpr_provider == (struct dtrace_provider *)id)
 		rval = probe->dtpr_arg;
 
 	mutex_unlock(&dtrace_lock);
@@ -194,10 +196,10 @@ EXPORT_SYMBOL(dtrace_probe_arg);
 /*
  * Copy a probe into a probe description.
  */
-void dtrace_probe_description(const dtrace_probe_t *prp,
-			      dtrace_probedesc_t *pdp)
+void dtrace_probe_description(const struct dtrace_probe *prp,
+			      struct dtrace_probedesc *pdp)
 {
-	memset(pdp, 0, sizeof(dtrace_probedesc_t));
+	memset(pdp, 0, sizeof(struct dtrace_probedesc));
 	pdp->dtpd_id = prp->dtpr_id;
 
 	strncpy(pdp->dtpd_provider, prp->dtpr_provider->dtpv_name,
@@ -208,7 +210,8 @@ void dtrace_probe_description(const dtrace_probe_t *prp,
 	strncpy(pdp->dtpd_name, prp->dtpr_name, DTRACE_NAMELEN - 1);
 }
 
-void dtrace_probe_provide(dtrace_probedesc_t *desc, dtrace_provider_t *prv)
+void dtrace_probe_provide(struct dtrace_probedesc *desc,
+			  struct dtrace_provider *prv)
 {
 	int		all = 0;
 
@@ -263,7 +266,7 @@ static void dtrace_error(uint32_t *counter)
 	} while (cmpxchg(counter, oval, nval) != oval);
 }
 
-static int dtrace_priv_kernel_destructive(dtrace_state_t *state)
+static int dtrace_priv_kernel_destructive(struct dtrace_state *state)
 {
 	if (state->dts_cred.dcr_action & DTRACE_CRA_KERNEL_DESTRUCTIVE)
 		return 1;
@@ -273,10 +276,10 @@ static int dtrace_priv_kernel_destructive(dtrace_state_t *state)
 	return 0;
 }
 
-static void dtrace_action_breakpoint(dtrace_ecb_t *ecb)
+static void dtrace_action_breakpoint(struct dtrace_ecb *ecb)
 {
-	dtrace_probe_t		*probe = ecb->dte_probe;
-	dtrace_provider_t	*prov = probe->dtpr_provider;
+	struct dtrace_probe	*probe = ecb->dte_probe;
+	struct dtrace_provider	*prov = probe->dtpr_provider;
 	char			c[DTRACE_FULLNAMELEN + 80], *str;
 	char			*msg = "dtrace: breakpoint action at probe ";
 	char			*ecbmsg = " (ecb ";
@@ -335,9 +338,9 @@ static void dtrace_action_breakpoint(dtrace_ecb_t *ecb)
 //	debug_enter(c); /* FIXME */
 }
 
-static void dtrace_action_panic(dtrace_ecb_t *ecb)
+static void dtrace_action_panic(struct dtrace_ecb *ecb)
 {
-	dtrace_probe_t	*probe = ecb->dte_probe;
+	struct dtrace_probe *probe = ecb->dte_probe;
 
 	/*
 	 * It's impossible to be taking action on the NULL probe.
@@ -400,11 +403,11 @@ static void dtrace_action_stop(void)
 	}
 }
 
-static void dtrace_action_chill(dtrace_mstate_t *mstate, ktime_t val)
+static void dtrace_action_chill(struct dtrace_mstate *mstate, ktime_t val)
 {
 	ktime_t			now;
 	volatile uint16_t	*flags;
-	cpu_core_t		*cpu = this_cpu_core;
+	struct cpu_core		*cpu = this_cpu_core;
 
 	if (dtrace_destructive_disallow)
 		return;
@@ -447,8 +450,8 @@ static void dtrace_action_chill(dtrace_mstate_t *mstate, ktime_t val)
 	cpu->cpu_dtrace_chilled = ktime_add(cpu->cpu_dtrace_chilled, val);
 }
 
-static void dtrace_action_ustack(dtrace_mstate_t *mstate,
-				 dtrace_state_t *state, uint64_t *buf,
+static void dtrace_action_ustack(struct dtrace_mstate *mstate,
+				 struct dtrace_state *state, uint64_t *buf,
 				 uint64_t arg)
 {
 	int		nframes = DTRACE_USTACK_NFRAMES(arg);
@@ -581,8 +584,8 @@ out:
 static __always_inline int dtrace_probe_pcap(uint64_t val, size_t *valoffs,
 					     size_t size, caddr_t tomax,
 					     ktime_t now,
-					     dtrace_mstate_t *mstate,
-					     dtrace_vstate_t *vstate,
+					     struct dtrace_mstate *mstate,
+					     struct dtrace_vstate *vstate,
 					     volatile uint16_t *flags)
 
 {
@@ -697,10 +700,10 @@ void dtrace_probe(dtrace_id_t id, uintptr_t arg0, uintptr_t arg1,
 {
 	processorid_t		cpuid;
 	dtrace_icookie_t	cookie;
-	dtrace_probe_t		*probe;
-	dtrace_mstate_t		mstate;
-	dtrace_ecb_t		*ecb;
-	dtrace_action_t		*act;
+	struct dtrace_probe	*probe;
+	struct dtrace_mstate	mstate;
+	struct dtrace_ecb	*ecb;
+	struct dtrace_action	*act;
 	intptr_t		offs;
 	size_t			size;
 	int			onintr;
@@ -708,7 +711,7 @@ void dtrace_probe(dtrace_id_t id, uintptr_t arg0, uintptr_t arg1,
 	volatile uint16_t	*flags;
 	ktime_t			now;
 	uint32_t		re_entry;
-	dtrace_task_t		*dtsk = current->dt_task;
+	struct dtrace_task	*dtsk = current->dt_task;
 	dtrace_id_t		old_id;
 
 #ifdef FIXME
@@ -773,12 +776,12 @@ void dtrace_probe(dtrace_id_t id, uintptr_t arg0, uintptr_t arg1,
 	mstate.dtms_arg[6] = arg6;
 
 	for (ecb = probe->dtpr_ecb; ecb != NULL; ecb = ecb->dte_next) {
-		dtrace_predicate_t	*pred = ecb->dte_predicate;
-		dtrace_state_t		*state = ecb->dte_state;
-		dtrace_buffer_t		*buf = &state->dts_buffer[cpuid];
-		dtrace_buffer_t		*aggbuf = &state->dts_aggbuffer[cpuid];
-		dtrace_vstate_t		*vstate = &state->dts_vstate;
-		dtrace_provider_t	*prov = probe->dtpr_provider;
+		struct dtrace_predicate	*pred = ecb->dte_predicate;
+		struct dtrace_state	*state = ecb->dte_state;
+		struct dtrace_buffer	*buf = &state->dts_buffer[cpuid];
+		struct dtrace_buffer	*aggbuf = &state->dts_aggbuffer[cpuid];
+		struct dtrace_vstate	*vstate = &state->dts_vstate;
+		struct dtrace_provider	*prov = probe->dtpr_provider;
 		int			committed = 0;
 		caddr_t			tomax;
 
@@ -865,8 +868,8 @@ void dtrace_probe(dtrace_id_t id, uintptr_t arg0, uintptr_t arg1,
 			 * we're examining a user context.
 			 */
 			if (ecb->dte_cond & DTRACE_COND_OWNER) {
-				const cred_t	*cr;
-				const cred_t	*s_cr =
+				const struct cred *cr;
+				const struct cred *s_cr =
 					ecb->dte_state->dts_cred.dcr_cred;
 
 				ASSERT(s_cr != NULL);
@@ -900,9 +903,9 @@ void dtrace_probe(dtrace_id_t id, uintptr_t arg0, uintptr_t arg1,
 			if (!dtrace_priv_kernel_destructive(state) ||
 			    !state->dts_cred.dcr_destructive ||
 			    dtrace_destructive_disallow) {
-				dtrace_activity_t	*activity =
+				enum dtrace_activity	*activity =
 							&state->dts_activity;
-				dtrace_activity_t	curr;
+				enum dtrace_activity	curr;
 
 				do {
 					curr = state->dts_activity;
@@ -944,8 +947,8 @@ void dtrace_probe(dtrace_id_t id, uintptr_t arg0, uintptr_t arg1,
 			mstate.dtms_access = 0;
 
 		if (pred != NULL) {
-			dtrace_difo_t	*dp = pred->dtp_difo;
-			int		rval;
+			struct dtrace_difo *dp = pred->dtp_difo;
+			int rval;
 
 			dt_dbg_probe("  Evaluating predicate...\n");
 
@@ -977,9 +980,9 @@ void dtrace_probe(dtrace_id_t id, uintptr_t arg0, uintptr_t arg1,
 		for (act = ecb->dte_action;
 		     !(*flags & CPU_DTRACE_ERROR) && act != NULL;
 		     act = act->dta_next) {
-			size_t			valoffs;
-			dtrace_difo_t		*dp;
-			dtrace_recdesc_t	*rec = &act->dta_rec;
+			size_t valoffs;
+			struct dtrace_difo *dp;
+			struct dtrace_recdesc *rec = &act->dta_rec;
 
 			dt_dbg_probe("  Evaluating action %p (kind %d)...\n",
 				    act, act->dta_kind);
@@ -988,10 +991,10 @@ void dtrace_probe(dtrace_id_t id, uintptr_t arg0, uintptr_t arg1,
 			valoffs = offs + rec->dtrd_offset;
 
 			if (DTRACEACT_ISAGG(act->dta_kind)) {
-				uint64_t		v = 0xbad;
-				dtrace_aggregation_t	*agg;
+				uint64_t v = 0xbad;
+				struct dtrace_aggregation *agg;
 
-				agg = (dtrace_aggregation_t *)act;
+				agg = (struct dtrace_aggregation *)act;
 
 				dp = act->dta_difo;
 				if (dp != NULL)
@@ -1243,9 +1246,9 @@ void dtrace_probe(dtrace_id_t id, uintptr_t arg0, uintptr_t arg1,
 				 * status code.  (We know that we're the only
 				 * thread in COOLDOWN, so there is no race.)
 				 */
-				dtrace_activity_t	*activity =
+				enum dtrace_activity	*activity =
 							&state->dts_activity;
-				dtrace_activity_t	curr =
+				enum dtrace_activity	curr =
 							state->dts_activity;
 
 				if (curr == DTRACE_ACTIVITY_COOLDOWN)
@@ -1378,8 +1381,8 @@ void dtrace_probe(dtrace_id_t id, uintptr_t arg0, uintptr_t arg1,
 		}
 
 		if (*flags & CPU_DTRACE_FAULT) {
-			int		ndx;
-			dtrace_action_t	*err;
+			int ndx;
+			struct dtrace_action *err;
 
 			dt_dbg_probe("  -> Failed (%x)\n", *flags);
 
@@ -1487,12 +1490,13 @@ void dtrace_probe_remove_id(dtrace_id_t id)
 	idr_remove(&dtrace_probe_idr, id);
 }
 
-dtrace_probe_t *dtrace_probe_lookup_id(dtrace_id_t id)
+struct dtrace_probe *
+dtrace_probe_lookup_id(dtrace_id_t id)
 {
 	return idr_find(&dtrace_probe_idr, id);
 }
 
-static int dtrace_probe_lookup_match(dtrace_probe_t *probe, void *arg)
+static int dtrace_probe_lookup_match(struct dtrace_probe *probe, void *arg)
 {
 	*((dtrace_id_t *)arg) = probe->dtpr_id;
 
@@ -1502,11 +1506,11 @@ static int dtrace_probe_lookup_match(dtrace_probe_t *probe, void *arg)
 dtrace_id_t dtrace_probe_lookup(dtrace_provider_id_t prid, const char *mod,
 				const char *func, const char *name)
 {
-	dtrace_probekey_t	pkey;
+	struct dtrace_probekey	pkey;
 	dtrace_id_t		id;
 	int			match;
 
-	pkey.dtpk_prov = ((dtrace_provider_t *)prid)->dtpv_name;
+	pkey.dtpk_prov = ((struct dtrace_provider *)prid)->dtpv_name;
 	pkey.dtpk_pmatch = &dtrace_match_string;
 	pkey.dtpk_mod = mod;
 	pkey.dtpk_mmatch = mod ? &dtrace_match_string : &dtrace_match_nul;
@@ -1528,7 +1532,8 @@ dtrace_id_t dtrace_probe_lookup(dtrace_provider_id_t prid, const char *mod,
 }
 EXPORT_SYMBOL(dtrace_probe_lookup);
 
-dtrace_probe_t *dtrace_probe_get_next(dtrace_id_t *idp)
+struct dtrace_probe *
+dtrace_probe_get_next(dtrace_id_t *idp)
 {
 	return idr_get_next(&dtrace_probe_idr, idp);
 }

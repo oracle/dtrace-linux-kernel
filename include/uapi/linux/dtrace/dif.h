@@ -3,7 +3,7 @@
  * Licensed under the Universal Permissive License v 1.0 as shown at
  * http://oss.oracle.com/licenses/upl.
  *
- * Copyright (c) 2009, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2009, 2018, Oracle and/or its affiliates. All rights reserved.
  */
 
 /*
@@ -54,7 +54,7 @@ typedef struct dtrace_difv {
 	uint8_t dtdv_kind;
 	uint8_t dtdv_scope;
 	uint16_t dtdv_flags;
-	dtrace_diftype_t dtdv_type;
+	struct dtrace_diftype dtdv_type;
 } dtrace_difv_t;
 
 #endif /* _LINUX_DTRACE_DIF_H */

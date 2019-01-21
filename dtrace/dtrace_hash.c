@@ -44,11 +44,13 @@ static uint_t dtrace_hash_str(char *p)
 	return hval;
 }
 
-dtrace_hash_t *dtrace_hash_create(uintptr_t stroffs, uintptr_t nextoffs,
-				  uintptr_t prevoffs)
+struct dtrace_hash *
+dtrace_hash_create(uintptr_t stroffs, uintptr_t nextoffs,
+		   uintptr_t prevoffs)
 {
-	dtrace_hash_t	*hash = kzalloc(sizeof(dtrace_hash_t), GFP_KERNEL);
+	struct dtrace_hash *hash;
 
+	hash = kzalloc(sizeof(struct dtrace_hash), GFP_KERNEL);
 	if (hash == NULL)
 		return NULL;
 
@@ -60,7 +62,7 @@ dtrace_hash_t *dtrace_hash_create(uintptr_t stroffs, uintptr_t nextoffs,
 	hash->dth_mask = hash->dth_size - 1;
 
 	hash->dth_tab = vzalloc(hash->dth_size *
-				sizeof(dtrace_hashbucket_t *));
+				sizeof(struct dtrace_hashbucket *));
 
 	if (hash->dth_tab == NULL) {
 		kfree(hash);
@@ -70,7 +72,7 @@ dtrace_hash_t *dtrace_hash_create(uintptr_t stroffs, uintptr_t nextoffs,
 	return hash;
 }
 
-void dtrace_hash_destroy(dtrace_hash_t *hash)
+void dtrace_hash_destroy(struct dtrace_hash *hash)
 {
 #ifdef DEBUG
 	int	i;
@@ -86,12 +88,12 @@ void dtrace_hash_destroy(dtrace_hash_t *hash)
 	kfree(hash);
 }
 
-static int dtrace_hash_resize(dtrace_hash_t *hash)
+static int dtrace_hash_resize(struct dtrace_hash *hash)
 {
 	int			size = hash->dth_size, i, ndx;
 	int			new_size = hash->dth_size << 1;
 	int			new_mask = new_size - 1;
-	dtrace_hashbucket_t	**new_tab, *bucket, *next;
+	struct dtrace_hashbucket **new_tab, *bucket, *next;
 
 	ASSERT((new_size & new_mask) == 0);
 
@@ -102,7 +104,7 @@ static int dtrace_hash_resize(dtrace_hash_t *hash)
 	for (i = 0; i < size; i++) {
 		for (bucket = hash->dth_tab[i]; bucket != NULL;
 		     bucket = next) {
-			dtrace_probe_t *probe = bucket->dthb_chain;
+			struct dtrace_probe *probe = bucket->dthb_chain;
 
 			ASSERT(probe != NULL);
 			ndx = DTRACE_HASHSTR(hash, probe) & new_mask;
@@ -121,12 +123,12 @@ static int dtrace_hash_resize(dtrace_hash_t *hash)
 	return 0;
 }
 
-int dtrace_hash_add(dtrace_hash_t *hash, dtrace_probe_t *new)
+int dtrace_hash_add(struct dtrace_hash *hash, struct dtrace_probe *new)
 {
-	int			hashval = DTRACE_HASHSTR(hash, new);
-	int			ndx = hashval & hash->dth_mask;
-	dtrace_hashbucket_t	*bucket = hash->dth_tab[ndx];
-	dtrace_probe_t		**nextp, **prevp;
+	int hashval = DTRACE_HASHSTR(hash, new);
+	int ndx = hashval & hash->dth_mask;
+	struct dtrace_hashbucket *bucket = hash->dth_tab[ndx];
+	struct dtrace_probe **nextp, **prevp;
 
 	for (; bucket != NULL; bucket = bucket->dthb_next) {
 		if (DTRACE_HASHEQ(hash, bucket->dthb_chain, new))
@@ -144,7 +146,7 @@ int dtrace_hash_add(dtrace_hash_t *hash, dtrace_probe_t *new)
 		return 0;
 	}
 
-	bucket = kzalloc(sizeof(dtrace_hashbucket_t), GFP_KERNEL);
+	bucket = kzalloc(sizeof(struct dtrace_hashbucket), GFP_KERNEL);
 	if (bucket == NULL)
 		return -ENOMEM;
 
@@ -173,12 +175,13 @@ add:
 	return 0;
 }
 
-dtrace_probe_t *dtrace_hash_lookup(dtrace_hash_t *hash,
-				   dtrace_probe_t *template)
+struct dtrace_probe *
+dtrace_hash_lookup(struct dtrace_hash *hash,
+		   struct dtrace_probe *template)
 {
-	int			hashval = DTRACE_HASHSTR(hash, template);
-	int			ndx = hashval & hash->dth_mask;
-	dtrace_hashbucket_t	*bucket = hash->dth_tab[ndx];
+	int hashval = DTRACE_HASHSTR(hash, template);
+	int ndx = hashval & hash->dth_mask;
+	struct dtrace_hashbucket *bucket = hash->dth_tab[ndx];
 
 	for (; bucket != NULL; bucket = bucket->dthb_next) {
 		if (DTRACE_HASHEQ(hash, bucket->dthb_chain, template))
@@ -196,11 +199,12 @@ dtrace_probe_t *dtrace_hash_lookup(dtrace_hash_t *hash,
  * The hash tables can also be optimized by storing the hashval in each element
  * rather than always performing string comparisons.
  */
-int dtrace_hash_collisions(dtrace_hash_t *hash, dtrace_probe_t *template)
+int dtrace_hash_collisions(struct dtrace_hash *hash,
+			   struct dtrace_probe *template)
 {
-	int			hashval = DTRACE_HASHSTR(hash, template);
-	int			ndx = hashval & hash->dth_mask;
-	dtrace_hashbucket_t	*bucket = hash->dth_tab[ndx];
+	int hashval = DTRACE_HASHSTR(hash, template);
+	int ndx = hashval & hash->dth_mask;
+	struct dtrace_hashbucket *bucket = hash->dth_tab[ndx];
 
 	for (; bucket != NULL; bucket = bucket->dthb_next) {
 		if (DTRACE_HASHEQ(hash, bucket->dthb_chain, template))
@@ -210,13 +214,12 @@ int dtrace_hash_collisions(dtrace_hash_t *hash, dtrace_probe_t *template)
 	return 0;
 }
 
-void dtrace_hash_remove(dtrace_hash_t *hash, dtrace_probe_t *probe)
+void dtrace_hash_remove(struct dtrace_hash *hash, struct dtrace_probe *probe)
 {
-	int			ndx = DTRACE_HASHSTR(hash, probe) &
-				      hash->dth_mask;
-	dtrace_hashbucket_t	*bucket = hash->dth_tab[ndx];
-	dtrace_probe_t		**prevp = DTRACE_HASHPREV(hash, probe);
-	dtrace_probe_t		**nextp = DTRACE_HASHNEXT(hash, probe);
+	int ndx = DTRACE_HASHSTR(hash, probe) & hash->dth_mask;
+	struct dtrace_hashbucket *bucket = hash->dth_tab[ndx];
+	struct dtrace_probe **prevp = DTRACE_HASHPREV(hash, probe);
+	struct dtrace_probe **nextp = DTRACE_HASHNEXT(hash, probe);
 
 	for (; bucket != NULL; bucket = bucket->dthb_next) {
 		if (DTRACE_HASHEQ(hash, bucket->dthb_chain, probe))
@@ -231,7 +234,7 @@ void dtrace_hash_remove(dtrace_hash_t *hash, dtrace_probe_t *probe)
 			 * This is the last probe in the bucket; we can remove
 			 * the bucket.
 			 */
-			dtrace_hashbucket_t	*b = hash->dth_tab[ndx];
+			struct dtrace_hashbucket *b = hash->dth_tab[ndx];
 
 			ASSERT(bucket->dthb_chain == probe);
 			ASSERT(b != NULL);

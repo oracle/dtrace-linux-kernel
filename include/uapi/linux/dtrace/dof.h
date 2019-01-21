@@ -118,7 +118,7 @@ typedef struct dof_actdesc {
 } dof_actdesc_t;
 
 typedef struct dof_difohdr {
-	dtrace_diftype_t dofd_rtype;	/* return type for this fragment */
+	struct dtrace_diftype dofd_rtype; /* return type for this fragment */
 	dof_secidx_t dofd_links[1];	/* variable length array of indices */
 } dof_difohdr_t;
 
@@ -184,7 +184,7 @@ typedef struct dof_xlator {
 typedef struct dof_xlmember {
 	dof_secidx_t dofxm_difo;	/* member link to DOF_SECT_DIFOHDR */
 	dof_stridx_t dofxm_name;	/* member name */
-	dtrace_diftype_t dofxm_type;	/* member type */
+	struct dtrace_diftype dofxm_type; /* member type */
 } dof_xlmember_t;
 
 typedef struct dof_xlref {

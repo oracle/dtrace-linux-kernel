@@ -53,7 +53,7 @@ dtrace_id_t		dtrace_probeid_begin;
 dtrace_id_t		dtrace_probeid_end;
 dtrace_id_t		dtrace_probeid_error;
 
-dtrace_dynvar_t		dtrace_dynhash_sink;
+struct dtrace_dynvar	dtrace_dynhash_sink;
 
 #define DTRACE_DYNHASH_FREE		0
 #define DTRACE_DYNHASH_SINK		1
@@ -61,11 +61,11 @@ dtrace_dynvar_t		dtrace_dynhash_sink;
 
 #define DTRACE_DYNVAR_CHUNKSIZE		256
 
-static void dtrace_dynvar_clean(dtrace_dstate_t *dstate)
+static void dtrace_dynvar_clean(struct dtrace_dstate *dstate)
 {
-	dtrace_dynvar_t		*dirty;
-	dtrace_dstate_percpu_t	*dcpu;
-	int			i, work = 0;
+	struct dtrace_dynvar *dirty;
+	struct dtrace_dstate_percpu *dcpu;
+	int i, work = 0;
 
 	for (i = 0; i < NR_CPUS; i++) {
 		dcpu = &dstate->dtds_percpu[i];
@@ -142,25 +142,25 @@ static void dtrace_dynvar_clean(dtrace_dstate_t *dstate)
 	dstate->dtds_state = DTRACE_DSTATE_CLEAN;
 }
 
-int dtrace_dstate_init(dtrace_dstate_t *dstate, size_t size)
+int dtrace_dstate_init(struct dtrace_dstate *dstate, size_t size)
 {
 	size_t		hashsize, maxper, min,
 			chunksize = dstate->dtds_chunksize;
 	void		*base, *percpu;
 	uintptr_t	limit;
-	dtrace_dynvar_t	*dvar, *next, *start;
+	struct dtrace_dynvar *dvar, *next, *start;
 	int		i;
 
 	ASSERT(MUTEX_HELD(&dtrace_lock));
 	ASSERT(dstate->dtds_base == NULL && dstate->dtds_percpu == NULL);
 
-	memset(dstate, 0, sizeof(dtrace_dstate_t));
+	memset(dstate, 0, sizeof(struct dtrace_dstate));
 
 	dstate->dtds_chunksize = chunksize;
 	if (dstate->dtds_chunksize == 0)
 		dstate->dtds_chunksize = DTRACE_DYNVAR_CHUNKSIZE;
 
-	min = dstate->dtds_chunksize + sizeof(dtrace_dynhash_t);
+	min = dstate->dtds_chunksize + sizeof(struct dtrace_dynhash);
 	if (size < min)
 		size = min;
 
@@ -177,9 +177,10 @@ int dtrace_dstate_init(dtrace_dstate_t *dstate, size_t size)
 	dstate->dtds_base = base;
 	dstate->dtds_percpu = percpu;
 	memset(dstate->dtds_percpu, 0,
-	       NR_CPUS * sizeof(dtrace_dstate_percpu_t));
+	       NR_CPUS * sizeof(struct dtrace_dstate_percpu));
 
-	hashsize = size / (dstate->dtds_chunksize + sizeof(dtrace_dynhash_t));
+	hashsize = size /
+		(dstate->dtds_chunksize + sizeof(struct dtrace_dynhash));
 
 	if (hashsize != 1 && (hashsize & 1))
 		hashsize--;
@@ -204,8 +205,8 @@ int dtrace_dstate_init(dtrace_dstate_t *dstate, size_t size)
 	 * Determine number of active CPUs.  Divide free list evenly among
 	 * active CPUs.
 	 */
-	start = (dtrace_dynvar_t *)((uintptr_t)base +
-				    hashsize * sizeof(dtrace_dynhash_t));
+	start = (struct dtrace_dynvar *)((uintptr_t)base +
+				    hashsize * sizeof(struct dtrace_dynhash));
 	limit = (uintptr_t)base + size;
 
 	maxper = (limit - (uintptr_t)start) / NR_CPUS;
@@ -226,13 +227,13 @@ int dtrace_dstate_init(dtrace_dstate_t *dstate, size_t size)
 			start = NULL;
 		} else {
 			limit = (uintptr_t)start + maxper;
-			start = (dtrace_dynvar_t *)limit;
+			start = (struct dtrace_dynvar *)limit;
 		}
 
 		ASSERT(limit <= (uintptr_t)base + size);
 
 		for (;;) {
-			next = (dtrace_dynvar_t *)((uintptr_t)dvar +
+			next = (struct dtrace_dynvar *)((uintptr_t)dvar +
 						   dstate->dtds_chunksize);
 
 			if ((uintptr_t)next + dstate->dtds_chunksize >= limit)
@@ -249,7 +250,7 @@ int dtrace_dstate_init(dtrace_dstate_t *dstate, size_t size)
 	return 0;
 }
 
-void dtrace_dstate_fini(dtrace_dstate_t *dstate)
+void dtrace_dstate_fini(struct dtrace_dstate *dstate)
 {
 	ASSERT(MUTEX_HELD(&cpu_lock));
 
@@ -260,7 +261,7 @@ void dtrace_dstate_fini(dtrace_dstate_t *dstate)
 	kmem_cache_free(dtrace_state_cachep, dstate->dtds_percpu);
 }
 
-void dtrace_vstate_fini(dtrace_vstate_t *vstate)
+void dtrace_vstate_fini(struct dtrace_vstate *vstate)
 {
 	/*
 	 * If only there was a logical XOR operator...
@@ -279,7 +280,7 @@ void dtrace_vstate_fini(dtrace_vstate_t *vstate)
 		vfree(vstate->dtvs_locals);
 }
 
-static void dtrace_state_clean(dtrace_state_t *state)
+static void dtrace_state_clean(struct dtrace_state *state)
 {
 	dtrace_optval_t		*opt = state->dts_options;
 
@@ -294,7 +295,7 @@ static void dtrace_state_clean(dtrace_state_t *state)
 						opt[DTRACEOPT_CLEANRATE]));
 }
 
-static void dtrace_state_deadman(dtrace_state_t *state)
+static void dtrace_state_deadman(struct dtrace_state *state)
 {
 	ktime_t			now;
 
@@ -320,20 +321,21 @@ static void dtrace_state_deadman(dtrace_state_t *state)
 	state->dts_alive = now;
 }
 
-dtrace_state_t *dtrace_state_create(struct file *file)
+struct dtrace_state *
+dtrace_state_create(struct file *file)
 {
-	dtrace_state_t	*state;
+	struct dtrace_state *state;
 	dtrace_optval_t	*opt;
-	int		bufsize = NR_CPUS * sizeof(dtrace_buffer_t), i;
+	int bufsize = NR_CPUS * sizeof(struct dtrace_buffer), i;
 #ifdef FIXME
-	const cred_t	*cr = file->f_cred;
+	const struct cred *cr = file->f_cred;
 #endif
-	dtrace_aggid_t	aggid;
+	dtrace_aggid_t aggid;
 
 	ASSERT(MUTEX_HELD(&cpu_lock));
 	ASSERT(MUTEX_HELD(&dtrace_lock));
 
-	state = kzalloc(sizeof(dtrace_state_t), GFP_KERNEL);
+	state = kzalloc(sizeof(struct dtrace_state), GFP_KERNEL);
 	if (state == NULL)
 		return NULL;
 
@@ -473,8 +475,8 @@ dtrace_state_t *dtrace_state_create(struct file *file)
 	return state;
 }
 
-static int dtrace_state_buffer(dtrace_state_t *state, dtrace_buffer_t *buf,
-			       int which)
+static int dtrace_state_buffer(struct dtrace_state *state,
+			       struct dtrace_buffer *buf, int which)
 {
 	dtrace_optval_t	*opt = state->dts_options, size;
 	processorid_t	cpu = DTRACE_CPUALL;
@@ -539,9 +541,9 @@ static int dtrace_state_buffer(dtrace_state_t *state, dtrace_buffer_t *buf,
 	return -ENOMEM;
 }
 
-static int dtrace_state_buffers(dtrace_state_t *state)
+static int dtrace_state_buffers(struct dtrace_state *state)
 {
-	dtrace_speculation_t	*spec = state->dts_speculations;
+	struct dtrace_speculation	*spec = state->dts_speculations;
 	int			rval, i;
 
 	rval = dtrace_state_buffer(state, state->dts_buffer, DTRACEOPT_BUFSIZE);
@@ -563,7 +565,7 @@ static int dtrace_state_buffers(dtrace_state_t *state)
 	return 0;
 }
 
-static void dtrace_begin_probe(dtrace_state_t *state)
+static void dtrace_begin_probe(struct dtrace_state *state)
 {
 	processorid_t		cpuid = smp_processor_id();
 
@@ -586,10 +588,10 @@ static void dtrace_begin_probe(dtrace_state_t *state)
 	dtrace_membar_enter();
 }
 
-static void dtrace_state_prereserve(dtrace_state_t *state)
+static void dtrace_state_prereserve(struct dtrace_state *state)
 {
-	dtrace_ecb_t	*ecb;
-	dtrace_probe_t	*probe;
+	struct dtrace_ecb	*ecb;
+	struct dtrace_probe	*probe;
 
 	state->dts_reserve = 0;
 
@@ -611,16 +613,15 @@ static void dtrace_state_prereserve(dtrace_state_t *state)
 	}
 }
 
-int dtrace_state_go(dtrace_state_t *state, processorid_t *cpu)
+int dtrace_state_go(struct dtrace_state *state, processorid_t *cpu)
 {
-	dtrace_optval_t		*opt = state->dts_options, sz, nspec;
-	dtrace_speculation_t	*spec;
-	dtrace_buffer_t		*buf;
-	cyc_handler_t		hdlr;
-	cyc_time_t		when;
-	int			rval = 0, i,
-				bufsize = NR_CPUS * sizeof(dtrace_buffer_t);
-	processorid_t           cpuid;
+	dtrace_optval_t *opt = state->dts_options, sz, nspec;
+	struct dtrace_speculation *spec;
+	struct dtrace_buffer *buf;
+	cyc_handler_t hdlr;
+	cyc_time_t when;
+	int rval = 0, i, bufsize = NR_CPUS * sizeof(struct dtrace_buffer);
+	processorid_t cpuid;
 
 	mutex_lock(&cpu_lock);
 	mutex_lock(&dtrace_lock);
@@ -667,7 +668,7 @@ int dtrace_state_go(dtrace_state_t *state, processorid_t *cpu)
 		goto out;
 	}
 
-	spec = vzalloc(nspec * sizeof(dtrace_speculation_t));
+	spec = vzalloc(nspec * sizeof(struct dtrace_speculation));
 	if (spec == NULL) {
 		rval = -ENOMEM;
 		goto out;
@@ -884,7 +885,7 @@ out:
 	return rval;
 }
 
-static void dtrace_end_probe(dtrace_state_t *state)
+static void dtrace_end_probe(struct dtrace_state *state)
 {
 	dtrace_probe(dtrace_probeid_end, (uint64_t)(uintptr_t)state, 0, 0, 0,
 		     0, 0, 0);
@@ -894,7 +895,7 @@ static void dtrace_end_probe(dtrace_state_t *state)
 	dtrace_membar_enter();
 }
 
-int dtrace_state_stop(dtrace_state_t *state, processorid_t *cpu)
+int dtrace_state_stop(struct dtrace_state *state, processorid_t *cpu)
 {
 	processorid_t cpuid = state->dts_options[DTRACEOPT_CPU];
 
@@ -944,7 +945,7 @@ int dtrace_state_stop(dtrace_state_t *state, processorid_t *cpu)
 	return 0;
 }
 
-int dtrace_state_option(dtrace_state_t *state, dtrace_optid_t option,
+int dtrace_state_option(struct dtrace_state *state, dtrace_optid_t option,
 			dtrace_optval_t val)
 {
 	ASSERT(MUTEX_HELD(&dtrace_lock));
@@ -996,12 +997,12 @@ int dtrace_state_option(dtrace_state_t *state, dtrace_optid_t option,
 	return 0;
 }
 
-void dtrace_state_destroy(dtrace_state_t *state)
+void dtrace_state_destroy(struct dtrace_state *state)
 {
-	dtrace_ecb_t		*ecb;
-	dtrace_vstate_t		*vstate = &state->dts_vstate;
+	struct dtrace_ecb	*ecb;
+	struct dtrace_vstate	*vstate = &state->dts_vstate;
 	int			i;
-	dtrace_speculation_t	*spec = state->dts_speculations;
+	struct dtrace_speculation *spec = state->dts_speculations;
 	int			nspec = state->dts_nspeculations;
 	uint32_t		match;
 
@@ -1049,9 +1050,9 @@ void dtrace_state_destroy(dtrace_state_t *state)
 				continue;
 
 			if (match && ecb->dte_probe != NULL) {
-				dtrace_probe_t		*probe =
+				struct dtrace_probe	*probe =
 							ecb->dte_probe;
-				dtrace_provider_t	*prov =
+				struct dtrace_provider	*prov =
 							probe->dtpr_provider;
 
 				if (!(prov->dtpv_priv.dtpp_flags & match))

@@ -25,8 +25,8 @@
 
 static int sdt_brk_hook(struct pt_regs *regs, unsigned int esr)
 {
-	uintptr_t	ip = instruction_pointer(regs);
-	sdt_probe_t	*sdt = sdt_probetab[SDT_ADDR2NDX(ip)];
+	uintptr_t ip = instruction_pointer(regs);
+	struct sdt_probe *sdt = sdt_probetab[SDT_ADDR2NDX(ip)];
 
 	for (; sdt != NULL; sdt = sdt->sdp_hashnext) {
 		if ((uintptr_t)sdt->sdp_patchpoint == ip) {
@@ -51,7 +51,7 @@ static int sdt_brk_hook(struct pt_regs *regs, unsigned int esr)
 	return DBG_HOOK_ERROR;
 }
 
-void sdt_provide_probe_arch(sdt_probe_t *sdp, struct module *mp, int idx)
+void sdt_provide_probe_arch(struct sdt_probe *sdp, struct module *mp, int idx)
 {
 	sdp->sdp_patchval = BRK64_OPCODE_DPROBE_SDT;
 	sdp->sdp_savedval = dtrace_text_peek(sdp->sdp_patchpoint);
@@ -66,12 +66,12 @@ void sdt_destroy_module(void *arg, struct module *mp)
 {
 }
 
-void sdt_enable_arch(sdt_probe_t *sdp, dtrace_id_t id, void *arg)
+void sdt_enable_arch(struct sdt_probe *sdp, dtrace_id_t id, void *arg)
 {
 	dtrace_text_poke(sdp->sdp_patchpoint, sdp->sdp_patchval);
 }
 
-void sdt_disable_arch(sdt_probe_t *sdp, dtrace_id_t id, void *arg)
+void sdt_disable_arch(struct sdt_probe *sdp, dtrace_id_t id, void *arg)
 {
 	dtrace_text_poke(sdp->sdp_patchpoint, sdp->sdp_savedval);
 }

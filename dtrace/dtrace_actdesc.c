@@ -21,10 +21,11 @@
 
 #include "dtrace.h"
 
-dtrace_actdesc_t *dtrace_actdesc_create(dtrace_actkind_t kind, uint32_t ntuple,
-					uint64_t uarg, uint64_t arg)
+struct dtrace_actdesc *
+dtrace_actdesc_create(dtrace_actkind_t kind, uint32_t ntuple,
+		      uint64_t uarg, uint64_t arg)
 {
-	dtrace_actdesc_t	*act;
+	struct dtrace_actdesc	*act;
 
 #ifdef FIXME
 	ASSERT(!DTRACEACT_ISPRINTFLIKE(kind) ||
@@ -36,7 +37,7 @@ dtrace_actdesc_t *dtrace_actdesc_create(dtrace_actkind_t kind, uint32_t ntuple,
 	       (arg == 0 && kind == DTRACEACT_PRINTA));
 #endif
 
-	act = kzalloc(sizeof(dtrace_actdesc_t), GFP_KERNEL);
+	act = kzalloc(sizeof(struct dtrace_actdesc), GFP_KERNEL);
 	if (act == NULL)
 		return NULL;
 
@@ -49,17 +50,18 @@ dtrace_actdesc_t *dtrace_actdesc_create(dtrace_actkind_t kind, uint32_t ntuple,
 	return act;
 }
 
-void dtrace_actdesc_hold(dtrace_actdesc_t *act)
+void dtrace_actdesc_hold(struct dtrace_actdesc *act)
 {
 	ASSERT(act->dtad_refcnt >= 1);
 
 	act->dtad_refcnt++;
 }
 
-void dtrace_actdesc_release(dtrace_actdesc_t *act, dtrace_vstate_t *vstate)
+void dtrace_actdesc_release(struct dtrace_actdesc *act,
+			    struct dtrace_vstate *vstate)
 {
 	dtrace_actkind_t	kind = act->dtad_kind;
-	dtrace_difo_t		*dp;
+	struct dtrace_difo	*dp;
 
 	ASSERT(act->dtad_refcnt >= 1);
 
