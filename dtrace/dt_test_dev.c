@@ -67,7 +67,7 @@ static struct dt_test_like_a_scatterlist
 					       { .a = 6, .b = 7,
 						 .c = 8, .d = 9, .e = 10 } };
 
-void dt_test_provide(void *arg, const dtrace_probedesc_t *desc)
+void dt_test_provide(void *arg, const struct dtrace_probedesc *desc)
 {
 	dtrace_id_t probe;
 

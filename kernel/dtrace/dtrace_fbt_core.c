@@ -30,7 +30,7 @@ struct dt_fbt_bl_entry {
 
 static struct rb_root dt_fbt_root = RB_ROOT;
 
-dt_fbt_bl_entry_t *
+struct dt_fbt_bl_entry *
 dtrace_fbt_bl_add(unsigned long addr, const char *name)
 {
 	struct rb_node **p = &dt_fbt_root.rb_node;
@@ -55,7 +55,7 @@ dtrace_fbt_bl_add(unsigned long addr, const char *name)
 	/* Find place in the tree. */
 	while (*p) {
 		parent = *p;
-		entry = rb_entry(parent, dt_fbt_bl_entry_t, dfbe_node);
+		entry = rb_entry(parent, struct dt_fbt_bl_entry, dfbe_node);
 
 		if (addr > entry->dfbe_addr)
 			p = &parent->rb_right;
@@ -84,7 +84,7 @@ dtrace_fbt_bl_add(unsigned long addr, const char *name)
  * Iterators for blacklisted symbols. The iteration happens in sort order by
  * virtual memory address. Symbols with pending resolution are inored.
  */
-dt_fbt_bl_entry_t *
+struct dt_fbt_bl_entry *
 dtrace_fbt_bl_first(void)
 {
 	struct rb_node *node = rb_first(&dt_fbt_root);
@@ -92,22 +92,22 @@ dtrace_fbt_bl_first(void)
 	if (node == NULL)
 		return (NULL);
 
-	return rb_entry(node, dt_fbt_bl_entry_t, dfbe_node);
+	return rb_entry(node, struct dt_fbt_bl_entry, dfbe_node);
 }
 
-dt_fbt_bl_entry_t *
-dtrace_fbt_bl_next(dt_fbt_bl_entry_t *entry)
+struct dt_fbt_bl_entry *
+dtrace_fbt_bl_next(struct dt_fbt_bl_entry *entry)
 {
 	struct rb_node *node = rb_next(&entry->dfbe_node);
 
 	if (node == NULL)
 		return (NULL);
 
-	return rb_entry(node, dt_fbt_bl_entry_t, dfbe_node);
+	return rb_entry(node, struct dt_fbt_bl_entry, dfbe_node);
 }
 
 unsigned long
-dtrace_fbt_bl_entry_addr(dt_fbt_bl_entry_t *entry)
+dtrace_fbt_bl_entry_addr(struct dt_fbt_bl_entry *entry)
 {
 	if (entry == NULL)
 		return (0);
@@ -116,7 +116,7 @@ dtrace_fbt_bl_entry_addr(dt_fbt_bl_entry_t *entry)
 }
 
 const char *
-dtrace_fbt_bl_entry_name(dt_fbt_bl_entry_t *entry)
+dtrace_fbt_bl_entry_name(struct dt_fbt_bl_entry *entry)
 {
 	if (entry == NULL)
 		return (NULL);
