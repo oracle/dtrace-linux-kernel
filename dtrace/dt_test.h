@@ -17,7 +17,7 @@
 #ifndef _DT_TEST_H_
 #define _DT_TEST_H_
 
-extern void dt_test_provide(void *, const dtrace_probedesc_t *);
+extern void dt_test_provide(void *, const struct dtrace_probedesc *);
 extern int dt_test_enable(void *arg, dtrace_id_t, void *);
 extern void dt_test_disable(void *arg, dtrace_id_t, void *);
 extern void dt_test_destroy(void *, dtrace_id_t, void *);

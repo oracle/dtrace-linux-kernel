@@ -120,7 +120,7 @@ static int dtrace_unwind_frame(struct user_stackframe *frame)
 	return 0;
 }
 
-void dtrace_user_stacktrace(stacktrace_state_t *st)
+void dtrace_user_stacktrace(struct stacktrace_state *st)
 {
 	struct pt_regs		*regs = current_pt_regs();
 	uint64_t		*pcs = st->pcs;

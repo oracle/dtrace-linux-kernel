@@ -35,7 +35,7 @@
 
 static uint8_t fbt_invop(struct pt_regs *regs)
 {
-	fbt_probe_t	*fbp = fbt_probetab[FBT_ADDR2NDX(regs->ip)];
+	struct fbt_probe	*fbp = fbt_probetab[FBT_ADDR2NDX(regs->ip)];
 
 	for (; fbp != NULL; fbp = fbp->fbp_hashnext) {
 		if ((uintptr_t)fbp->fbp_patchpoint == regs->ip) {
@@ -101,7 +101,7 @@ uint64_t fbt_getarg(void *arg, dtrace_id_t id, void *parg, int argno,
 	return val;
 }
 
-void fbt_provide_probe_arch(fbt_probe_t *fbp, int probetype, int stype)
+void fbt_provide_probe_arch(struct fbt_probe *fbp, int probetype, int stype)
 {
 	fbp->fbp_patchval = probetype == FBT_ENTRY ? FBT_ENTRY_PATCHVAL
 						   : FBT_RETURN_PATCHVAL;
@@ -124,12 +124,12 @@ void fbt_destroy_module(void *arg, struct module *mp)
 {
 }
 
-void fbt_enable_arch(fbt_probe_t *fbp, dtrace_id_t id, void *arg)
+void fbt_enable_arch(struct fbt_probe *fbp, dtrace_id_t id, void *arg)
 {
 	dtrace_invop_enable(fbp->fbp_patchpoint, fbp->fbp_patchval);
 }
 
-void fbt_disable_arch(fbt_probe_t *fbp, dtrace_id_t id, void *arg)
+void fbt_disable_arch(struct fbt_probe *fbp, dtrace_id_t id, void *arg)
 {
 	dtrace_invop_disable(fbp->fbp_patchpoint, fbp->fbp_savedval);
 }
@@ -138,7 +138,7 @@ int fbt_dev_init_arch(void)
 {
 	fbt_probetab_mask = fbt_probetab_size - 1;
 	fbt_probetab = dtrace_vzalloc_try(fbt_probetab_size *
-					  sizeof(fbt_probe_t *));
+					  sizeof(struct fbt_probe *));
 
 	if (fbt_probetab == NULL)
 		return -ENOMEM;

@@ -15,7 +15,7 @@
 #include <linux/dtrace_cpu_defines.h>
 #include <asm/dtrace_cpuinfo.h>
 
-typedef struct cpu_core {
+struct cpu_core {
 	uint16_t	cpuc_dtrace_flags;
 	uint8_t		cpuc_dcpc_intr_state;
 	uint8_t		cpuc_pad[CPUC_PADSIZE];
@@ -30,19 +30,19 @@ typedef struct cpu_core {
 	atomic64_t	cpuc_sync_requests;
 	atomic64_t	cpuc_in_probe_ctx;
 	dtrace_id_t	cpuc_current_probe;
-} cpu_core_t;
+};
 
-DECLARE_PER_CPU_SHARED_ALIGNED(cpu_core_t, dtrace_cpu_core);
+DECLARE_PER_CPU_SHARED_ALIGNED(struct cpu_core, dtrace_cpu_core);
 
-typedef struct cpuinfo {
+struct cpuinfo {
 	processorid_t	cpu_id;
 	psetid_t	cpu_pset;
 	chipid_t	cpu_chip;
 	lgrp_id_t	cpu_lgrp;
 	cpuinfo_arch_t	*cpu_info;
-} cpuinfo_t;
+};
 
-DECLARE_PER_CPU_SHARED_ALIGNED(cpuinfo_t, dtrace_cpu_info);
+DECLARE_PER_CPU_SHARED_ALIGNED(struct cpuinfo, dtrace_cpu_info);
 
 extern void dtrace_cpu_init(void);
 

@@ -100,7 +100,8 @@ fail:
 	return NULL;
 }
 
-uint64_t *fasttrap_glob_offsets(fasttrap_probe_spec_t *probe, uint64_t *np)
+uint64_t *fasttrap_glob_offsets(struct fasttrap_probe_spec *probe,
+				uint64_t *np)
 {
 	size_t		size = probe->ftps_size;
 	asm_instr_t	*text = NULL;

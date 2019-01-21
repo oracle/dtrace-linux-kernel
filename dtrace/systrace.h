@@ -20,7 +20,7 @@
 
 #include "dtrace.h"
 
-extern void systrace_provide(void *, const dtrace_probedesc_t *);
+extern void systrace_provide(void *, const struct dtrace_probedesc *);
 extern int systrace_enable(void *arg, dtrace_id_t, void *);
 extern void systrace_disable(void *arg, dtrace_id_t, void *);
 extern void systrace_destroy(void *, dtrace_id_t, void *);

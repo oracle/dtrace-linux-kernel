@@ -18,7 +18,7 @@
 #ifndef _PROFILE_H_
 #define _PROFILE_H_
 
-extern void profile_provide(void *, const dtrace_probedesc_t *);
+extern void profile_provide(void *, const struct dtrace_probedesc *);
 extern int profile_enable(void *, dtrace_id_t, void *);
 extern void profile_disable(void *, dtrace_id_t, void *);
 extern int profile_usermode(void *, dtrace_id_t, void *);

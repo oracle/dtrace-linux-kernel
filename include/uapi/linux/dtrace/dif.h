@@ -33,13 +33,13 @@
  * its size in bytes, and a module identifier.
  */
 
-typedef struct dtrace_diftype {
+struct dtrace_diftype {
 	uint8_t dtdt_kind;
 	uint8_t dtdt_ckind;
 	uint8_t dtdt_flags;
 	uint8_t dtdt_pad;
 	uint32_t dtdt_size;
-} dtrace_diftype_t;
+};
 
 /*
  * A DTrace Intermediate Format variable record is used to describe each of the
@@ -48,13 +48,13 @@ typedef struct dtrace_diftype {
  * size of this structure must be sizeof (int) aligned.
  */
 
-typedef struct dtrace_difv {
+struct dtrace_difv {
 	uint32_t dtdv_name;
 	uint32_t dtdv_id;
 	uint8_t dtdv_kind;
 	uint8_t dtdv_scope;
 	uint16_t dtdv_flags;
-	dtrace_diftype_t dtdv_type;
-} dtrace_difv_t;
+	struct dtrace_diftype dtdv_type;
+};
 
 #endif /* _LINUX_DTRACE_DIF_H */

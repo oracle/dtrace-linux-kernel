@@ -16,7 +16,7 @@ struct dtrace_task {
 	ktime_t		dt_start;
 	uint8_t		dt_stop;
 	uint8_t		dt_sig;
-	dtrace_psinfo_t	*dt_psinfo;
+	struct dtrace_psinfo	*dt_psinfo;
 	void		*dt_helpers;
 	uint32_t	dt_probes;
 	uint64_t	dt_tp_count;
