@@ -937,7 +937,8 @@ int dtrace_dof_slurp(dof_hdr_t *dof, dtrace_vstate_t *vstate, const cred_t *cr,
 
 	for (i = DOF_ID_PAD; i < DOF_ID_SIZE; i++) {
 		if (dof->dofh_ident[i] != 0) {
-			dtrace_dof_error(dof, "DOF has invalid ident byte set");                        return -1;
+			dtrace_dof_error(dof, "DOF has invalid ident byte set");
+			return -1;
 		}
 	}
 
