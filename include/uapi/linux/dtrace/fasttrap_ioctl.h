@@ -13,7 +13,7 @@
 #include <linux/dtrace/fasttrap.h>
 
 #define FASTTRAPIOC		0xf4
-#define FASTTRAPIOC_MAKEPROBE	_IOW(FASTTRAPIOC, 1, fasttrap_probe_spec_t)
-#define FASTTRAPIOC_GETINSTR	_IOR(FASTTRAPIOC, 2, fasttrap_instr_query_t)
+#define FASTTRAPIOC_MAKEPROBE	_IOW(FASTTRAPIOC, 1, struct fasttrap_probe_spec)
+#define FASTTRAPIOC_GETINSTR	_IOR(FASTTRAPIOC, 2, struct fasttrap_instr_query)
 
 #endif /* _LINUX_DTRACE_FASTTRAP_IOCTL_H_ */

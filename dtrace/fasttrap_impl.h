@@ -52,15 +52,15 @@
  * unused tracepoint belonging to another probe that was attached to the
  * enabled tracepoint.
  */
-typedef struct fasttrap_proc {
+struct fasttrap_proc {
 	pid_t ftpc_pid;				/* process ID for this proc */
 	atomic64_t ftpc_acount;			/* count of active providers */
 	uint64_t ftpc_rcount;			/* count of extant providers */
 	struct mutex ftpc_mtx;			/* lock on all but acount */
 	struct fasttrap_proc *ftpc_next;	/* next proc in hash chain */
-} fasttrap_proc_t;
+};
 
-typedef struct fasttrap_provider {
+struct fasttrap_provider {
 	pid_t ftp_pid;				/* process ID for this prov */
 	char ftp_name[DTRACE_PROVNAMELEN];	/* prov name (w/o the pid) */
 	dtrace_provider_id_t ftp_provid;	/* DTrace provider handle */
@@ -71,9 +71,9 @@ typedef struct fasttrap_provider {
 	uint64_t ftp_rcount;			/* enabled probes ref count */
 	uint64_t ftp_ccount;			/* consumers creating probes */
 	uint64_t ftp_mcount;			/* meta provider count */
-	fasttrap_proc_t *ftp_proc;		/* shared proc for all provs */
+	struct fasttrap_proc *ftp_proc;		/* shared proc for all provs */
 	struct fasttrap_provider *ftp_next;	/* next prov in hash chain */
-} fasttrap_provider_t;
+};
 
 typedef struct fasttrap_id		fasttrap_id_t;
 typedef struct fasttrap_probe		fasttrap_probe_t;
@@ -82,28 +82,28 @@ typedef struct fasttrap_tracepoint	fasttrap_tracepoint_t;
 struct fasttrap_id {
 	fasttrap_probe_t *fti_probe;		/* referrring probe */
 	fasttrap_id_t *fti_next;		/* enabled probe list on tp */
-	fasttrap_probe_type_t fti_ptype;	/* probe type */
+	enum fasttrap_probe_type fti_ptype;	/* probe type */
 };
 
 struct fasttrap_tracepoint {
-	fasttrap_proc_t *ftt_proc;		/* associated process struct */
+	struct fasttrap_proc *ftt_proc;		/* associated process struct */
 	uintptr_t ftt_pc;			/* address of tracepoint */
 	pid_t ftt_pid;				/* pid of tracepoint */
-	fasttrap_machtp_t ftt_mtp;		/* ISA-specific portion */
+	struct fasttrap_machtp ftt_mtp;		/* ISA-specific portion */
 	fasttrap_id_t *ftt_ids;			/* NULL-terminated list */
 	fasttrap_id_t *ftt_retids;		/* NULL-terminated list */
 	fasttrap_tracepoint_t *ftt_next;	/* link in global hash */
 };
 
-typedef struct fasttrap_id_tp {
+struct fasttrap_id_tp {
 	fasttrap_id_t fit_id;
 	fasttrap_tracepoint_t *fit_tp;
-} fasttrap_id_tp_t;
+};
 
 struct fasttrap_probe {
 	dtrace_id_t ftp_id;			/* DTrace probe identifier */
 	pid_t ftp_pid;				/* pid for this probe */
-	fasttrap_provider_t *ftp_prov;		/* this probe's provider */
+	struct fasttrap_provider *ftp_prov;		/* this probe's provider */
 	uint64_t ftp_gen;			/* modification generation */
 	uint64_t ftp_ntps;			/* number of tracepoints */
 	uint8_t *ftp_argmap;			/* native to translated args */
@@ -111,10 +111,10 @@ struct fasttrap_probe {
 	uint8_t ftp_enabled;			/* is this probe enabled */
 	char *ftp_xtypes;			/* translated types index */
 	char *ftp_ntypes;			/* native types index */
-	fasttrap_id_tp_t ftp_tps[1];		/* flexible array */
+	struct fasttrap_id_tp ftp_tps[1];		/* flexible array */
 };
 
-typedef struct fasttrap_bucket_elem {
+struct fasttrap_bucket_elem {
 	union {
 		struct fasttrap_bucket {
 			struct mutex ftb_mtx;	/* bucket lock */
@@ -127,28 +127,28 @@ typedef struct fasttrap_bucket_elem {
 		uint8_t ftb_pad[(sizeof(struct fasttrap_bucket) +
 				 L1_CACHE_BYTES - 1) & ~(L1_CACHE_BYTES - 1)];
 	};
-} fasttrap_bucket_elem_t;
+};
 typedef struct fasttrap_bucket fasttrap_bucket_t;
 
 #define FASTTRAP_ELEM_BUCKET(elem) ((fasttrap_bucket_t *) (elem))
 
-typedef struct fasttrap_hash {
+struct fasttrap_hash {
 	ulong_t fth_nent;			/* power-of-2 num. of entries */
 	ulong_t fth_mask;			/* fth_nent - 1 */
-	fasttrap_bucket_elem_t *fth_table;	/* array of buckets */
-} fasttrap_hash_t;
+	struct fasttrap_bucket_elem *fth_table;	/* array of buckets */
+};
 
-extern fasttrap_hash_t			fasttrap_tpoints;
+extern struct fasttrap_hash			fasttrap_tpoints;
 
 #define	FASTTRAP_ID_INDEX(id)						      \
-	((fasttrap_id_tp_t *)(((char *)(id) -				      \
-	 offsetof(fasttrap_id_tp_t, fit_id))) -				      \
+	((struct fasttrap_id_tp *)(((char *)(id) -				      \
+	 offsetof(struct fasttrap_id_tp, fit_id))) -				      \
 	 &(id)->fti_probe->ftp_tps[0])
 #define FASTTRAP_TPOINTS_INDEX(pid, pc)					      \
 	(((pc) / sizeof(fasttrap_instr_t) + (pid)) &			      \
 	 fasttrap_tpoints.fth_mask)
 
-extern uint64_t *fasttrap_glob_offsets(fasttrap_probe_spec_t *probe,
+extern uint64_t *fasttrap_glob_offsets(struct fasttrap_probe_spec *probe,
 				       uint64_t *np);
 extern uint64_t fasttrap_pid_getarg(void *arg, dtrace_id_t id, void *parg,
 				    int argno, int aframes);
@@ -161,12 +161,14 @@ extern void fasttrap_pid_retprobe_arch(fasttrap_probe_t *ftp,
 extern void fasttrap_set_enabled(struct pt_regs *regs);
 
 extern void fasttrap_meta_create_probe(void *, void *,
-				       dtrace_helper_probedesc_t *);
-extern void *fasttrap_meta_provide(void *, dtrace_helper_provdesc_t *, pid_t);
-extern void fasttrap_meta_remove(void *, dtrace_helper_provdesc_t *, pid_t);
+				       struct dtrace_helper_probedesc *);
+extern void *fasttrap_meta_provide(void *, struct dtrace_helper_provdesc *,
+				   pid_t);
+extern void fasttrap_meta_remove(void *, struct dtrace_helper_provdesc *,
+				 pid_t);
 
 extern dtrace_meta_provider_id_t	fasttrap_id;
-extern dtrace_mops_t			fasttrap_mops;
+extern struct dtrace_mops			fasttrap_mops;
 
 extern int fasttrap_dev_init(void);
 extern void fasttrap_dev_exit(void);

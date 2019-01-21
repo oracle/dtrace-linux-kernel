@@ -243,7 +243,7 @@ int dtrace_destroy_prov(struct module *mp)
 /*---------------------------------------------------------------------------*\
 (* TIME SUPPORT FUNCTIONS                                                    *)
 \*---------------------------------------------------------------------------*/
-dtrace_vtime_state_t	dtrace_vtime_active = 0;
+enum dtrace_vtime_state	dtrace_vtime_active = 0;
 
 /*
  * Until Linux kernel gains lock-free realtime clock access we are maintaining
@@ -296,7 +296,7 @@ EXPORT_SYMBOL(dtrace_gethrtime_ns);
 
 void dtrace_vtime_enable(void)
 {
-	dtrace_vtime_state_t	old, new;
+	enum dtrace_vtime_state	old, new;
 
 	do {
 		old = dtrace_vtime_active;
@@ -328,8 +328,8 @@ EXPORT_SYMBOL(dtrace_vtime_disable);
 
 void dtrace_vtime_switch(struct task_struct *prev, struct task_struct *next)
 {
-	dtrace_task_t *dprev = prev->dt_task;
-	dtrace_task_t *dnext = next->dt_task;
+	struct dtrace_task *dprev = prev->dt_task;
+	struct dtrace_task *dnext = next->dt_task;
 	ktime_t	now = dtrace_gethrtime();
 
 	if (dprev != NULL && ktime_nz(dprev->dt_start)) {
@@ -343,7 +343,7 @@ void dtrace_vtime_switch(struct task_struct *prev, struct task_struct *next)
 		dnext->dt_start = now;
 }
 
-void dtrace_stacktrace(stacktrace_state_t *st)
+void dtrace_stacktrace(struct stacktrace_state *st)
 {
 	struct stack_trace	trace;
 	int			i;
@@ -431,7 +431,7 @@ EXPORT_SYMBOL(dtrace_disable);
  */
 
 #if IS_ENABLED(CONFIG_DT_FASTTRAP)
-int (*dtrace_tracepoint_hit)(fasttrap_machtp_t *, struct pt_regs *, int);
+int (*dtrace_tracepoint_hit)(struct fasttrap_machtp *, struct pt_regs *, int);
 EXPORT_SYMBOL(dtrace_tracepoint_hit);
 
 struct task_struct *register_pid_provider(pid_t pid)
@@ -591,8 +591,9 @@ EXPORT_SYMBOL(dtrace_copy_code);
 static int handler(struct uprobe_consumer *self, struct pt_regs *regs,
 		   int is_ret)
 {
-	fasttrap_machtp_t	*mtp = container_of(self, fasttrap_machtp_t,
-						    fmtp_cns);
+	struct fasttrap_machtp	*mtp = container_of(self,
+							  struct fasttrap_machtp,
+							  fmtp_cns);
 	int			rc = 0;
 
 	read_lock(&this_cpu_core->cpu_ft_lock);
@@ -617,7 +618,7 @@ static int ret_handler(struct uprobe_consumer *self, unsigned long func,
 }
 
 int dtrace_tracepoint_enable(pid_t pid, uintptr_t addr, int is_ret,
-			     fasttrap_machtp_t *mtp)
+			     struct fasttrap_machtp *mtp)
 {
 	struct task_struct	*p;
 	struct inode		*ino;
@@ -668,7 +669,7 @@ int dtrace_tracepoint_enable(pid_t pid, uintptr_t addr, int is_ret,
 }
 EXPORT_SYMBOL(dtrace_tracepoint_enable);
 
-int dtrace_tracepoint_disable(pid_t pid, fasttrap_machtp_t *mtp)
+int dtrace_tracepoint_disable(pid_t pid, struct fasttrap_machtp *mtp)
 {
 	struct task_struct	*p;
 
