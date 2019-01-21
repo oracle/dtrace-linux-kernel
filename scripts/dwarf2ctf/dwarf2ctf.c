@@ -301,6 +301,21 @@ static char *type_id_internal(Dwarf_Die *die,
 			      int flags);
 
 /*
+ * Internal: generate the type ID for a type DIE.
+ *
+ * If there are no overrides, look for a bit_size and bit_offset and pass them
+ * down as well.
+ */
+static char *type_id_type_die(Dwarf_Die *die,
+			      Dwarf_Die *type_die,
+			      struct die_override *overrides,
+			      void (*fun)(Dwarf_Die *die,
+					  const char *id,
+					  struct die_override *overrides,
+					  void *data),
+			      void *data);
+
+/*
  * Convert 'long unsigned int' to 'sizetype'.  Internal use within type_id().
  */
 #define TI_COLLAPSE_SIZETYPE 0x1
@@ -1475,6 +1490,51 @@ static char *type_id(Dwarf_Die *die,
 }
 
 /*
+ * Internal: generate the type ID for a type DIE.
+ *
+ * If there are no overrides, look for a bit_size and bit_offset and pass them
+ * down as well.
+ */
+static char *type_id_type_die(Dwarf_Die *die,
+			      Dwarf_Die *type_die,
+			      struct die_override *overrides,
+			      void (*fun)(Dwarf_Die *die,
+					  const char *id,
+					  struct die_override *overrides,
+					  void *data),
+			      void *data)
+{
+	char *id;
+
+	/*
+	 * bit_size and bit_offset go together: we can assume that if a member
+	 * has the one, it has the other.
+	 */
+
+	if (private_dwarf_hasattr(die, DW_AT_bit_size)) {
+		Dwarf_Word size;
+		Dwarf_Word offset;
+
+		size = private_dwarf_udata(die, DW_AT_bit_size, NULL);
+		offset = private_dwarf_udata(die, DW_AT_bit_offset, NULL);
+		struct die_override o[] = {
+			{ DW_TAG_base_type,
+			  DW_AT_bit_size,
+			  DIE_OVERRIDE_REPLACE,
+			  size, NULL },
+			{ DW_TAG_base_type,
+			  DW_AT_bit_offset,
+			  DIE_OVERRIDE_REPLACE,
+			  offset, overrides },
+			{0}
+		};
+		id = type_id(type_die, o, fun, data);
+	} else
+		id = type_id(type_die, overrides, fun, data);
+	return id;
+}
+
+/*
  * Internal: allows flags to be passed to affect one (and only one) type ID
  * recursion, without affecting other type_id()s launched from the 'fun'.
  */
@@ -1490,7 +1550,6 @@ static char *type_id_internal(Dwarf_Die *die,
 	char *id = NULL;
 	int no_type_id = 0;
 	int decorated = 1;
-	Dwarf_Die type_die;
 
 	/*
 	 * The ID of a null pointer is NULL.
@@ -1511,8 +1570,8 @@ static char *type_id_internal(Dwarf_Die *die,
 
 	/*
 	 * If we have a type DIE, generate it first, passing any overrides down.
-	 * If there are no overrides, look for a bit_size and bit_offset and pass
-	 * them down as well.
+	 * (Base types and enumerations don't have a type DIE that CTF can
+	 * encode the type of in any useful fashion.)
 	 *
 	 * Otherwise, note the location of this DIE, providing scoping
 	 * information for all types based upon this one.  Location elements are
@@ -1528,40 +1587,12 @@ static char *type_id_internal(Dwarf_Die *die,
 	if (dwarf_tag(die) != DW_TAG_subrange_type) {
 		if ((dwarf_tag(die) != DW_TAG_base_type) &&
 		    (dwarf_tag(die) != DW_TAG_enumeration_type)) {
+			Dwarf_Die type_die;
 			Dwarf_Die *diep = private_dwarf_type(die, &type_die);
 
-			/*
-			 * bit_size and bit_offset go together: we can assume
-			 * that if a member has the one, it has the other.
-			 */
-			if (diep) {
-				if (private_dwarf_hasattr(die, DW_AT_bit_size)) {
-					Dwarf_Word size;
-					Dwarf_Word offset;
-
-					size = private_dwarf_udata(die,
-								   DW_AT_bit_size,
-								   NULL);
-					offset = private_dwarf_udata(die,
-								     DW_AT_bit_offset,
-								     NULL);
-					struct die_override o[] = {
-						{ DW_TAG_base_type,
-						  DW_AT_bit_size,
-						  DIE_OVERRIDE_REPLACE,
-						  size,
-						  NULL },
-						{ DW_TAG_base_type,
-						  DW_AT_bit_offset,
-						  DIE_OVERRIDE_REPLACE,
-						  offset,
-						  overrides },
-						 {0}
-					};
-					id = type_id(diep, o, fun, data);
-				} else
-					id = type_id(diep, overrides, fun, data);
-			}
+			if (diep)
+				id = type_id_type_die(die, diep, overrides,
+						      fun, data);
 		}
 
 		/*
@@ -1768,6 +1799,7 @@ static char *type_id_internal(Dwarf_Die *die,
 		id = str_append(id, "[");
 
 		if (nelems > 0)	{
+			Dwarf_Die type_die;
 			char elems[22];	    /* bigger than 2^64's digit count */
 			char *sub_id = type_id_internal(private_dwarf_type(die, &type_die),
 							overrides, fun, data,
