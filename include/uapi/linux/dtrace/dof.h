@@ -69,7 +69,7 @@
  * DOF are always arbitrary-length and not bound to the current implementation.
  */
 
-typedef struct dof_hdr {
+struct dof_hdr {
 	uint8_t dofh_ident[DOF_ID_SIZE];/* ident bytes (see defines) */
 	uint32_t dofh_flags;		/* file attribute flags (if any) */
 	uint32_t dofh_hdrsize;		/* size of file header in bytes */
@@ -79,69 +79,69 @@ typedef struct dof_hdr {
 	uint64_t dofh_loadsz;		/* file size of loadable portion */
 	uint64_t dofh_filesz;		/* file size of entire DOF file */
 	uint64_t dofh_pad;		/* reserved for future use */
-} dof_hdr_t;
+};
 
-typedef struct dof_sec {
+struct dof_sec {
 	uint32_t dofs_type;	/* section type (see defines) */
 	uint32_t dofs_align;	/* section data memory alignment */
 	uint32_t dofs_flags;	/* section flags (if any) */
 	uint32_t dofs_entsize;	/* size of section entry (if table) */
 	uint64_t dofs_offset;	/* offset of section data within file */
 	uint64_t dofs_size;	/* size of section data in bytes */
-} dof_sec_t;
+};
 
 
-typedef struct dof_ecbdesc {
+struct dof_ecbdesc {
 	dof_secidx_t dofe_probes;	/* link to DOF_SECT_PROBEDESC */
 	dof_secidx_t dofe_pred;		/* link to DOF_SECT_DIFOHDR */
 	dof_secidx_t dofe_actions;	/* link to DOF_SECT_ACTDESC */
 	uint32_t dofe_pad;		/* reserved for future use */
 	uint64_t dofe_uarg;		/* user-supplied library argument */
-} dof_ecbdesc_t;
+};
 
-typedef struct dof_probedesc {
+struct dof_probedesc {
 	dof_secidx_t dofp_strtab;	/* link to DOF_SECT_STRTAB section */
 	dof_stridx_t dofp_provider;	/* provider string */
 	dof_stridx_t dofp_mod;		/* module string */
 	dof_stridx_t dofp_func;		/* function string */
 	dof_stridx_t dofp_name;		/* name string */
 	uint32_t dofp_id;		/* probe identifier (or zero) */
-} dof_probedesc_t;
+};
 
-typedef struct dof_actdesc {
+struct dof_actdesc {
 	dof_secidx_t dofa_difo;		/* link to DOF_SECT_DIFOHDR */
 	dof_secidx_t dofa_strtab;	/* link to DOF_SECT_STRTAB section */
 	uint32_t dofa_kind;		/* action kind (DTRACEACT_* constant) */
 	uint32_t dofa_ntuple;		/* number of subsequent tuple actions */
 	uint64_t dofa_arg;		/* kind-specific argument */
 	uint64_t dofa_uarg;		/* user-supplied argument */
-} dof_actdesc_t;
+};
 
-typedef struct dof_difohdr {
-	dtrace_diftype_t dofd_rtype;	/* return type for this fragment */
+struct dof_difohdr {
+	struct dtrace_diftype dofd_rtype;	/* return type for this fragment */
 	dof_secidx_t dofd_links[1];	/* variable length array of indices */
-} dof_difohdr_t;
+};
 
-typedef struct dof_relohdr {
+struct dof_relohdr {
 	dof_secidx_t dofr_strtab;	/* link to DOF_SECT_STRTAB for names */
 	dof_secidx_t dofr_relsec;	/* link to DOF_SECT_RELTAB for relos */
 	dof_secidx_t dofr_tgtsec;	/* link to section we are relocating */
-} dof_relohdr_t;
+};
 
-typedef struct dof_relodesc {
+struct dof_relodesc {
 	dof_stridx_t dofr_name;		/* string name of relocation symbol */
 	uint32_t dofr_type;		/* relo type (DOF_RELO_* constant) */
 	uint64_t dofr_offset;		/* byte offset for relocation */
 	uint64_t dofr_data;		/* additional type-specific data */
-} dof_relodesc_t;
+};
 
-typedef struct dof_optdesc {
+struct dof_optdesc {
 	uint32_t dofo_option;		/* option identifier */
 	dof_secidx_t dofo_strtab;	/* string table, if string option */
 	uint64_t dofo_value;		/* option value or string index */
-} dof_optdesc_t;
+};
 
-typedef struct dof_provider {
+struct dof_provider {
 	dof_secidx_t dofpv_strtab;	/* link to DOF_SECT_STRTAB section */
 	dof_secidx_t dofpv_probes;	/* link to DOF_SECT_PROBES section */
 	dof_secidx_t dofpv_prargs;	/* link to DOF_SECT_PRARGS section */
@@ -153,9 +153,9 @@ typedef struct dof_provider {
 	dof_attr_t dofpv_nameattr;	/* name attributes */
 	dof_attr_t dofpv_argsattr;	/* args attributes */
 	dof_secidx_t dofpv_prenoffs;	/* link to DOF_SECT_PRENOFFS section */
-} dof_provider_t;
+};
 
-typedef struct dof_probe {
+struct dof_probe {
 	uint64_t dofpr_addr;		/* probe base address or offset */
 	dof_stridx_t dofpr_func;	/* probe function string */
 	dof_stridx_t dofpr_name;	/* probe name string */
@@ -170,27 +170,27 @@ typedef struct dof_probe {
 	uint16_t dofpr_nenoffs;		/* number of is-enabled offsets */
 	uint16_t dofpr_pad1;		/* reserved for future use */
 	uint32_t dofpr_pad2;		/* reserved for future use */
-} dof_probe_t;
+};
 
-typedef struct dof_xlator {
+struct dof_xlator {
 	dof_secidx_t dofxl_members;	/* link to DOF_SECT_XLMEMBERS section */
 	dof_secidx_t dofxl_strtab;	/* link to DOF_SECT_STRTAB section */
 	dof_stridx_t dofxl_argv;	/* input parameter type strings */
 	uint32_t dofxl_argc;		/* input parameter list length */
 	dof_stridx_t dofxl_type;	/* output type string name */
 	dof_attr_t dofxl_attr;		/* output stability attributes */
-} dof_xlator_t;
+};
 
-typedef struct dof_xlmember {
+struct dof_xlmember {
 	dof_secidx_t dofxm_difo;	/* member link to DOF_SECT_DIFOHDR */
 	dof_stridx_t dofxm_name;	/* member name */
-	dtrace_diftype_t dofxm_type;	/* member type */
-} dof_xlmember_t;
+	struct dtrace_diftype dofxm_type;	/* member type */
+};
 
-typedef struct dof_xlref {
+struct dof_xlref {
 	dof_secidx_t dofxr_xlator;	/* link to DOF_SECT_XLATORS section */
 	uint32_t dofxr_member;		/* index of referenced dof_xlmember */
 	uint32_t dofxr_argn;		/* index of argument for DIF_OP_XLARG */
-} dof_xlref_t;
+};
 
 #endif /* _LINUX_DTRACE_DOF_H */

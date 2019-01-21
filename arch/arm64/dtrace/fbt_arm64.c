@@ -28,7 +28,7 @@
 static int fbt_brk_hook(struct pt_regs *regs, unsigned int esr)
 {
 	uintptr_t	ip = instruction_pointer(regs);
-	fbt_probe_t	*fbp = fbt_probetab[FBT_ADDR2NDX(ip)];
+	struct fbt_probe	*fbp = fbt_probetab[FBT_ADDR2NDX(ip)];
 
 	for (; fbp != NULL; fbp = fbp->fbp_hashnext) {
 		if ((uintptr_t)fbp->fbp_patchpoint == ip) {
@@ -106,12 +106,12 @@ void fbt_destroy_module(void *arg, struct module *mp)
 {
 }
 
-void fbt_enable_arch(fbt_probe_t *fbp, dtrace_id_t id, void *arg)
+void fbt_enable_arch(struct fbt_probe *fbp, dtrace_id_t id, void *arg)
 {
 	dtrace_text_poke(fbp->fbp_patchpoint, fbp->fbp_patchval);
 }
 
-void fbt_disable_arch(fbt_probe_t *fbp, dtrace_id_t id, void *arg)
+void fbt_disable_arch(struct fbt_probe *fbp, dtrace_id_t id, void *arg)
 {
 	dtrace_text_poke(fbp->fbp_patchpoint, fbp->fbp_savedval);
 }
@@ -132,7 +132,7 @@ int fbt_dev_init_arch(void)
 {
 	fbt_probetab_mask = fbt_probetab_size - 1;
 	fbt_probetab = dtrace_vzalloc_try(fbt_probetab_size *
-					  sizeof(fbt_probe_t *));
+					  sizeof(struct fbt_probe *));
 
 	if (fbt_probetab == NULL)
 		return -ENOMEM;

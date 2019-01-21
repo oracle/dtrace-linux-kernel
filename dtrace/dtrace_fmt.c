@@ -21,7 +21,7 @@
 
 #include "dtrace.h"
 
-uint16_t dtrace_format_add(dtrace_state_t *state, char *str)
+uint16_t dtrace_format_add(struct dtrace_state *state, char *str)
 {
 	char		*fmt, **new;
 	uint16_t	ndx;
@@ -65,7 +65,7 @@ uint16_t dtrace_format_add(dtrace_state_t *state, char *str)
 	return ndx + 1;
 }
 
-void dtrace_format_remove(dtrace_state_t *state, uint16_t format)
+void dtrace_format_remove(struct dtrace_state *state, uint16_t format)
 {
 	char	*fmt;
 
@@ -78,7 +78,7 @@ void dtrace_format_remove(dtrace_state_t *state, uint16_t format)
 	state->dts_formats[format - 1] = NULL;
 }
 
-void dtrace_format_destroy(dtrace_state_t *state)
+void dtrace_format_destroy(struct dtrace_state *state)
 {
 	int	i;
 

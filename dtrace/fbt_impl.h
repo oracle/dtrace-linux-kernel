@@ -24,13 +24,13 @@
 #define FBT_ADDR2NDX(addr)	((((uintptr_t)(addr)) >> 4) & \
 					fbt_probetab_mask)
 
-extern fbt_probe_t		**fbt_probetab;
+extern struct fbt_probe		**fbt_probetab;
 extern int			fbt_probetab_size;
 extern int			fbt_probetab_mask;
 
-extern void fbt_provide_probe_arch(fbt_probe_t *, int, int);
-extern void fbt_enable_arch(fbt_probe_t *, dtrace_id_t, void *);
-extern void fbt_disable_arch(fbt_probe_t *, dtrace_id_t, void *);
+extern void fbt_provide_probe_arch(struct fbt_probe *, int, int);
+extern void fbt_enable_arch(struct fbt_probe *, dtrace_id_t, void *);
+extern void fbt_disable_arch(struct fbt_probe *, dtrace_id_t, void *);
 extern int fbt_can_patch_return_arch(asm_instr_t *);
 
 extern int fbt_provide_module_arch(void *, struct module *);
