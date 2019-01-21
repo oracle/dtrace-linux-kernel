@@ -132,7 +132,7 @@ int dtrace_gmatch(const char *s, const char *p)
 }
 EXPORT_SYMBOL(dtrace_gmatch);
 
-int dtrace_badattr(const dtrace_attribute_t *a)
+int dtrace_badattr(const struct dtrace_attribute *a)
 {
 	return a->dtat_name > DTRACE_STABILITY_MAX ||
 	       a->dtat_data > DTRACE_STABILITY_MAX ||
