@@ -61,12 +61,12 @@ void dtrace_handle_badaddr(struct pt_regs *regs)
 	dtrace_skip_instruction(regs);
 }
 
-typedef struct dtrace_invop_hdlr {
+struct dtrace_invop_hdlr {
 	uint8_t				(*dtih_func)(struct pt_regs *);
 	struct dtrace_invop_hdlr	*dtih_next;
-} dtrace_invop_hdlr_t;
+};
 
-static dtrace_invop_hdlr_t	*dtrace_invop_hdlrs;
+static struct dtrace_invop_hdlr	*dtrace_invop_hdlrs;
 
 /*
  * Trap notification handler.
@@ -128,8 +128,8 @@ int dtrace_die_notifier(struct notifier_block *nb, unsigned long val,
 		dargs->trapnr = 6;
 	}
 	case DIE_TRAP: {
-		dtrace_invop_hdlr_t	*hdlr;
-		int			rval = 0;
+		struct dtrace_invop_hdlr	*hdlr;
+		int				rval = 0;
 
 		if (dargs->trapnr != 6)
 			return NOTIFY_DONE;
@@ -175,8 +175,8 @@ int dtrace_die_notifier(struct notifier_block *nb, unsigned long val,
 		}
 	}
 	case DIE_INT3: {
-		dtrace_invop_hdlr_t	*hdlr;
-		int			rval = 0;
+		struct dtrace_invop_hdlr	*hdlr;
+		int				rval = 0;
 
 		/*
 		 * Let's assume that this is a DTrace probe firing, so we need
@@ -232,9 +232,9 @@ int dtrace_die_notifier(struct notifier_block *nb, unsigned long val,
  */
 int dtrace_invop_add(uint8_t (*func)(struct pt_regs *))
 {
-	dtrace_invop_hdlr_t	*hdlr;
+	struct dtrace_invop_hdlr	*hdlr;
 
-	hdlr = kmalloc(sizeof(dtrace_invop_hdlr_t), GFP_KERNEL);
+	hdlr = kmalloc(sizeof(struct dtrace_invop_hdlr), GFP_KERNEL);
 	if (hdlr == NULL) {
 		pr_warn("Failed to add invop handler: out of memory\n");
 		return -ENOMEM;
@@ -253,7 +253,7 @@ EXPORT_SYMBOL(dtrace_invop_add);
  */
 void dtrace_invop_remove(uint8_t (*func)(struct pt_regs *))
 {
-	dtrace_invop_hdlr_t	*hdlr = dtrace_invop_hdlrs, *prev = NULL;
+	struct dtrace_invop_hdlr *hdlr = dtrace_invop_hdlrs, *prev = NULL;
 
 	for (;;) {
 		if (hdlr == NULL)
@@ -389,7 +389,7 @@ out:
 	return ret;
 }
 
-void dtrace_user_stacktrace(stacktrace_state_t *st)
+void dtrace_user_stacktrace(struct stacktrace_state *st)
 {
 	struct pt_regs		*regs = current_pt_regs();
 	uint64_t		*pcs = st->pcs;
@@ -441,10 +441,10 @@ out:
 	}
 }
 
-void dtrace_mod_pdata_init(dtrace_module_t *pdata)
+void dtrace_mod_pdata_init(struct dtrace_module *pdata)
 {
 }
 
-void dtrace_mod_pdata_cleanup(dtrace_module_t *pdata)
+void dtrace_mod_pdata_cleanup(struct dtrace_module *pdata)
 {
 }

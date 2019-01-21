@@ -29,7 +29,7 @@ MODULE_DESCRIPTION("Fasttrap Tracing");
 MODULE_VERSION("v0.1");
 MODULE_LICENSE("GPL");
 
-dtrace_mops_t fasttrap_mops = {
+struct dtrace_mops fasttrap_mops = {
 	fasttrap_meta_create_probe,
 	fasttrap_meta_provide,
 	fasttrap_meta_remove

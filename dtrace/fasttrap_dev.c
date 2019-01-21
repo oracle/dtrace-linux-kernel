@@ -42,9 +42,9 @@ static atomic_t			fasttrap_total;
 #define FASTTRAP_ENABLE_FAIL	1
 #define FASTTRAP_ENABLE_PARTIAL	2
 
-fasttrap_hash_t			fasttrap_tpoints;
-static fasttrap_hash_t		fasttrap_provs;
-static fasttrap_hash_t		fasttrap_procs;
+struct fasttrap_hash		fasttrap_tpoints;
+static struct fasttrap_hash	fasttrap_provs;
+static struct fasttrap_hash	fasttrap_procs;
 
 #define FASTTRAP_PROVS_INDEX(pid, name) \
 	((fasttrap_hash_str(name) + (pid)) & fasttrap_provs.fth_mask)
@@ -76,13 +76,14 @@ static volatile uint64_t	fasttrap_mod_gen;
 static void fasttrap_pid_cleanup(void);
 static void fasttrap_probes_cleanup(struct task_struct *);
 
-static int fasttrap_pid_probe(fasttrap_machtp_t *mtp, struct pt_regs *regs,
-			      int is_ret)
+static int fasttrap_pid_probe(struct fasttrap_machtp *mtp,
+			      struct pt_regs *regs, int is_ret)
 {
-	fasttrap_tracepoint_t	*tp = container_of(mtp, fasttrap_tracepoint_t,
-						   ftt_mtp);
-	fasttrap_id_t		*id;
-	int			is_enabled = 0;
+	struct fasttrap_tracepoint	*tp;
+	struct fasttrap_id		*id;
+	int				is_enabled = 0;
+
+	tp = container_of(mtp, struct fasttrap_tracepoint, ftt_mtp);
 
 	/*
 	 * Verify that this probe event is actually related to the current
@@ -104,7 +105,7 @@ static int fasttrap_pid_probe(fasttrap_machtp_t *mtp, struct pt_regs *regs,
 
 	if (!is_ret) {
 		for (id = tp->ftt_ids; id != NULL; id = id->fti_next) {
-			fasttrap_probe_t	*ftp = id->fti_probe;
+			struct fasttrap_probe	*ftp = id->fti_probe;
 
 			if (id->fti_ptype == DTFTP_IS_ENABLED)
 				is_enabled = 1;
@@ -113,7 +114,7 @@ static int fasttrap_pid_probe(fasttrap_machtp_t *mtp, struct pt_regs *regs,
 		}
 	} else {
 		for (id = tp->ftt_retids; id != NULL; id = id->fti_next) {
-			fasttrap_probe_t	*ftp = id->fti_probe;
+			struct fasttrap_probe	*ftp = id->fti_probe;
 
 			fasttrap_pid_retprobe_arch(ftp, regs);
 		}
@@ -127,7 +128,8 @@ static int fasttrap_pid_probe(fasttrap_machtp_t *mtp, struct pt_regs *regs,
 	return 0;
 }
 
-static void fasttrap_pid_provide(void *arg, const dtrace_probedesc_t *desc)
+static void
+fasttrap_pid_provide(void *arg, const struct dtrace_probedesc *desc)
 {
 	/*
 	 * There are no "default" pid probes.
@@ -168,7 +170,7 @@ static void fasttrap_disable_callbacks(void)
 		int	cpu;
 
 		for_each_present_cpu(cpu) {
-			cpu_core_t	*cpuc = per_cpu_core(cpu);
+			struct cpu_core	*cpuc = per_cpu_core(cpu);
 
 			write_lock(&cpuc->cpu_ft_lock);
 		}
@@ -177,7 +179,7 @@ static void fasttrap_disable_callbacks(void)
 		dtrace_fasttrap_probes_cleanup = NULL;
 
 		for_each_present_cpu(cpu) {
-			cpu_core_t	*cpuc = per_cpu_core(cpu);
+			struct cpu_core	*cpuc = per_cpu_core(cpu);
 
 			write_unlock(&cpuc->cpu_ft_lock);
 		}
@@ -200,20 +202,21 @@ static void fasttrap_mod_barrier(uint64_t gen)
 	fasttrap_mod_gen++;
 
 	for_each_present_cpu(cpu) {
-		cpu_core_t	*cpuc = per_cpu_core(cpu);
+		struct cpu_core	*cpuc = per_cpu_core(cpu);
 
 		mutex_lock(&cpuc->cpuc_pid_lock);
 		mutex_unlock(&cpuc->cpuc_pid_lock);
 	}
 }
 
-static int fasttrap_tracepoint_enable(fasttrap_probe_t *probe, uint_t index)
+static int fasttrap_tracepoint_enable(struct fasttrap_probe *probe,
+				      uint_t index)
 {
-	fasttrap_tracepoint_t	*tp, *new_tp = NULL;
-	fasttrap_bucket_t	*bucket;
-	fasttrap_id_t		*id;
-	pid_t			pid;
-	uintptr_t		pc;
+	struct fasttrap_tracepoint	*tp, *new_tp = NULL;
+	struct fasttrap_bucket		*bucket;
+	struct fasttrap_id		*id;
+	pid_t				pid;
+	uintptr_t			pc;
 
 	ASSERT(index < probe->ftp_ntps);
 
@@ -371,14 +374,15 @@ again:
 	goto again;
 }
 
-static void fasttrap_tracepoint_disable(fasttrap_probe_t *probe, uint_t index)
+static void fasttrap_tracepoint_disable(struct fasttrap_probe *probe,
+					uint_t index)
 {
-	fasttrap_bucket_t	*bucket;
-	fasttrap_provider_t	*prov = probe->ftp_prov;
-	fasttrap_tracepoint_t	**pp, *tp;
-	fasttrap_id_t		*id, **idp = NULL;
-	pid_t			pid;
-	uintptr_t		pc;
+	struct fasttrap_bucket		*bucket;
+	struct fasttrap_provider	*prov = probe->ftp_prov;
+	struct fasttrap_tracepoint	**pp, *tp;
+	struct fasttrap_id		*id, **idp = NULL;
+	pid_t				pid;
+	uintptr_t			pc;
 
 	ASSERT(index < probe->ftp_ntps);
 
@@ -455,9 +459,9 @@ static void fasttrap_tracepoint_disable(fasttrap_probe_t *probe, uint_t index)
 		 * for an unused tracepoint.
 		 */
 		if (tp == probe->ftp_tps[index].fit_tp) {
-			fasttrap_probe_t	*tmp_probe;
-			fasttrap_tracepoint_t	**tmp_tp;
-			uint_t			tmp_index;
+			struct fasttrap_probe	   *tmp_probe;
+			struct fasttrap_tracepoint **tmp_tp;
+			uint_t			   tmp_index;
 
 			if (tp->ftt_ids != NULL) {
 				tmp_probe = tp->ftt_ids->fti_probe;
@@ -496,7 +500,7 @@ static void fasttrap_tracepoint_disable(fasttrap_probe_t *probe, uint_t index)
 	 * Remove the probe from the hash table of active tracepoints.
 	 */
 	mutex_lock(&bucket->ftb_mtx);
-	pp = (fasttrap_tracepoint_t **)&bucket->ftb_data;
+	pp = (struct fasttrap_tracepoint **)&bucket->ftb_data;
 	ASSERT(*pp != NULL);
 	while (*pp != tp) {
 		pp = &(*pp)->ftt_next;
@@ -516,7 +520,7 @@ static void fasttrap_tracepoint_disable(fasttrap_probe_t *probe, uint_t index)
 
 static int fasttrap_pid_enable(void *arg, dtrace_id_t id, void *parg)
 {
-	fasttrap_probe_t	*probe = parg;
+	struct fasttrap_probe	*probe = parg;
 	int			i, rc;
 
 	ASSERT(probe != NULL);
@@ -632,8 +636,8 @@ static int fasttrap_pid_enable(void *arg, dtrace_id_t id, void *parg)
 
 static void fasttrap_pid_disable(void *arg, dtrace_id_t id, void *parg)
 {
-	fasttrap_probe_t	*probe = parg;
-	fasttrap_provider_t	*prov = probe->ftp_prov;
+	struct fasttrap_probe	*probe = parg;
+	struct fasttrap_provider *prov = probe->ftp_prov;
 	int			i, whack = 0;
 
 	ASSERT(id == probe->ftp_id);
@@ -669,9 +673,9 @@ static void fasttrap_pid_disable(void *arg, dtrace_id_t id, void *parg)
 }
 
 static void fasttrap_pid_getargdesc(void *arg, dtrace_id_t id, void *parg,
-				    dtrace_argdesc_t *desc)
+				    struct dtrace_argdesc *desc)
 {
-	fasttrap_probe_t	*probe = parg;
+	struct fasttrap_probe	*probe = parg;
 	char			*str;
 	int			i, ndx;
 
@@ -707,7 +711,7 @@ static void fasttrap_pid_getargdesc(void *arg, dtrace_id_t id, void *parg,
 
 static void fasttrap_pid_destroy(void *arg, dtrace_id_t id, void *parg)
 {
-	fasttrap_probe_t	*probe = parg;
+	struct fasttrap_probe	*probe = parg;
 	int			i;
 
 	ASSERT(probe != NULL);
@@ -725,7 +729,7 @@ static void fasttrap_pid_destroy(void *arg, dtrace_id_t id, void *parg)
 	kfree(probe);
 }
 
-static const dtrace_pattr_t pid_attr = {
+static const struct dtrace_pattr pid_attr = {
 { DTRACE_STABILITY_EVOLVING, DTRACE_STABILITY_EVOLVING, DTRACE_CLASS_ISA },
 { DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_UNKNOWN },
 { DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_UNKNOWN },
@@ -733,7 +737,7 @@ static const dtrace_pattr_t pid_attr = {
 { DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_UNKNOWN },
 };
 
-static dtrace_pops_t pid_pops = {
+static struct dtrace_pops pid_pops = {
 	.dtps_provide = fasttrap_pid_provide,
 	.dtps_provide_module = NULL,
 	.dtps_destroy_module = NULL,
@@ -747,7 +751,7 @@ static dtrace_pops_t pid_pops = {
 	.dtps_destroy = fasttrap_pid_destroy
 };
 
-static dtrace_pops_t usdt_pops = {
+static struct dtrace_pops usdt_pops = {
 	.dtps_provide = fasttrap_pid_provide,
 	.dtps_provide_module = NULL,
 	.dtps_destroy_module = NULL,
@@ -783,13 +787,13 @@ static int fasttrap_uint32_cmp(const void *ap, const void *bp)
 }
 
 void fasttrap_meta_create_probe(void *arg, void *parg,
-				dtrace_helper_probedesc_t *dhpb)
+				struct dtrace_helper_probedesc *dhpb)
 {
-	fasttrap_provider_t	*provider = parg;
-	fasttrap_probe_t	*pp;
-	fasttrap_tracepoint_t	*tp;
-	int			i, j;
-	uint32_t		ntps;
+	struct fasttrap_provider	*provider = parg;
+	struct fasttrap_probe		*pp;
+	struct fasttrap_tracepoint	*tp;
+	int				i, j;
+	uint32_t			ntps;
 
 	/*
 	 * Since the meta provider count is non-zero we don't have to worry
@@ -832,7 +836,8 @@ void fasttrap_meta_create_probe(void *arg, void *parg,
 	ntps = dhpb->dthpb_noffs + dhpb->dthpb_nenoffs;
 	ASSERT(ntps > 0);
 
-	pp = kzalloc(offsetof(fasttrap_probe_t, ftp_tps[ntps]), GFP_KERNEL);
+	pp = kzalloc(offsetof(struct fasttrap_probe, ftp_tps[ntps]),
+		     GFP_KERNEL);
 	if (pp == NULL) {
 		pr_warn("Unable to create probe %s: out of memory\n",
 			dhpb->dthpb_name);
@@ -866,7 +871,7 @@ void fasttrap_meta_create_probe(void *arg, void *parg,
 		tp->ftt_proc = provider->ftp_proc;
 		tp->ftt_pc = dhpb->dthpb_base + dhpb->dthpb_offs[i];
 		tp->ftt_pid = provider->ftp_pid;
-		memset(&tp->ftt_mtp, 0, sizeof(fasttrap_machtp_t));
+		memset(&tp->ftt_mtp, 0, sizeof(struct fasttrap_machtp));
 		tp->ftt_ids = NULL;
 		tp->ftt_retids = NULL;
 		tp->ftt_next = NULL;
@@ -890,7 +895,7 @@ void fasttrap_meta_create_probe(void *arg, void *parg,
 		tp->ftt_proc = provider->ftp_proc;
 		tp->ftt_pc = dhpb->dthpb_base + dhpb->dthpb_enoffs[j];
 		tp->ftt_pid = provider->ftp_pid;
-		memset(&tp->ftt_mtp, 0, sizeof(fasttrap_machtp_t));
+		memset(&tp->ftt_mtp, 0, sizeof(struct fasttrap_machtp));
 		tp->ftt_ids = NULL;
 		tp->ftt_retids = NULL;
 		tp->ftt_next = NULL;
@@ -936,10 +941,10 @@ fail:
 	mutex_unlock(&provider->ftp_cmtx);
 }
 
-static void fasttrap_proc_release(fasttrap_proc_t *proc)
+static void fasttrap_proc_release(struct fasttrap_proc *proc)
 {
-	fasttrap_bucket_t	*bucket;
-	fasttrap_proc_t		*fprc, **fprcp;
+	struct fasttrap_bucket	*bucket;
+	struct fasttrap_proc	*fprc, **fprcp;
 	pid_t			pid = proc->ftpc_pid;
 
 	mutex_lock(&proc->ftpc_mtx);
@@ -963,7 +968,7 @@ static void fasttrap_proc_release(fasttrap_proc_t *proc)
 	bucket = FASTTRAP_PROCS_ELEM(pid);
 	mutex_lock(&bucket->ftb_mtx);
 
-	fprcp = (fasttrap_proc_t **)&bucket->ftb_data;
+	fprcp = (struct fasttrap_proc **)&bucket->ftb_data;
 	while ((fprc = *fprcp) != NULL) {
 		if (fprc == proc)
 			break;
@@ -983,7 +988,7 @@ static void fasttrap_proc_release(fasttrap_proc_t *proc)
 	kfree(fprc);
 }
 
-static void fasttrap_provider_free(fasttrap_provider_t *provider)
+static void fasttrap_provider_free(struct fasttrap_provider *provider)
 {
 	pid_t			pid = provider->ftp_pid;
 
@@ -1012,10 +1017,11 @@ static void fasttrap_provider_free(fasttrap_provider_t *provider)
 	unregister_pid_provider(pid);
 }
 
-static fasttrap_proc_t *fasttrap_proc_lookup(pid_t pid)
+static struct fasttrap_proc *
+fasttrap_proc_lookup(pid_t pid)
 {
-	fasttrap_bucket_t	*bucket;
-	fasttrap_proc_t		*fprc, *new_fprc;
+	struct fasttrap_bucket	*bucket;
+	struct fasttrap_proc	*fprc, *new_fprc;
 
 	bucket = FASTTRAP_PROCS_ELEM(pid);
 	mutex_lock(&bucket->ftb_mtx);
@@ -1041,7 +1047,7 @@ static fasttrap_proc_t *fasttrap_proc_lookup(pid_t pid)
 	 */
 	mutex_unlock(&bucket->ftb_mtx);
 
-	new_fprc = kzalloc(sizeof(fasttrap_proc_t), GFP_KERNEL);
+	new_fprc = kzalloc(sizeof(struct fasttrap_proc), GFP_KERNEL);
 	if (new_fprc == NULL)
 		return NULL;
 
@@ -1087,16 +1093,17 @@ static fasttrap_proc_t *fasttrap_proc_lookup(pid_t pid)
  * if it doesn't exist otherwise it returns NULL. The provider is returned
  * with its lock held.
  */
-static fasttrap_provider_t *fasttrap_provider_lookup(pid_t pid,
-						     const char *name,
-						     const dtrace_pattr_t *pa)
+static struct fasttrap_provider *
+fasttrap_provider_lookup(pid_t pid,
+			 const char *name,
+			 const struct dtrace_pattr *pa)
 {
-	fasttrap_provider_t	*fp, *new_fp = NULL;
-	fasttrap_proc_t		*proc = NULL;
-	fasttrap_bucket_t	*bucket;
+	struct fasttrap_provider *fp, *new_fp = NULL;
+	struct fasttrap_proc	*proc = NULL;
+	struct fasttrap_bucket	*bucket;
 	char			provname[DTRACE_PROVNAMELEN];
 	struct task_struct	*p;
-	const cred_t		*cred = NULL;
+	const struct cred	*cred = NULL;
 
 	ASSERT(strlen(name) < sizeof(fp->ftp_name));
 	ASSERT(pa != NULL);
@@ -1137,7 +1144,7 @@ static fasttrap_provider_t *fasttrap_provider_lookup(pid_t pid,
 	if (proc == NULL)
 		goto fail;
 
-	new_fp = kzalloc(sizeof(fasttrap_provider_t), GFP_KERNEL);
+	new_fp = kzalloc(sizeof(struct fasttrap_provider), GFP_KERNEL);
 	if (new_fp == NULL)
 		goto fail;
 
@@ -1208,10 +1215,10 @@ fail:
 	return NULL;
 }
 
-void *fasttrap_meta_provide(void *arg, dtrace_helper_provdesc_t *dhpv,
+void *fasttrap_meta_provide(void *arg, struct dtrace_helper_provdesc *dhpv,
 			    pid_t pid)
 {
-	fasttrap_provider_t	*provider;
+	struct fasttrap_provider	*provider;
 
 	if (strlen(dhpv->dthpv_provname) + 10 >= sizeof(provider->ftp_name)) {
 		pr_warn("Failed to instantiate provider %s: name too long "
@@ -1264,12 +1271,12 @@ void *fasttrap_meta_provide(void *arg, dtrace_helper_provdesc_t *dhpv,
 
 static void fasttrap_pid_cleanup_cb(struct work_struct *work)
 {
-	fasttrap_provider_t	**fpp, *fp;
-	fasttrap_bucket_t	*bucket;
-	dtrace_provider_id_t	provid;
-	int			i, later = 0;
+	struct fasttrap_provider	**fpp, *fp;
+	struct fasttrap_bucket		*bucket;
+	dtrace_provider_id_t		provid;
+	int				i, later = 0;
 
-	static volatile int	in;
+	static volatile int		in;
 
 	ASSERT(in == 0);
 	in = 1;
@@ -1297,7 +1304,7 @@ static void fasttrap_pid_cleanup_cb(struct work_struct *work)
 		for (i = 0; i < fasttrap_provs.fth_nent; i++) {
 			bucket = FASTTRAP_ELEM_BUCKET(&fasttrap_provs.fth_table[i]);
 			mutex_lock(&bucket->ftb_mtx);
-			fpp = (fasttrap_provider_t **)&bucket->ftb_data;
+			fpp = (struct fasttrap_provider **)&bucket->ftb_data;
 
 			while ((fp = *fpp) != NULL) {
 				dt_dbg_prov("  Trying to unregister %s%d "
@@ -1422,9 +1429,9 @@ static void fasttrap_pid_cleanup(void)
 
 void fasttrap_provider_retire(pid_t pid, const char *name, int mprov)
 {
-	fasttrap_provider_t	*fp;
-	fasttrap_bucket_t	*bucket;
-	dtrace_provider_id_t	provid;
+	struct fasttrap_provider	*fp;
+	struct fasttrap_bucket		*bucket;
+	dtrace_provider_id_t		provid;
 
 	ASSERT(strlen(name) < sizeof(fp->ftp_name));
 
@@ -1495,7 +1502,8 @@ static void fasttrap_probes_cleanup(struct task_struct *tsk)
 	fasttrap_provider_retire(tsk->pid, FASTTRAP_PID_NAME, 0);
 }
 
-void fasttrap_meta_remove(void *arg, dtrace_helper_provdesc_t *dhpv, pid_t pid)
+void fasttrap_meta_remove(void *arg, struct dtrace_helper_provdesc *dhpv,
+			  pid_t pid)
 {
 	/*
 	 * Clean up the USDT provider. There may be active consumers of the
@@ -1506,16 +1514,15 @@ void fasttrap_meta_remove(void *arg, dtrace_helper_provdesc_t *dhpv, pid_t pid)
 	fasttrap_provider_retire(pid, dhpv->dthpv_provname, 1);
 }
 
-static int fasttrap_add_probe(fasttrap_probe_spec_t *probe)
+static int fasttrap_add_probe(struct fasttrap_probe_spec *probe)
 {
-	fasttrap_provider_t	*provider;
-	fasttrap_probe_t	*pp;
-	fasttrap_tracepoint_t	*tp;
-	uint64_t		*offs = NULL;
-	uint64_t		noffs;
-	char			*name;
-	int			aframes, retired;
-
+	struct fasttrap_provider	*provider;
+	struct fasttrap_probe		*pp;
+	struct fasttrap_tracepoint	*tp;
+	uint64_t			*offs = NULL;
+	uint64_t			noffs;
+	char				*name;
+	int				aframes, retired;
 
 	switch (probe->ftps_type) {
 	case DTFTP_ENTRY:
@@ -1577,7 +1584,7 @@ static int fasttrap_add_probe(fasttrap_probe_spec_t *probe)
 			if (atomic_read(&fasttrap_total) > fasttrap_max)
 				goto fail_reset;
 
-			pp = kzalloc(sizeof(fasttrap_probe_t), GFP_KERNEL);
+			pp = kzalloc(sizeof(struct fasttrap_probe), GFP_KERNEL);
 			if (pp == NULL)
 				goto fail_reset;
 
@@ -1592,7 +1599,8 @@ static int fasttrap_add_probe(fasttrap_probe_spec_t *probe)
 			tp->ftt_proc = provider->ftp_proc;
 			tp->ftt_pc = probe->ftps_pc + offs[i];
 			tp->ftt_pid = provider->ftp_pid;
-			memset(&tp->ftt_mtp, 0, sizeof(fasttrap_machtp_t));
+			memset(&tp->ftt_mtp, 0,
+			       sizeof(struct fasttrap_machtp));
 			tp->ftt_ids = NULL;
 			tp->ftt_retids = NULL;
 			tp->ftt_next = NULL;
@@ -1618,7 +1626,7 @@ static int fasttrap_add_probe(fasttrap_probe_spec_t *probe)
 		if (atomic_read(&fasttrap_total) > fasttrap_max)
 			goto fail_reset;
 
-		pp = kzalloc(sizeof(fasttrap_probe_t), GFP_KERNEL);
+		pp = kzalloc(sizeof(struct fasttrap_probe), GFP_KERNEL);
 		if (pp == NULL)
 			goto fail_reset;
 
@@ -1633,7 +1641,7 @@ static int fasttrap_add_probe(fasttrap_probe_spec_t *probe)
 		tp->ftt_proc = provider->ftp_proc;
 		tp->ftt_pc = probe->ftps_pc;
 		tp->ftt_pid = provider->ftp_pid;
-		memset(&tp->ftt_mtp, 0, sizeof(fasttrap_machtp_t));
+		memset(&tp->ftt_mtp, 0, sizeof(struct fasttrap_machtp));
 		tp->ftt_ids = NULL;
 		tp->ftt_retids = NULL;
 		tp->ftt_next = NULL;
@@ -1701,8 +1709,8 @@ static long fasttrap_ioctl(struct file *file,
 	void __user	*argp = (void __user *)arg;
 
 	if (cmd == FASTTRAPIOC_MAKEPROBE) {
-		fasttrap_probe_spec_t __user	*uprobe = argp;
-		fasttrap_probe_spec_t		*probe;
+		struct fasttrap_probe_spec __user *uprobe = argp;
+		struct fasttrap_probe_spec	*probe;
 		uint8_t				glen;
 		size_t				size;
 		int				ret;
@@ -1715,7 +1723,7 @@ static long fasttrap_ioctl(struct file *file,
 				   sizeof(uprobe->ftps_glen)))
 			return -EFAULT;
 
-		size = sizeof(fasttrap_probe_spec_t) +
+		size = sizeof(struct fasttrap_probe_spec) +
 		       sizeof(probe->ftps_gstr[0]) * (glen - 1);
 
 		if (size > 1024 * 1024)
@@ -1778,7 +1786,7 @@ static struct miscdevice fasttrap_dev = {
 	.fops = &fasttrap_fops,
 };
 
-static int fasttrap_init_htable(fasttrap_hash_t *fth, ulong_t nent)
+static int fasttrap_init_htable(struct fasttrap_hash *fth, ulong_t nent)
 {
 	ulong_t		i;
 
@@ -1790,7 +1798,8 @@ static int fasttrap_init_htable(fasttrap_hash_t *fth, ulong_t nent)
 	ASSERT(fth->fth_nent > 0);
 
 	fth->fth_mask = fth->fth_nent - 1;
-	fth->fth_table = vzalloc(fth->fth_nent * sizeof(fasttrap_bucket_elem_t));
+	fth->fth_table = vzalloc(fth->fth_nent *
+				 sizeof(struct fasttrap_bucket_elem));
 
 	if (fth->fth_table == NULL)
 		return -ENOMEM;
@@ -1891,12 +1900,12 @@ int fasttrap_prov_exit(void)
 	 * that corresponds to that pid, fail to detach.
 	 */
 	for (i = 0; i < fasttrap_provs.fth_nent; i++) {
-		fasttrap_provider_t	**fpp, *fp;
-		fasttrap_bucket_t	*bucket;
+		struct fasttrap_provider **fpp, *fp;
+		struct fasttrap_bucket *bucket;
 
 		bucket = FASTTRAP_ELEM_BUCKET(&fasttrap_provs.fth_table[i]);
 		mutex_lock(&bucket->ftb_mtx);
-		fpp = (fasttrap_provider_t **)&bucket->ftb_data;
+		fpp = (struct fasttrap_provider **)&bucket->ftb_data;
 		while ((fp = *fpp) != NULL) {
 			/*
 			 * Acquire and release the lock as a simple way of

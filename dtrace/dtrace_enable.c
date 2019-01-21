@@ -24,14 +24,15 @@
 #include "dtrace.h"
 
 size_t			dtrace_retain_max = 1024;
-dtrace_enabling_t	*dtrace_retained;
+struct dtrace_enabling	*dtrace_retained;
 dtrace_genid_t		dtrace_retained_gen;
 
-dtrace_enabling_t *dtrace_enabling_create(dtrace_vstate_t *vstate)
+struct dtrace_enabling *
+dtrace_enabling_create(struct dtrace_vstate *vstate)
 {
-	dtrace_enabling_t	*enab;
+	struct dtrace_enabling	*enab;
 
-	enab = kzalloc(sizeof(dtrace_enabling_t), GFP_KERNEL);
+	enab = kzalloc(sizeof(struct dtrace_enabling), GFP_KERNEL);
 	if (enab == NULL)
 		return NULL;
 
@@ -40,9 +41,10 @@ dtrace_enabling_t *dtrace_enabling_create(dtrace_vstate_t *vstate)
 	return enab;
 }
 
-void dtrace_enabling_add(dtrace_enabling_t *enab, dtrace_ecbdesc_t *ecb)
+void dtrace_enabling_add(struct dtrace_enabling *enab,
+			 struct dtrace_ecbdesc *ecb)
 {
-	dtrace_ecbdesc_t	**ndesc;
+	struct dtrace_ecbdesc	**ndesc;
 	size_t			osize, nsize;
 
 	/*
@@ -57,7 +59,7 @@ void dtrace_enabling_add(dtrace_enabling_t *enab, dtrace_ecbdesc_t *ecb)
 		return;
 	}
 
-	osize = enab->dten_maxdesc * sizeof(dtrace_enabling_t *);
+	osize = enab->dten_maxdesc * sizeof(struct dtrace_enabling *);
 
 	if (enab->dten_maxdesc == 0)
 		enab->dten_maxdesc = 1;
@@ -66,7 +68,7 @@ void dtrace_enabling_add(dtrace_enabling_t *enab, dtrace_ecbdesc_t *ecb)
 
 	ASSERT(enab->dten_ndesc < enab->dten_maxdesc);
 
-	nsize = enab->dten_maxdesc * sizeof(dtrace_enabling_t *);
+	nsize = enab->dten_maxdesc * sizeof(struct dtrace_enabling *);
 	ndesc = vzalloc(nsize);
 	memcpy(ndesc, enab->dten_desc, osize);
 	vfree(enab->dten_desc);
@@ -75,19 +77,19 @@ void dtrace_enabling_add(dtrace_enabling_t *enab, dtrace_ecbdesc_t *ecb)
 	enab->dten_desc[enab->dten_ndesc++] = ecb;
 }
 
-static void dtrace_enabling_addlike(dtrace_enabling_t *enab,
-				    dtrace_ecbdesc_t *ecb,
-				    dtrace_probedesc_t *pd)
+static void dtrace_enabling_addlike(struct dtrace_enabling *enab,
+				    struct dtrace_ecbdesc *ecb,
+				    struct dtrace_probedesc *pd)
 {
-	dtrace_ecbdesc_t *new;
-	dtrace_predicate_t	*pred;
-	dtrace_actdesc_t	*act;
+	struct dtrace_ecbdesc	*new;
+	struct dtrace_predicate	*pred;
+	struct dtrace_actdesc	*act;
 
 	/*
 	 * We're going to create a new ECB description that matches the
 	 * specified ECB in every way, but has the specified probe description.
 	 */
-	new = kzalloc(sizeof(dtrace_ecbdesc_t), GFP_KERNEL);
+	new = kzalloc(sizeof(struct dtrace_ecbdesc), GFP_KERNEL);
 
 	pred = ecb->dted_pred.dtpdd_predicate;
 	if (pred != NULL)
@@ -104,12 +106,12 @@ static void dtrace_enabling_addlike(dtrace_enabling_t *enab,
 	dtrace_enabling_add(enab, new);
 }
 
-void dtrace_enabling_dump(dtrace_enabling_t *enab)
+void dtrace_enabling_dump(struct dtrace_enabling *enab)
 {
 	int	i;
 
 	for (i = 0; i < enab->dten_ndesc; i++) {
-		dtrace_probedesc_t	*desc =
+		struct dtrace_probedesc	*desc =
 					&enab->dten_desc[i]->dted_probe;
 
 		pr_info("enabling probe %d (%s:%s:%s:%s)",
@@ -118,17 +120,17 @@ void dtrace_enabling_dump(dtrace_enabling_t *enab)
 	}
 }
 
-void dtrace_enabling_destroy(dtrace_enabling_t *enab)
+void dtrace_enabling_destroy(struct dtrace_enabling *enab)
 {
 	int			i;
-	dtrace_ecbdesc_t	*ep;
-	dtrace_vstate_t		*vstate = enab->dten_vstate;
+	struct dtrace_ecbdesc	*ep;
+	struct dtrace_vstate	*vstate = enab->dten_vstate;
 
 	ASSERT(MUTEX_HELD(&dtrace_lock));
 
 	for (i = 0; i < enab->dten_ndesc; i++) {
-		dtrace_actdesc_t	*act, *next;
-		dtrace_predicate_t	*pred;
+		struct dtrace_actdesc	*act, *next;
+		struct dtrace_predicate	*pred;
 
 		ep = enab->dten_desc[i];
 
@@ -179,9 +181,9 @@ void dtrace_enabling_destroy(dtrace_enabling_t *enab)
 	kfree(enab);
 }
 
-int dtrace_enabling_retain(dtrace_enabling_t *enab)
+int dtrace_enabling_retain(struct dtrace_enabling *enab)
 {
-	dtrace_state_t	*state;
+	struct dtrace_state	*state;
 
 	ASSERT(MUTEX_HELD(&dtrace_lock));
 	ASSERT(enab->dten_next == NULL && enab->dten_prev == NULL);
@@ -211,10 +213,11 @@ int dtrace_enabling_retain(dtrace_enabling_t *enab)
 	return 0;
 }
 
-int dtrace_enabling_replicate(dtrace_state_t *state, dtrace_probedesc_t *match,
-			      dtrace_probedesc_t *create)
+int dtrace_enabling_replicate(struct dtrace_state *state,
+			      struct dtrace_probedesc *match,
+			      struct dtrace_probedesc *create)
 {
-	dtrace_enabling_t	*new, *enab;
+	struct dtrace_enabling	*new, *enab;
 	int			found = 0, err = -ENOENT;
 
 	ASSERT(MUTEX_HELD(&dtrace_lock));
@@ -248,8 +251,8 @@ int dtrace_enabling_replicate(dtrace_state_t *state, dtrace_probedesc_t *match,
 		 * an exact match to the specified probe description.
 		 */
 		for (i = 0; i < enab->dten_ndesc; i++) {
-			dtrace_ecbdesc_t	*ep = enab->dten_desc[i];
-			dtrace_probedesc_t	*pd = &ep->dted_probe;
+			struct dtrace_ecbdesc	*ep = enab->dten_desc[i];
+			struct dtrace_probedesc	*pd = &ep->dted_probe;
 
 			if (strcmp(pd->dtpd_provider, match->dtpd_provider))
 				continue;
@@ -280,9 +283,9 @@ int dtrace_enabling_replicate(dtrace_state_t *state, dtrace_probedesc_t *match,
 	return 0;
 }
 
-void dtrace_enabling_retract(dtrace_state_t *state)
+void dtrace_enabling_retract(struct dtrace_state *state)
 {
-	dtrace_enabling_t	*enab, *next;
+	struct dtrace_enabling	*enab, *next;
 
 	ASSERT(MUTEX_HELD(&dtrace_lock));
 
@@ -308,13 +311,13 @@ void dtrace_enabling_retract(dtrace_state_t *state)
 	ASSERT(state->dts_nretained == 0);
 }
 
-int dtrace_enabling_match(dtrace_enabling_t *enab, int *nmatched)
+int dtrace_enabling_match(struct dtrace_enabling *enab, int *nmatched)
 {
 	int	i;
 	int	total_matched = 0, matched = 0;
 
 	for (i = 0; i < enab->dten_ndesc; i++) {
-		dtrace_ecbdesc_t	*ep = enab->dten_desc[i];
+		struct dtrace_ecbdesc	*ep = enab->dten_desc[i];
 
 		enab->dten_current = ep;
 		enab->dten_error = 0;
@@ -355,7 +358,7 @@ int dtrace_enabling_match(dtrace_enabling_t *enab, int *nmatched)
 
 void dtrace_enabling_matchall(void)
 {
-	dtrace_enabling_t	*enab;
+	struct dtrace_enabling	*enab;
 
 	mutex_lock(&cpu_lock);
 	mutex_lock(&dtrace_lock);
@@ -377,9 +380,9 @@ void dtrace_enabling_matchall(void)
  * enabling any probes, we create ECBs for every ECB description, but with a
  * NULL probe -- which is exactly what this function does.
  */
-void dtrace_enabling_prime(dtrace_state_t *state)
+void dtrace_enabling_prime(struct dtrace_state *state)
 {
-	dtrace_enabling_t	*enab;
+	struct dtrace_enabling	*enab;
 	int			i;
 
 	for (enab = dtrace_retained; enab != NULL; enab = enab->dten_next) {
@@ -407,7 +410,7 @@ void dtrace_enabling_prime(dtrace_state_t *state)
 	}
 }
 
-void dtrace_enabling_provide(dtrace_provider_t *prv)
+void dtrace_enabling_provide(struct dtrace_provider *prv)
 {
 	int		all = 0;
 	dtrace_genid_t	gen;
@@ -418,7 +421,7 @@ void dtrace_enabling_provide(dtrace_provider_t *prv)
 	}
 
 	do {
-		dtrace_enabling_t	*enab;
+		struct dtrace_enabling	*enab;
 		void			*parg = prv->dtpv_arg;
 
 retry:
@@ -428,7 +431,7 @@ retry:
 			int	i;
 
 			for (i = 0; i < enab->dten_ndesc; i++) {
-				dtrace_probedesc_t	desc;
+				struct dtrace_probedesc	desc;
 
 				desc = enab->dten_desc[i]->dted_probe;
 				mutex_unlock(&dtrace_lock);

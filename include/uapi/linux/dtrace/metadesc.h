@@ -49,7 +49,7 @@ typedef struct dtrace_eprobedesc {
 	uint64_t dtepd_uarg;			/* library argument */
 	uint32_t dtepd_size;			/* total size */
 	int dtepd_nrecs;			/* number of records */
-	dtrace_recdesc_t dtepd_rec[1];		/* recods themselves */
+	struct dtrace_recdesc dtepd_rec[1];	/* records themselves */
 } dtrace_eprobedesc_t;
 
 typedef struct dtrace_aggdesc {
@@ -61,7 +61,7 @@ typedef struct dtrace_aggdesc {
 	uint32_t dtagd_size;			/* size in bytes */
 	int dtagd_nrecs;			/* number of records */
 	uint32_t dtagd_pad;			/* explicit padding */
-	dtrace_recdesc_t dtagd_rec[1];		/* record descriptions */
+	struct dtrace_recdesc dtagd_rec[1];	/* record descriptions */
 } dtrace_aggdesc_t;
 
 typedef struct dtrace_fmtdesc {
@@ -71,11 +71,11 @@ typedef struct dtrace_fmtdesc {
 } dtrace_fmtdesc_t;
 
 #define DTRACE_SIZEOF_EPROBEDESC(desc)				\
-	(sizeof(dtrace_eprobedesc_t) + ((desc)->dtepd_nrecs ?  \
-	(((desc)->dtepd_nrecs - 1) * sizeof(dtrace_recdesc_t)) : 0))
+	(sizeof(struct dtrace_eprobedesc) + ((desc)->dtepd_nrecs ?  \
+	(((desc)->dtepd_nrecs - 1) * sizeof(struct dtrace_recdesc)) : 0))
 
 #define	DTRACE_SIZEOF_AGGDESC(desc)			       \
-	(sizeof(dtrace_aggdesc_t) + ((desc)->dtagd_nrecs ?     \
-	(((desc)->dtagd_nrecs - 1) * sizeof(dtrace_recdesc_t)) : 0))
+	(sizeof(struct dtrace_aggdesc) + ((desc)->dtagd_nrecs ?     \
+	(((desc)->dtagd_nrecs - 1) * sizeof(struct dtrace_recdesc)) : 0))
 
 #endif /* _LINUX_DTRACE_METADESC_H */

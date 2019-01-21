@@ -23,9 +23,9 @@
 
 #include "dtrace.h"
 
-dtrace_provider_t	*dtrace_provider;
-dtrace_meta_t		*dtrace_meta_pid;
-dtrace_helpers_t	*dtrace_deferred_pid;
+struct dtrace_provider	*dtrace_provider;
+struct dtrace_meta	*dtrace_meta_pid;
+struct dtrace_helpers	*dtrace_deferred_pid;
 
 DEFINE_MUTEX(dtrace_provider_lock);
 DEFINE_MUTEX(dtrace_meta_lock);
@@ -34,11 +34,12 @@ DEFINE_MUTEX(dtrace_meta_lock);
  * Register the calling provider with the DTrace core.  This should generally
  * be called by providers during module initialization.
  */
-int dtrace_register(const char *name, const dtrace_pattr_t *pap, uint32_t priv,
-		    const cred_t *cr, const dtrace_pops_t *pops, void *arg,
+int dtrace_register(const char *name, const struct dtrace_pattr *pap,
+		    uint32_t priv, const struct cred *cr,
+		    const struct dtrace_pops *pops, void *arg,
 		    dtrace_provider_id_t *idp)
 {
-	dtrace_provider_t	*provider;
+	struct dtrace_provider	*provider;
 
 	if (name == NULL || pap == NULL || pops == NULL || idp == NULL) {
 		pr_warn("Failed to register provider %s: invalid args\n",
@@ -87,7 +88,7 @@ int dtrace_register(const char *name, const dtrace_pattr_t *pap, uint32_t priv,
 	}
 
 	dt_dbg_prov("Registering provider '%s'...\n", name);
-	provider = kzalloc(sizeof(dtrace_provider_t), GFP_KERNEL);
+	provider = kzalloc(sizeof(struct dtrace_provider), GFP_KERNEL);
 	if (provider == NULL) {
 		dt_dbg_prov("  Failed to allocate provider struct\n");
 		return -ENOMEM;
@@ -112,7 +113,8 @@ int dtrace_register(const char *name, const dtrace_pattr_t *pap, uint32_t priv,
 	if (pops->dtps_provide == NULL) {
 		ASSERT(pops->dtps_provide_module != NULL);
 		provider->dtpv_pops.dtps_provide =
-		    (void (*)(void *, const dtrace_probedesc_t *))dtrace_nullop;
+		    (void (*)(void *, const struct dtrace_probedesc *))
+			dtrace_nullop;
 	}
 
 	if (pops->dtps_provide_module == NULL) {
@@ -198,8 +200,8 @@ int dtrace_register(const char *name, const dtrace_pattr_t *pap, uint32_t priv,
 EXPORT_SYMBOL(dtrace_register);
 
 struct unreg_state {
-	dtrace_provider_t	*prov;
-	dtrace_probe_t		*first;
+	struct dtrace_provider	*prov;
+	struct dtrace_probe	*first;
 };
 
 /*
@@ -207,7 +209,7 @@ struct unreg_state {
  */
 static int dtrace_unregister_check(int id, void *p, void *data)
 {
-	dtrace_probe_t		*probe = (dtrace_probe_t *)p;
+	struct dtrace_probe	*probe = (struct dtrace_probe *)p;
 	struct unreg_state	*st = (struct unreg_state *)data;
 
 	if (probe->dtpr_provider != st->prov)
@@ -226,7 +228,7 @@ static int dtrace_unregister_check(int id, void *p, void *data)
  */
 static int dtrace_unregister_probe(int id, void *p, void *data)
 {
-	dtrace_probe_t		*probe = (dtrace_probe_t *)p;
+	struct dtrace_probe	*probe = (struct dtrace_probe *)p;
 	struct unreg_state	*st = (struct unreg_state *)data;
 
 	if (probe->dtpr_provider != st->prov)
@@ -254,7 +256,7 @@ static int dtrace_unregister_probe(int id, void *p, void *data)
  */
 static int dtrace_condense_probe(int id, void *p, void *data)
 {
-	dtrace_probe_t		*probe = (dtrace_probe_t *)p;
+	struct dtrace_probe	*probe = (struct dtrace_probe *)p;
 	struct unreg_state	*st = (struct unreg_state *)data;
 
 	if (probe->dtpr_provider != st->prov)
@@ -286,14 +288,11 @@ static int dtrace_condense_probe(int id, void *p, void *data)
  */
 int dtrace_unregister(dtrace_provider_id_t id)
 {
-	dtrace_provider_t	*old = (dtrace_provider_t *)id;
-	dtrace_provider_t	*prev = NULL;
+	struct dtrace_provider	*old = (struct dtrace_provider *)id;
+	struct dtrace_provider	*prev = NULL;
 	int			err, self = 0;
-	dtrace_probe_t		*probe;
-	struct unreg_state	st = {
-					old,
-					NULL
-				     };
+	struct dtrace_probe	*probe;
+	struct unreg_state	st = { old, NULL };
 
 	ASSERT(MUTEX_HELD(&module_mutex));
 
@@ -438,7 +437,7 @@ EXPORT_SYMBOL(dtrace_unregister);
  */
 void dtrace_invalidate(dtrace_provider_id_t id)
 {
-	dtrace_provider_t	*pvp = (dtrace_provider_t *)id;
+	struct dtrace_provider	*pvp = (struct dtrace_provider *)id;
 
 	ASSERT(pvp->dtpv_pops.dtps_enable !=
 	       (int (*)(void *, dtrace_id_t, void *))dtrace_enable_nullop);
@@ -474,12 +473,9 @@ EXPORT_SYMBOL(dtrace_attached);
  */
 int dtrace_condense(dtrace_provider_id_t id)
 {
-	dtrace_provider_t	*prov = (dtrace_provider_t *)id;
-	dtrace_probe_t		*probe;
-	struct unreg_state	st = {
-					prov,
-					NULL
-				     };
+	struct dtrace_provider	*prov = (struct dtrace_provider *)id;
+	struct dtrace_probe	*probe;
+	struct unreg_state	st = { prov, NULL };
 
 	/*
 	 * Make sure this isn't the DTrace provider itself.
@@ -527,11 +523,11 @@ int dtrace_condense(dtrace_provider_id_t id)
 }
 EXPORT_SYMBOL(dtrace_condense);
 
-int dtrace_meta_register(const char *name, const dtrace_mops_t *mops,
+int dtrace_meta_register(const char *name, const struct dtrace_mops *mops,
 			 void *arg, dtrace_meta_provider_id_t *idp)
 {
-	dtrace_meta_t		*meta;
-	dtrace_helpers_t	*help, *next;
+	struct dtrace_meta	*meta;
+	struct dtrace_helpers	*help, *next;
 	int			i;
 
 	*idp = DTRACE_METAPROVNONE;
@@ -555,7 +551,7 @@ int dtrace_meta_register(const char *name, const dtrace_mops_t *mops,
 	}
 
 	dt_dbg_prov("Registering provider '%s'...\n", name);
-	meta = kzalloc(sizeof(dtrace_meta_t), GFP_KERNEL);
+	meta = kzalloc(sizeof(struct dtrace_meta), GFP_KERNEL);
 	if (meta == NULL) {
 		dt_dbg_prov("  Failed to allocate meta provider struct\n");
 		return -ENOMEM;
@@ -618,7 +614,7 @@ EXPORT_SYMBOL(dtrace_meta_register);
 
 int dtrace_meta_unregister(dtrace_meta_provider_id_t id)
 {
-	dtrace_meta_t	**pp, *old = (dtrace_meta_t *)id;
+	struct dtrace_meta **pp, *old = (struct dtrace_meta *)id;
 
 	dt_dbg_prov("Unregistering meta provider '%s'...\n", old->dtm_name);
 	mutex_lock(&dtrace_meta_lock);

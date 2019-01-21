@@ -32,12 +32,10 @@ static int		omni_enabled;
 #define _CYCLIC_CPU_OMNI		(-2)
 #define CYCLIC_IS_OMNI(cyc)		((cyc)->cpu == _CYCLIC_CPU_OMNI)
 
-typedef struct cyclic cyclic_t;
-
-typedef struct cyclic_work {
+struct cyclic_work {
 	struct work_struct	work;
 	struct cyclic		*cyc;
-} cyclic_work_t;
+};
 
 struct cyclic {
 	struct list_head		list;
@@ -48,7 +46,7 @@ struct cyclic {
 			cyc_handler_t		hdlr;
 			uint32_t		pend;
 			struct hrtimer		timr;
-			cyclic_work_t		work;
+			struct cyclic_work	work;
 		} cyc;
 		struct {
 			cyc_omni_handler_t	hdlr;
@@ -61,9 +59,9 @@ static LIST_HEAD(cyclics);
 
 static void cyclic_fire(struct work_struct *work)
 {
-	cyclic_work_t	*cwork = (cyclic_work_t *)work;
-	cyclic_t	*cyc = cwork->cyc;
-	uint32_t	cpnd, npnd;
+	struct cyclic_work *cwork = (struct cyclic_work *)work;
+	struct cyclic	   *cyc = cwork->cyc;
+	uint32_t	   cpnd, npnd;
 
 	do {
 		/*
@@ -117,7 +115,7 @@ again:
  */
 static enum hrtimer_restart cyclic_expire(struct hrtimer *timr)
 {
-	cyclic_t		*cyc = container_of(timr, cyclic_t, cyc.timr);
+	struct cyclic *cyc = container_of(timr, struct cyclic, cyc.timr);
 
 	/*
 	 * High priority cyclics call directly into their handler.  This means
@@ -153,11 +151,11 @@ done:
 	return HRTIMER_RESTART;
 }
 
-cyclic_t *cyclic_new(int omni)
+struct cyclic *cyclic_new(int omni)
 {
-	cyclic_t	*cyc;
+	struct cyclic *cyc;
 
-	cyc = kmalloc(sizeof(cyclic_t), GFP_KERNEL);
+	cyc = kmalloc(sizeof(struct cyclic), GFP_KERNEL);
 	if (cyc == NULL)
 		return NULL;
 
@@ -179,7 +177,7 @@ cyclic_t *cyclic_new(int omni)
 	return cyc;
 }
 
-static inline void cyclic_restart(cyclic_t *cyc)
+static inline void cyclic_restart(struct cyclic *cyc)
 {
 	if (cyc->cyc.when.cyt_interval == CY_INTERVAL_INF)
 		return;
@@ -197,7 +195,7 @@ static inline void cyclic_restart(cyclic_t *cyc)
  */
 cyclic_id_t cyclic_add(cyc_handler_t *hdlr, cyc_time_t *when)
 {
-	cyclic_t	*cyc;
+	struct cyclic *cyc;
 
 	if (hdlr == NULL || when == NULL)
 		return CYCLIC_NONE;
@@ -217,7 +215,7 @@ cyclic_id_t cyclic_add(cyc_handler_t *hdlr, cyc_time_t *when)
 }
 EXPORT_SYMBOL(cyclic_add);
 
-static void cyclic_omni_xcall(cyclic_t *cyc)
+static void cyclic_omni_xcall(struct cyclic *cyc)
 {
 	cyclic_restart(cyc);
 }
@@ -225,10 +223,10 @@ static void cyclic_omni_xcall(cyclic_t *cyc)
 /*
  * Add a new cyclic to the system.
  */
-static void cyclic_add_pinned(int cpu, cyclic_t *omni,
+static void cyclic_add_pinned(int cpu, struct cyclic *omni,
 			      cyc_handler_t *hdlr, cyc_time_t *when)
 {
-	cyclic_t	*cyc;
+	struct cyclic *cyc;
 
 	cyc = cyclic_new(0);
 	if (cyc == NULL)
@@ -246,7 +244,7 @@ static void cyclic_add_pinned(int cpu, cyclic_t *omni,
 /*
  * Start a cyclic on a specific CPU as sub-cyclic to an omni-present cyclic.
  */
-static void cyclic_omni_start(cyclic_t *omni, int cpu)
+static void cyclic_omni_start(struct cyclic *omni, int cpu)
 {
 	cyc_time_t	when;
 	cyc_handler_t	hdlr;
@@ -258,10 +256,10 @@ static void cyclic_omni_start(cyclic_t *omni, int cpu)
 #ifdef CONFIG_HOTPLUG_CPU
 static int cyclic_cpu_offline(unsigned int cpu)
 {
-	cyclic_t	*cyc;
+	struct cyclic *cyc;
 
 	list_for_each_entry(cyc, &cyclics, list) {
-		cyclic_t	*c, *n;
+		struct cyclic *c, *n;
 
 		if (!CYCLIC_IS_OMNI(cyc))
 			continue;
@@ -276,10 +274,10 @@ static int cyclic_cpu_offline(unsigned int cpu)
 
 static int cyclic_cpu_online(unsigned int cpu)
 {
-	cyclic_t	*cyc;
+	struct cyclic *cyc;
 
 	list_for_each_entry(cyc, &cyclics, list) {
-		cyclic_t	*c, *n;
+		struct cyclic *c, *n;
 
 		if (!CYCLIC_IS_OMNI(cyc))
 			continue;
@@ -304,7 +302,7 @@ static int cyclic_cpu_online(unsigned int cpu)
 cyclic_id_t cyclic_add_omni(cyc_omni_handler_t *omni)
 {
 	int		cpu;
-	cyclic_t	*cyc;
+	struct cyclic	*cyc;
 
 	cyc = cyclic_new(1);
 	if (cyc == NULL)
@@ -325,10 +323,10 @@ EXPORT_SYMBOL(cyclic_add_omni);
  */
 void cyclic_remove(cyclic_id_t id)
 {
-	cyclic_t	*cyc = (cyclic_t *)id;
+	struct cyclic	*cyc = (struct cyclic *)id;
 
 	if (CYCLIC_IS_OMNI(cyc)) {
-		cyclic_t	*child, *n;
+		struct cyclic *child, *n;
 
 		/*
 		 * If this is an omni-present cyclic, we first need to remove
@@ -362,12 +360,12 @@ void cyclic_remove(cyclic_id_t id)
 }
 EXPORT_SYMBOL(cyclic_remove);
 
-typedef struct cyclic_reprog {
+struct cyclic_reprog {
 	cyclic_id_t	cycid;
 	ktime_t		delta;
-} cyclic_reprog_t;
+};
 
-static void cyclic_reprogram_xcall(cyclic_reprog_t *creprog)
+static void cyclic_reprogram_xcall(struct cyclic_reprog *creprog)
 {
 	cyclic_reprogram(creprog->cycid, creprog->delta);
 }
@@ -384,13 +382,13 @@ static void cyclic_reprogram_xcall(cyclic_reprog_t *creprog)
  */
 void cyclic_reprogram(cyclic_id_t id, ktime_t delta)
 {
-	cyclic_t	*cyc = (cyclic_t *)id;
+	struct cyclic *cyc = (struct cyclic *)id;
 
 	/*
 	 * For omni present cyclic we reprogram child for current CPU.
 	 */
 	if (CYCLIC_IS_OMNI(cyc)) {
-		cyclic_t *c, *n;
+		struct cyclic *c, *n;
 
 		list_for_each_entry_safe(c, n, &cyc->omni.cycl, list) {
 			if (c->cpu != smp_processor_id())
@@ -411,7 +409,7 @@ void cyclic_reprogram(cyclic_id_t id, ktime_t delta)
 	 * different CPU we use xcall to trigger reprogram from correct cpu.
 	 */
 	if (cyc->cpu != smp_processor_id()) {
-		cyclic_reprog_t creprog = {
+		struct cyclic_reprog creprog = {
 			.cycid = id,
 			.delta = delta,
 		};
@@ -427,7 +425,7 @@ EXPORT_SYMBOL(cyclic_reprogram);
 static void *s_start(struct seq_file *seq, loff_t *pos)
 {
 	loff_t		n = *pos;
-	cyclic_t	*cyc;
+	struct cyclic	*cyc;
 
 	list_for_each_entry(cyc, &cyclics, list) {
 		if (n == 0)
@@ -441,11 +439,11 @@ static void *s_start(struct seq_file *seq, loff_t *pos)
 
 static void *s_next(struct seq_file *seq, void *p, loff_t *pos)
 {
-	cyclic_t	*cyc = p;
+	struct cyclic	*cyc = p;
 
 	++*pos;
 
-	cyc = list_entry(cyc->list.next, cyclic_t, list);
+	cyc = list_entry(cyc->list.next, struct cyclic, list);
 	if (&cyc->list == &cyclics)
 		return NULL;
 
@@ -458,10 +456,10 @@ static void s_stop(struct seq_file *seq, void *p)
 
 static int s_show(struct seq_file *seq, void *p)
 {
-	cyclic_t	*cyc = p;
+	struct cyclic	*cyc = p;
 
 	if (CYCLIC_IS_OMNI(cyc)) {
-		cyclic_t	*c;
+		struct cyclic	*c;
 
 		seq_puts(seq, "Omni-present cyclic:\n");
 		list_for_each_entry(c, &cyc->omni.cycl, list)

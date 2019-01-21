@@ -126,7 +126,8 @@ fail:
 	return NULL;
 }
 
-uint64_t *fasttrap_glob_offsets(fasttrap_probe_spec_t *probe, uint64_t *np)
+uint64_t *fasttrap_glob_offsets(struct fasttrap_probe_spec *probe,
+				uint64_t *np)
 {
 	size_t		size = probe->ftps_size;
 	asm_instr_t	*text = NULL;
@@ -291,7 +292,8 @@ uint64_t fasttrap_usdt_getarg(void *arg, dtrace_id_t id, void *parg,
 	return val;
 }
 
-static void fasttrap_map_args(fasttrap_probe_t *probe, struct pt_regs *regs,
+static void fasttrap_map_args(struct fasttrap_probe *probe,
+			      struct pt_regs *regs,
 			      int argc, uintptr_t *argv)
 {
 	int		i, x, cap = min(argc, (int)probe->ftp_nargs);
@@ -330,7 +332,7 @@ static void fasttrap_map_args(fasttrap_probe_t *probe, struct pt_regs *regs,
 		argv[i++] = 0;
 }
 
-void fasttrap_pid_probe_arch(fasttrap_probe_t *ftp, struct pt_regs *regs)
+void fasttrap_pid_probe_arch(struct fasttrap_probe *ftp, struct pt_regs *regs)
 {
 	if (ftp->ftp_argmap == NULL) {
 		dtrace_probe(ftp->ftp_id, regs->di, regs->si, regs->dx,
@@ -344,7 +346,8 @@ void fasttrap_pid_probe_arch(fasttrap_probe_t *ftp, struct pt_regs *regs)
 	}
 }
 
-void fasttrap_pid_retprobe_arch(fasttrap_probe_t *ftp, struct pt_regs *regs)
+void fasttrap_pid_retprobe_arch(struct fasttrap_probe *ftp,
+				struct pt_regs *regs)
 {
 	/*
 	 * FIXME: The first argument to the probe should be the offset in the

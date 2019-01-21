@@ -21,20 +21,21 @@
 
 #include "dtrace.h"
 
-dtrace_ecb_t	*dtrace_ecb_create_cache;
+struct dtrace_ecb	*dtrace_ecb_create_cache;
 
-static dtrace_action_t *dtrace_ecb_aggregation_create(dtrace_ecb_t *ecb,
-						      dtrace_actdesc_t *desc)
+static struct dtrace_action *
+dtrace_ecb_aggregation_create(struct dtrace_ecb *ecb,
+			      struct dtrace_actdesc *desc)
 {
-	dtrace_aggregation_t	*agg;
+	struct dtrace_aggregation *agg;
 	size_t			size = sizeof(uint64_t);
 	int			ntuple = desc->dtad_ntuple;
-	dtrace_action_t		*act;
-	dtrace_recdesc_t	*frec;
+	struct dtrace_action	*act;
+	struct dtrace_recdesc	*frec;
 	dtrace_aggid_t		aggid;
-	dtrace_state_t		*state = ecb->dte_state;
+	struct dtrace_state	*state = ecb->dte_state;
 
-	agg = kzalloc(sizeof(dtrace_aggregation_t), GFP_KERNEL);
+	agg = kzalloc(sizeof(struct dtrace_aggregation), GFP_KERNEL);
 	if (agg == NULL)
 		return NULL;
 
@@ -190,10 +191,11 @@ success:
 	return &agg->dtag_action;
 }
 
-void dtrace_ecb_aggregation_destroy(dtrace_ecb_t *ecb, dtrace_action_t *act)
+void dtrace_ecb_aggregation_destroy(struct dtrace_ecb *ecb,
+				    struct dtrace_action *act)
 {
-	dtrace_aggregation_t	*agg = (dtrace_aggregation_t *)act;
-	dtrace_state_t		*state = ecb->dte_state;
+	struct dtrace_aggregation	*agg = (struct dtrace_aggregation *)act;
+	struct dtrace_state		*state = ecb->dte_state;
 
 	ASSERT(DTRACEACT_ISAGG(act->dta_kind));
 
@@ -203,14 +205,15 @@ void dtrace_ecb_aggregation_destroy(dtrace_ecb_t *ecb, dtrace_action_t *act)
 	kfree(agg);
 }
 
-static int dtrace_ecb_action_add(dtrace_ecb_t *ecb, dtrace_actdesc_t *desc)
+static int dtrace_ecb_action_add(struct dtrace_ecb *ecb,
+				 struct dtrace_actdesc *desc)
 {
-	dtrace_action_t		*action, *last;
-	dtrace_difo_t		*dp = desc->dtad_difo;
+	struct dtrace_action	*action, *last;
+	struct dtrace_difo	*dp = desc->dtad_difo;
 	uint32_t		size = 0, align = sizeof(uint8_t), mask;
 	uint16_t		format = 0;
-	dtrace_recdesc_t	*rec;
-	dtrace_state_t		*state = ecb->dte_state;
+	struct dtrace_recdesc	*rec;
+	struct dtrace_state	*state = ecb->dte_state;
 	dtrace_optval_t		*opt = state->dts_options, nframes, strsize;
 	uint64_t		arg = desc->dtad_arg;
 
@@ -218,7 +221,7 @@ static int dtrace_ecb_action_add(dtrace_ecb_t *ecb, dtrace_actdesc_t *desc)
 	ASSERT(ecb->dte_action == NULL || ecb->dte_action->dta_refcnt == 1);
 
 	if (DTRACEACT_ISAGG(desc->dtad_kind)) {
-		dtrace_action_t	*act;
+		struct dtrace_action *act;
 
 		for (act = ecb->dte_action; act != NULL; act = act->dta_next) {
 			if (act->dta_kind == DTRACEACT_COMMIT)
@@ -370,7 +373,7 @@ static int dtrace_ecb_action_add(dtrace_ecb_t *ecb, dtrace_actdesc_t *desc)
 			break;
 
 		case DTRACEACT_COMMIT: {
-			dtrace_action_t	*act = ecb->dte_action;
+			struct dtrace_action *act = ecb->dte_action;
 
 			for (; act != NULL; act = act->dta_next) {
 				if (act->dta_kind == DTRACEACT_COMMIT)
@@ -392,7 +395,7 @@ static int dtrace_ecb_action_add(dtrace_ecb_t *ecb, dtrace_actdesc_t *desc)
 		}
 
 		if (size != 0 || desc->dtad_kind == DTRACEACT_SPECULATE) {
-			dtrace_action_t	*act = ecb->dte_action;
+			struct dtrace_action *act = ecb->dte_action;
 
 			for (; act != NULL; act = act->dta_next) {
 				if (act->dta_kind == DTRACEACT_COMMIT)
@@ -400,7 +403,7 @@ static int dtrace_ecb_action_add(dtrace_ecb_t *ecb, dtrace_actdesc_t *desc)
 			}
 		}
 
-		action = kzalloc(sizeof(dtrace_action_t), GFP_KERNEL);
+		action = kzalloc(sizeof(struct dtrace_action), GFP_KERNEL);
 		if (action == NULL)
 			return -ENOMEM;
 
@@ -448,12 +451,12 @@ static int dtrace_ecb_action_add(dtrace_ecb_t *ecb, dtrace_actdesc_t *desc)
 	return 0;
 }
 
-static void dtrace_ecb_action_remove(dtrace_ecb_t *ecb)
+static void dtrace_ecb_action_remove(struct dtrace_ecb *ecb)
 {
-	dtrace_action_t	*act = ecb->dte_action, *next;
-	dtrace_vstate_t	*vstate = &ecb->dte_state->dts_vstate;
-	dtrace_difo_t	*dp;
-	uint16_t	format;
+	struct dtrace_action	*act = ecb->dte_action, *next;
+	struct dtrace_vstate	*vstate = &ecb->dte_state->dts_vstate;
+	struct dtrace_difo	*dp;
+	uint16_t		format;
 
 	if (act != NULL && act->dta_refcnt > 1) {
 		ASSERT(act->dta_next == NULL || act->dta_next->dta_refcnt == 1);
@@ -488,10 +491,10 @@ static void dtrace_ecb_action_remove(dtrace_ecb_t *ecb)
 /*
  * Disable the ECB by removing it from its probe.
  */
-void dtrace_ecb_disable(dtrace_ecb_t *ecb)
+void dtrace_ecb_disable(struct dtrace_ecb *ecb)
 {
-	dtrace_ecb_t	*pecb, *prev = NULL;
-	dtrace_probe_t	*probe = ecb->dte_probe;
+	struct dtrace_ecb	*pecb, *prev = NULL;
+	struct dtrace_probe	*probe = ecb->dte_probe;
 
 	ASSERT(MUTEX_HELD(&dtrace_lock));
 
@@ -529,7 +532,7 @@ void dtrace_ecb_disable(dtrace_ecb_t *ecb)
 		 * cache ID for the probe, disable it and sync one more time
 		 * to assure that we'll never hit it again.
 		 */
-		dtrace_provider_t	*prov = probe->dtpr_provider;
+		struct dtrace_provider	*prov = probe->dtpr_provider;
 
 		ASSERT(ecb->dte_next == NULL);
 		ASSERT(probe->dtpr_ecb_last == NULL);
@@ -549,7 +552,7 @@ void dtrace_ecb_disable(dtrace_ecb_t *ecb)
 		ASSERT(probe->dtpr_predcache == DTRACE_CACHEIDNONE);
 
 		if (probe->dtpr_ecb == probe->dtpr_ecb_last) {
-			dtrace_predicate_t	*p =
+			struct dtrace_predicate	*p =
 						probe->dtpr_ecb->dte_predicate;
 
 			ASSERT(probe->dtpr_ecb->dte_next == NULL);
@@ -562,15 +565,16 @@ void dtrace_ecb_disable(dtrace_ecb_t *ecb)
 	}
 }
 
-static dtrace_ecb_t *dtrace_ecb_add(dtrace_state_t *state,
-				    dtrace_probe_t *probe)
+static struct dtrace_ecb *
+dtrace_ecb_add(struct dtrace_state *state,
+	       struct dtrace_probe *probe)
 {
-	dtrace_ecb_t	*ecb;
-	dtrace_epid_t	epid;
+	struct dtrace_ecb	*ecb;
+	dtrace_epid_t		epid;
 
 	ASSERT(MUTEX_HELD(&dtrace_lock));
 
-	ecb = kzalloc(sizeof(dtrace_ecb_t), GFP_KERNEL);
+	ecb = kzalloc(sizeof(struct dtrace_ecb), GFP_KERNEL);
 	if (ecb == NULL)
 		return NULL;
 
@@ -582,8 +586,8 @@ static dtrace_ecb_t *dtrace_ecb_add(dtrace_state_t *state,
 	epid = state->dts_epid++;
 
 	if (epid - 1 >= state->dts_necbs) {
-		dtrace_ecb_t	**oecbs = state->dts_ecbs, **ecbs;
-		int		necbs = state->dts_necbs << 1;
+		struct dtrace_ecb	**oecbs = state->dts_ecbs, **ecbs;
+		int			necbs = state->dts_necbs << 1;
 
 		ASSERT(epid == state->dts_necbs + 1);
 
@@ -629,15 +633,16 @@ static dtrace_ecb_t *dtrace_ecb_add(dtrace_state_t *state,
 	return ecb;
 }
 
-static dtrace_ecb_t *dtrace_ecb_create(dtrace_state_t *state,
-				       dtrace_probe_t *probe,
-				       dtrace_enabling_t *enab)
+static struct dtrace_ecb *
+dtrace_ecb_create(struct dtrace_state *state,
+		  struct dtrace_probe *probe,
+		  struct dtrace_enabling *enab)
 {
-	dtrace_ecb_t		*ecb;
-	dtrace_predicate_t	*pred;
-	dtrace_actdesc_t	*act;
-	dtrace_provider_t	*prov;
-	dtrace_ecbdesc_t	*desc = enab->dten_current;
+	struct dtrace_ecb	*ecb;
+	struct dtrace_predicate	*pred;
+	struct dtrace_actdesc	*act;
+	struct dtrace_provider	*prov;
+	struct dtrace_ecbdesc	*desc = enab->dten_current;
 
 	ASSERT(MUTEX_HELD(&dtrace_lock));
 	ASSERT(state != NULL);
@@ -667,8 +672,8 @@ static dtrace_ecb_t *dtrace_ecb_create(dtrace_state_t *state,
 	}
 
 	if (dtrace_ecb_create_cache != NULL) {
-		dtrace_ecb_t	*cached = dtrace_ecb_create_cache;
-		dtrace_action_t	*act = cached->dte_action;
+		struct dtrace_ecb	*cached = dtrace_ecb_create_cache;
+		struct dtrace_action	*act = cached->dte_action;
 
 		if (act != NULL) {
 			ASSERT(act->dta_refcnt > 0);
@@ -697,11 +702,11 @@ static dtrace_ecb_t *dtrace_ecb_create(dtrace_state_t *state,
 	return (dtrace_ecb_create_cache = ecb);
 }
 
-int dtrace_ecb_create_enable(dtrace_probe_t *probe, void *arg)
+int dtrace_ecb_create_enable(struct dtrace_probe *probe, void *arg)
 {
-	dtrace_ecb_t		*ecb;
-	dtrace_enabling_t	*enab = arg;
-	dtrace_state_t		*state = enab->dten_vstate->dtvs_state;
+	struct dtrace_ecb	*ecb;
+	struct dtrace_enabling	*enab = arg;
+	struct dtrace_state	*state = enab->dten_vstate->dtvs_state;
 
 	ASSERT(state != NULL);
 
@@ -718,11 +723,11 @@ int dtrace_ecb_create_enable(dtrace_probe_t *probe, void *arg)
 	return DTRACE_MATCH_NEXT;
 }
 
-void dtrace_ecb_destroy(dtrace_ecb_t *ecb)
+void dtrace_ecb_destroy(struct dtrace_ecb *ecb)
 {
-	dtrace_state_t		*state = ecb->dte_state;
-	dtrace_vstate_t		*vstate = &state->dts_vstate;
-	dtrace_predicate_t	*pred;
+	struct dtrace_state	*state = ecb->dte_state;
+	struct dtrace_vstate	*vstate = &state->dts_vstate;
+	struct dtrace_predicate	*pred;
 	dtrace_epid_t		epid = ecb->dte_epid;
 
 	ASSERT(MUTEX_HELD(&dtrace_lock));
@@ -741,14 +746,14 @@ void dtrace_ecb_destroy(dtrace_ecb_t *ecb)
 	kfree(ecb);
 }
 
-void dtrace_ecb_resize(dtrace_ecb_t *ecb)
+void dtrace_ecb_resize(struct dtrace_ecb *ecb)
 {
-	uint32_t	maxalign = sizeof(dtrace_epid_t);
-	uint32_t	align = sizeof(uint8_t), offs, diff;
-	dtrace_action_t	*act;
-	int		wastuple = 0;
-	uint32_t	aggbase = UINT32_MAX;
-	dtrace_state_t	*state = ecb->dte_state;
+	struct dtrace_action	*act;
+	uint32_t		maxalign = sizeof(dtrace_epid_t);
+	uint32_t		align = sizeof(uint8_t), offs, diff;
+	int			wastuple = 0;
+	uint32_t		aggbase = UINT32_MAX;
+	struct dtrace_state	*state = ecb->dte_state;
 
 	/*
 	 * If we record anything, we always record the epid.  (And we always
@@ -758,7 +763,7 @@ void dtrace_ecb_resize(dtrace_ecb_t *ecb)
 	ecb->dte_size = ecb->dte_needed = sizeof(dtrace_epid_t);
 
 	for (act = ecb->dte_action; act != NULL; act = act->dta_next) {
-		dtrace_recdesc_t	*rec = &act->dta_rec;
+		struct dtrace_recdesc	*rec = &act->dta_rec;
 
 		align = rec->dtrd_alignment;
 		if (align > maxalign)
@@ -800,10 +805,11 @@ void dtrace_ecb_resize(dtrace_ecb_t *ecb)
 		}
 
 		if (DTRACEACT_ISAGG(act->dta_kind)) {
-			dtrace_aggregation_t	*agg =
-						(dtrace_aggregation_t *)act;
-			dtrace_action_t		*first = agg->dtag_first,
-						*prev;
+			struct dtrace_aggregation	*agg;
+			struct dtrace_action		*first, *prev;
+
+			agg = (struct dtrace_aggregation *)act;
+			first = agg->dtag_first;
 
 			ASSERT(rec->dtrd_size != 0 && first != NULL);
 			ASSERT(wastuple);
@@ -813,7 +819,7 @@ void dtrace_ecb_resize(dtrace_ecb_t *ecb)
 
 			while ((prev = first->dta_prev) != NULL &&
 			       DTRACEACT_ISAGG(prev->dta_kind)) {
-				agg = (dtrace_aggregation_t *)prev;
+				agg = (struct dtrace_aggregation *)prev;
 				first = agg->dtag_first;
 			}
 
@@ -868,9 +874,9 @@ void dtrace_ecb_resize(dtrace_ecb_t *ecb)
 	ASSERT(ecb->dte_size <= ecb->dte_needed);
 }
 
-int dtrace_ecb_enable(dtrace_ecb_t *ecb)
+int dtrace_ecb_enable(struct dtrace_ecb *ecb)
 {
-	dtrace_probe_t	*probe = ecb->dte_probe;
+	struct dtrace_probe	*probe = ecb->dte_probe;
 
 	ASSERT(MUTEX_HELD(&cpu_lock));
 	ASSERT(MUTEX_HELD(&dtrace_lock));
@@ -880,7 +886,7 @@ int dtrace_ecb_enable(dtrace_ecb_t *ecb)
 		return 0;
 
 	if (probe->dtpr_ecb == NULL) {
-		dtrace_provider_t	*prov = probe->dtpr_provider;
+		struct dtrace_provider	*prov = probe->dtpr_provider;
 
 		probe->dtpr_ecb = probe->dtpr_ecb_last = ecb;
 
@@ -904,9 +910,11 @@ int dtrace_ecb_enable(dtrace_ecb_t *ecb)
 	}
 }
 
-dtrace_ecb_t *dtrace_epid2ecb(dtrace_state_t *state, dtrace_epid_t id)
+struct dtrace_ecb *
+dtrace_epid2ecb(struct dtrace_state *state,
+		dtrace_epid_t id)
 {
-	dtrace_ecb_t *ecb;
+	struct dtrace_ecb *ecb;
 
 	ASSERT(MUTEX_HELD(&dtrace_lock));
 
@@ -920,8 +928,9 @@ dtrace_ecb_t *dtrace_epid2ecb(dtrace_state_t *state, dtrace_epid_t id)
 	return ecb;
 }
 
-dtrace_aggregation_t *dtrace_aggid2agg(dtrace_state_t *state,
-				       dtrace_aggid_t id)
+struct dtrace_aggregation *
+dtrace_aggid2agg(struct dtrace_state *state,
+		 dtrace_aggid_t id)
 {
 	ASSERT(MUTEX_HELD(&dtrace_lock));
 

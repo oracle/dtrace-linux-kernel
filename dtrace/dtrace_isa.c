@@ -180,11 +180,11 @@ void dtrace_sync(void)
  */
 static int dtrace_fake_copyin(intptr_t addr, size_t size)
 {
-	dtrace_psinfo_t	*psinfo;
-	uintptr_t	argv;
-	unsigned long	argc;
-	uintptr_t	envp;
-	unsigned long	envc;
+	struct dtrace_psinfo	*psinfo;
+	uintptr_t		argv;
+	unsigned long		argc;
+	uintptr_t		envp;
+	unsigned long		envc;
 
 	if (current->dt_task == NULL)
 		return 0;
@@ -248,7 +248,7 @@ void dtrace_copyinstr(uintptr_t uaddr, uintptr_t kaddr, size_t size,
 void dtrace_getpcstack(uint64_t *pcstack, int pcstack_limit, int aframes,
 		       uint32_t *intrpc)
 {
-	stacktrace_state_t	st = {
+	struct stacktrace_state	st = {
 					pcstack,
 					NULL,
 					pcstack_limit,
@@ -272,7 +272,7 @@ unsigned long dtrace_getufpstack(uint64_t *pcstack, uint64_t *fpstack,
 				 int pcstack_limit)
 {
 	struct task_struct	*p = current;
-	stacktrace_state_t	st;
+	struct stacktrace_state	st;
 	unsigned long		depth;
 
 	if (pcstack) {
@@ -314,10 +314,10 @@ void dtrace_getupcstack(uint64_t *pcstack, int pcstack_limit)
  * FIXME: aframes + 3 should really be aframes + 1, dtrace_stacktrace() in the
  *	  kernel should do its own aframes + 2
  */
-int dtrace_getstackdepth(dtrace_mstate_t *mstate, int aframes)
+int dtrace_getstackdepth(struct dtrace_mstate *mstate, int aframes)
 {
 	uintptr_t		old = mstate->dtms_scratch_ptr;
-	stacktrace_state_t	st = {
+	struct stacktrace_state	st = {
 					NULL,
 					NULL,
 					0,
@@ -353,8 +353,8 @@ int dtrace_getustackdepth(void)
 	return dtrace_getufpstack(NULL, NULL, INT_MAX);
 }
 
-void dtrace_probe_error(dtrace_state_t *state, dtrace_epid_t epid, int act,
-			int fltoffs, int flags, uintptr_t addr)
+void dtrace_probe_error(struct dtrace_state *state, dtrace_epid_t epid,
+			int act, int fltoffs, int flags, uintptr_t addr)
 {
 	dtrace_probe(dtrace_probeid_error, (uintptr_t)state, epid, act,
 		     fltoffs, flags, addr, 0);

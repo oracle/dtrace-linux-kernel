@@ -37,12 +37,12 @@ extern void dtrace_fbt_init(fbt_add_probe_fn, struct module *, void *);
 /*
  * Dynamic blacklist routines.
  */
-typedef struct dt_fbt_bl_entry dt_fbt_bl_entry_t;
+struct dt_fbt_bl_entry;
 
-extern dt_fbt_bl_entry_t *dtrace_fbt_bl_add(unsigned long, const char *);
-extern dt_fbt_bl_entry_t *dtrace_fbt_bl_first(void);
-extern dt_fbt_bl_entry_t *dtrace_fbt_bl_next(dt_fbt_bl_entry_t *);
-extern unsigned long dtrace_fbt_bl_entry_addr(dt_fbt_bl_entry_t *);
-extern const char *dtrace_fbt_bl_entry_name(dt_fbt_bl_entry_t *);
+extern struct dt_fbt_bl_entry *dtrace_fbt_bl_add(unsigned long, const char *);
+extern struct dt_fbt_bl_entry *dtrace_fbt_bl_first(void);
+extern struct dt_fbt_bl_entry *dtrace_fbt_bl_next(struct dt_fbt_bl_entry *);
+extern unsigned long dtrace_fbt_bl_entry_addr(struct dt_fbt_bl_entry *);
+extern const char *dtrace_fbt_bl_entry_name(struct dt_fbt_bl_entry *);
 
 #endif /* _LINUX_DTRACE_FBT_H */

@@ -50,7 +50,7 @@
  *   dtps_destroy()          <-- Destroy all state associated with this probe
  *   dtps_destroy_module()   <-- Destroy per-module data
  *
- * 1.2  void dtps_provide(void *arg, const dtrace_probedesc_t *spec)
+ * 1.2  void dtps_provide(void *arg, const struct dtrace_probedesc *spec)
  *
  * 1.2.1  Overview
  *
@@ -235,7 +235,7 @@
  *   memory.
  *
  * 1.8  void dtps_getargdesc(void *arg, dtrace_id_t id, void *parg,
- *           dtrace_argdesc_t *desc)
+ *           struct dtrace_argdesc *desc)
  *
  * 1.8.1  Overview
  *
@@ -256,7 +256,7 @@
  * 1.8.3  Return value
  *
  *   None.  The dtargd_ndx, dtargd_native, dtargd_xlate and dtargd_mapping
- *   members of the dtrace_argdesc_t structure are all output values.
+ *   members of the dtrace_argdesc structure are all output values.
  *
  * 1.8.4  Caller's context
  *
@@ -385,9 +385,9 @@
  *   dtrace_probe_arg()      <-- Return the probe argument for a specific probe
  *   dtrace_probe()          <-- Fire the specified probe
  *
- * 2.2  int dtrace_register(const char *name, const dtrace_pattr_t *pap,
- *          uint32_t priv, cred_t *cr, const dtrace_pops_t *pops, void *arg,
- *          dtrace_provider_id_t *idp)
+ * 2.2  int dtrace_register(const char *name, const struct dtrace_pattr *pap,
+ *          uint32_t priv, struct cred *cr, const struct dtrace_pops *pops,
+ *          void *arg, dtrace_provider_id_t *idp)
  *
  * 2.2.1  Overview
  *
@@ -465,7 +465,7 @@
  *   hold no locks across dtrace_register() that may also be acquired by
  *   dtrace_provide().  cpu_lock and mod_lock must not be held.
  *
- * 2.3  int dtrace_unregister(dtrace_provider_t id)
+ * 2.3  int dtrace_unregister(dtrace_provider_id_t id)
  *
  * 2.3.1  Overview
  *
@@ -564,7 +564,7 @@
  *
  *   dtrace_attached() returns 1 if DTrace has attached, 0 otherwise.
  *
- * 2.7  int dtrace_probe_create(dtrace_provider_t id, const char *mod,
+ * 2.7  int dtrace_probe_create(dtrace_provider_id_t id, const char *mod,
  *	    const char *func, const char *name, int aframes, void *arg)
  *
  * 2.7.1  Overview
@@ -608,8 +608,8 @@
  *   dtps_provide() and/or dtps_provide_module(), it may be called from other
  *   non-DTrace contexts.  Neither cpu_lock nor mod_lock may be held.
  *
- * 2.8  dtrace_id_t dtrace_probe_lookup(dtrace_provider_t id, const char *mod,
- *	    const char *func, const char *name)
+ * 2.8  dtrace_id_t dtrace_probe_lookup(dtrace_provider_id_t id,
+ *	    const char *mod, const char *func, const char *name)
  *
  * 2.8.1  Overview
  *
@@ -638,7 +638,7 @@
  *   dtps_provide() and/or dtps_provide_module(), it may also be called from
  *   other non-DTrace contexts.  Neither cpu_lock nor mod_lock may be held.
  *
- * 2.9  void *dtrace_probe_arg(dtrace_provider_t id, dtrace_id_t probe)
+ * 2.9  void *dtrace_probe_arg(dtrace_provider_id_t id, dtrace_id_t probe)
  *
  * 2.9.1  Overview
  *
@@ -706,13 +706,14 @@
  */
 
 #include <dtrace/types.h>
+#include <linux/cred.h>
 #include <linux/module.h>
 #include <linux/dtrace/enabling_defines.h>
 #include <linux/dtrace/arg_defines.h>
 #include <dtrace/provider_defines.h>
 #include <linux/dtrace/stability.h>
 
-typedef struct dtrace_pops {
+struct dtrace_pops {
 	void (*dtps_provide)(void *, const struct dtrace_probedesc *);
 	void (*dtps_provide_module)(void *, struct module *);
 	int (*dtps_enable)(void *, dtrace_id_t, void *);
@@ -725,9 +726,9 @@ typedef struct dtrace_pops {
 	int (*dtps_usermode)(void *, dtrace_id_t, void *);
 	void (*dtps_destroy)(void *, dtrace_id_t, void *);
 	void (*dtps_destroy_module)(void *, struct module *);
-} dtrace_pops_t;
+};
 
-typedef struct dtrace_helper_probedesc {
+struct dtrace_helper_probedesc {
 	char *dthpb_mod;
 	char *dthpb_func;
 	char *dthpb_name;
@@ -741,54 +742,58 @@ typedef struct dtrace_helper_probedesc {
 	uint8_t dthpb_nargc;
 	char *dthpb_xtypes;
 	char *dthpb_ntypes;
-} dtrace_helper_probedesc_t;
+};
 
-typedef struct dtrace_helper_provdesc {
+struct dtrace_helper_provdesc {
 	char *dthpv_provname;
 	struct dtrace_pattr dthpv_pattr;
-} dtrace_helper_provdesc_t;
+};
 
-typedef struct dtrace_mops {
-	void (*dtms_create_probe)(void *, void *, dtrace_helper_probedesc_t *);
-	void *(*dtms_provide_pid)(void *, dtrace_helper_provdesc_t *, pid_t);
-	void (*dtms_remove_pid)(void *, dtrace_helper_provdesc_t *, pid_t);
-} dtrace_mops_t;
+struct dtrace_mops {
+	void (*dtms_create_probe)(void *, void *,
+				  struct dtrace_helper_probedesc *);
+	void *(*dtms_provide_pid)(void *, struct dtrace_helper_provdesc *,
+				  pid_t);
+	void (*dtms_remove_pid)(void *, struct dtrace_helper_provdesc *,
+				pid_t);
+};
 
 /*
  * DTrace Provider-to-Framework API Functions
  */
 
-typedef struct dtrace_meta {
-	dtrace_mops_t dtm_mops;
+struct dtrace_meta {
+	struct dtrace_mops dtm_mops;
 	char *dtm_name;
 	void *dtm_arg;
 	uint64_t dtm_count;
-} dtrace_meta_t;
+};
 
-typedef struct dtrace_mprovider {
+struct dtrace_mprovider {
 	char			*dtmp_name;
 	char			*dtmp_pref;
-	dtrace_pattr_t		*dtmp_attr;
+	struct dtrace_pattr	*dtmp_attr;
 	uint32_t		dtmp_priv;
-	dtrace_pops_t		*dtmp_pops;
+	struct dtrace_pops	*dtmp_pops;
 	dtrace_provider_id_t	dtmp_id;
-} dtrace_mprovider_t;
+};
 
-typedef struct dtrace_pmod {
+struct dtrace_pmod {
 	struct module		*mod;
 	struct list_head	list;
-} dtrace_pmod_t;
+};
 
-extern int dtrace_register(const char *, const dtrace_pattr_t *, uint32_t,
-			   const cred_t *, const dtrace_pops_t *, void *,
+extern int dtrace_register(const char *, const struct dtrace_pattr *,
+			   uint32_t, const struct cred *,
+			   const struct dtrace_pops *, void *,
 			   dtrace_provider_id_t *);
 extern int dtrace_unregister(dtrace_provider_id_t);
 extern void dtrace_invalidate(dtrace_provider_id_t);
 extern int dtrace_condense(dtrace_provider_id_t);
 extern int dtrace_attached(void);
 
-extern int dtrace_meta_register(const char *, const dtrace_mops_t *, void *,
-				dtrace_meta_provider_id_t *);
+extern int dtrace_meta_register(const char *, const struct dtrace_mops *,
+				void *, dtrace_meta_provider_id_t *);
 extern int dtrace_meta_unregister(dtrace_meta_provider_id_t);
 
 extern dtrace_id_t dtrace_probe_create(dtrace_provider_id_t, const char *,

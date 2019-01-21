@@ -36,17 +36,17 @@ typedef struct dtrace_attribute {
 } dtrace_attribute_t;
 
 typedef struct dtrace_pattr {
-	dtrace_attribute_t dtpa_provider;	/* provider attributes */
-	dtrace_attribute_t dtpa_mod;		/* module attributes */
-	dtrace_attribute_t dtpa_func;		/* function attributes */
-	dtrace_attribute_t dtpa_name;		/* name attributes */
-	dtrace_attribute_t dtpa_args;		/* args[] attributes */
+	struct dtrace_attribute dtpa_provider;	/* provider attributes */
+	struct dtrace_attribute dtpa_mod;	/* module attributes */
+	struct dtrace_attribute dtpa_func;	/* function attributes */
+	struct dtrace_attribute dtpa_name;	/* name attributes */
+	struct dtrace_attribute dtpa_args;	/* args[] attributes */
 } dtrace_pattr_t;
 
 typedef struct dtrace_providerdesc {
 	char dtvd_name[DTRACE_PROVNAMELEN];	/* provider name */
-	dtrace_pattr_t dtvd_attr;		/* stability attributes */
-	dtrace_ppriv_t dtvd_priv;		/* privileges required */
+	struct dtrace_pattr dtvd_attr;		/* stability attributes */
+	struct dtrace_ppriv dtvd_priv;		/* privileges required */
 } dtrace_providerdesc_t;
 
 #endif /* _LINUX_DTRACE_STABILITY_H */

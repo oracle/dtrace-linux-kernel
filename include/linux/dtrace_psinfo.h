@@ -17,29 +17,29 @@
  *
  * All threads in a process share the same structure instance.
  */
-typedef struct dtrace_psinfo {
+struct dtrace_psinfo {
 	atomic_t	dtps_usage;
 	unsigned long	dtps_argc;
 	char		**dtps_argv;
 	unsigned long	dtps_envc;
 	char		**dtps_envp;
 	char		dtps_psargs[PR_PSARGS_SZ];
-} dtrace_psinfo_t;
+};
 
 /*
- * DTrace psinfo API. Requires dtrace_task_t as its argument.
+ * DTrace psinfo API. Requires struct dtrace_task as its argument.
  */
 
 extern void dtrace_psinfo_alloc(struct task_struct *);
-extern void dtrace_psinfo_free(dtrace_psinfo_t *);
+extern void dtrace_psinfo_free(struct dtrace_psinfo *);
 
-static inline void dtrace_psinfo_get(dtrace_psinfo_t *psinfo)
+static inline void dtrace_psinfo_get(struct dtrace_psinfo *psinfo)
 {
 	if (likely(psinfo))
 		atomic_inc(&(psinfo)->dtps_usage);
 }
 
-static inline void dtrace_psinfo_put(dtrace_psinfo_t *psinfo)
+static inline void dtrace_psinfo_put(struct dtrace_psinfo *psinfo)
 {
 	if (likely((psinfo))) {
 		if (atomic_dec_and_test(&(psinfo)->dtps_usage))

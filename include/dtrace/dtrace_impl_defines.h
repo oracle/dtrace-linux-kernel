@@ -29,7 +29,7 @@
 
 typedef typeof(instruction_pointer((struct pt_regs *)0))	pc_t;
 
-typedef enum dtrace_activity {
+enum dtrace_activity {
 	DTRACE_ACTIVITY_INACTIVE = 0,
 	DTRACE_ACTIVITY_WARMUP,
 	DTRACE_ACTIVITY_ACTIVE,
@@ -37,20 +37,20 @@ typedef enum dtrace_activity {
 	DTRACE_ACTIVITY_COOLDOWN,
 	DTRACE_ACTIVITY_STOPPED,
 	DTRACE_ACTIVITY_KILLED
-} dtrace_activity_t;
+};
 
-typedef enum dtrace_dstate_state {
+enum dtrace_dstate_state {
 	DTRACE_DSTATE_CLEAN = 0,
 	DTRACE_DSTATE_EMPTY,
 	DTRACE_DSTATE_DIRTY,
 	DTRACE_DSTATE_RINSING
-} dtrace_dstate_state_t;
+};
 
-typedef enum dtrace_dynvar_op {
+enum dtrace_dynvar_op {
 	DTRACE_DYNVAR_ALLOC,
 	DTRACE_DYNVAR_NOALLOC,
 	DTRACE_DYNVAR_DEALLOC
-} dtrace_dynvar_op_t;
+};
 
 #define DTRACE_MSTATE_ARGS		0x00000001
 #define DTRACE_MSTATE_PROBE		0x00000002
@@ -65,7 +65,7 @@ typedef enum dtrace_dynvar_op {
 
 #define DTRACE_PROBEKEY_MAXDEPTH	8
 
-typedef enum dtrace_speculation_state {
+enum dtrace_speculation_state {
 	DTRACESPEC_INACTIVE = 0,
 	DTRACESPEC_ACTIVE,
 	DTRACESPEC_ACTIVEONE,
@@ -73,7 +73,7 @@ typedef enum dtrace_speculation_state {
 	DTRACESPEC_COMMITTING,
 	DTRACESPEC_COMMITTINGMANY,
 	DTRACESPEC_DISCARDING
-} dtrace_speculation_state_t;
+};
 
 #define DTRACE_HELPER_ACTION_USTACK	0
 #define DTRACE_NHELPER_ACTIONS		1
@@ -94,9 +94,9 @@ typedef enum dtrace_speculation_state {
  */
 
 #define DTRACE_HASHNEXT(hash, probe)					\
-	(dtrace_probe_t **)((uintptr_t)(probe) + (hash)->dth_nextoffs)
+	(struct dtrace_probe **)((uintptr_t)(probe) + (hash)->dth_nextoffs)
 #define DTRACE_HASHPREV(hash, probe)	\
-	(dtrace_probe_t **)((uintptr_t)(probe) + (hash)->dth_prevoffs)
+	(struct dtrace_probe **)((uintptr_t)(probe) + (hash)->dth_prevoffs)
 
 /*
  * DTrace Probe Management
@@ -168,6 +168,6 @@ typedef enum dtrace_speculation_state {
 
 #define MUTEX_HELD(lock)	mutex_owned(lock)
 
-#define PDATA(mp)		((dtrace_module_t *)mp->pdata)
+#define PDATA(mp)		((struct dtrace_module *)mp->pdata)
 
 #endif /* _LINUX_DTRACE_IMPL_DEFINES_H */

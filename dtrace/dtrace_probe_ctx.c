@@ -371,19 +371,19 @@ void dtrace_aggregate_sum(uint64_t *oval, uint64_t nval, uint64_t arg)
  */
 #define DTRACE_AGGHASHSIZE_SLEW		17
 
-typedef struct dtrace_aggkey {
+struct dtrace_aggkey {
 	uint32_t dtak_hashval;			/* hash value */
 	uint32_t dtak_action:4;			/* action -- 4 bits */
 	uint32_t dtak_size:28;			/* size -- 28 bits */
 	caddr_t dtak_data;			/* data pointer */
 	struct dtrace_aggkey *dtak_next;	/* next in hash chain */
-} dtrace_aggkey_t;
+};
 
-typedef struct dtrace_aggbuffer {
+struct dtrace_aggbuffer {
 	uintptr_t dtagb_hashsize;		/* number of buckets */
 	uintptr_t dtagb_free;			/* free list of keys */
-	dtrace_aggkey_t **dtagb_hash;		/* hash table */
-} dtrace_aggbuffer_t;
+	struct dtrace_aggkey **dtagb_hash;		/* hash table */
+};
 
 #define DTRACEACT_ISSTRING(act)						      \
 	((act)->dta_kind == DTRACEACT_DIFEXPR &&			      \
@@ -396,19 +396,20 @@ typedef struct dtrace_aggbuffer {
  * failure; if there is no space in the aggregation buffer, the data will be
  * dropped, and a corresponding counter incremented.
  */
-void dtrace_aggregate(dtrace_aggregation_t *agg, dtrace_buffer_t *dbuf,
-		      intptr_t offset, dtrace_buffer_t *buf, uint64_t expr,
-		      uint64_t arg)
+void dtrace_aggregate(struct dtrace_aggregation *agg,
+		      struct dtrace_buffer *dbuf,
+		      intptr_t offset, struct dtrace_buffer *buf,
+		      uint64_t expr, uint64_t arg)
 {
-	dtrace_recdesc_t	*rec = &agg->dtag_action.dta_rec;
+	struct dtrace_recdesc	*rec = &agg->dtag_action.dta_rec;
 	uint32_t		i, ndx, size, fsize;
 	uint32_t		align = sizeof(uint64_t) - 1;
-	dtrace_aggbuffer_t	*agb;
-	dtrace_aggkey_t		*key;
+	struct dtrace_aggbuffer	*agb;
+	struct dtrace_aggkey	*key;
 	uint32_t		hashval = 0, limit, isstr;
 	caddr_t			tomax, data, kdata;
 	dtrace_actkind_t	action;
-	dtrace_action_t		*act;
+	struct dtrace_action	*act;
 	uintptr_t		offs;
 
 	if (buf == NULL)
@@ -441,8 +442,8 @@ void dtrace_aggregate(dtrace_aggregation_t *agg, dtrace_buffer_t *dbuf,
 	/*
 	 * The metastructure is always at the bottom of the buffer.
 	 */
-	agb = (dtrace_aggbuffer_t *)(tomax + buf->dtb_size -
-					     sizeof(dtrace_aggbuffer_t));
+	agb = (struct dtrace_aggbuffer *)(tomax + buf->dtb_size -
+					     sizeof(struct dtrace_aggbuffer));
 
 	if (buf->dtb_offset == 0) {
 		/*
@@ -454,7 +455,7 @@ void dtrace_aggregate(dtrace_aggregation_t *agg, dtrace_buffer_t *dbuf,
 		uintptr_t	hashsize = (buf->dtb_size >> 3) /
 					   sizeof(uintptr_t);
 
-		if ((uintptr_t)agb - hashsize * sizeof(dtrace_aggkey_t *) <
+		if ((uintptr_t)agb - hashsize * sizeof(struct dtrace_aggkey *) <
 		    (uintptr_t)tomax || hashsize == 0) {
 			/*
 			 * We've been given a ludicrously small buffer;
@@ -472,8 +473,8 @@ void dtrace_aggregate(dtrace_aggregation_t *agg, dtrace_buffer_t *dbuf,
 			hashsize -= DTRACE_AGGHASHSIZE_SLEW;
 
 		agb->dtagb_hashsize = hashsize;
-		agb->dtagb_hash = (dtrace_aggkey_t **)((uintptr_t)agb -
-		agb->dtagb_hashsize * sizeof(dtrace_aggkey_t *));
+		agb->dtagb_hash = (struct dtrace_aggkey **)((uintptr_t)agb -
+		agb->dtagb_hashsize * sizeof(struct dtrace_aggkey *));
 		agb->dtagb_free = (uintptr_t)agb->dtagb_hash;
 
 		for (i = 0; i < agb->dtagb_hashsize; i++)
@@ -587,14 +588,15 @@ next:
 	 * its associated data, increment the drop count and return.
 	 */
 	if ((uintptr_t)tomax + offs + fsize >
-	    agb->dtagb_free - sizeof(dtrace_aggkey_t)) {
+	    agb->dtagb_free - sizeof(struct dtrace_aggkey)) {
 		dtrace_buffer_drop(buf);
 		return;
 	}
 
 	ASSERT(!(sizeof(struct dtrace_aggkey) & (sizeof(uintptr_t) - 1)));
-	key = (dtrace_aggkey_t *)(agb->dtagb_free - sizeof(dtrace_aggkey_t));
-	agb->dtagb_free -= sizeof(dtrace_aggkey_t);
+	key = (struct dtrace_aggkey *)
+		(agb->dtagb_free - sizeof(struct dtrace_aggkey));
+	agb->dtagb_free -= sizeof(struct dtrace_aggkey);
 
 	key->dtak_data = kdata = tomax + offs;
 	buf->dtb_offset = offs + fsize;
