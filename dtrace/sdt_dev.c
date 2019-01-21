@@ -35,9 +35,9 @@ int			sdt_probetab_size;
 int			sdt_probetab_mask;
 
 /*
- * Return, in newly-allocated space, a version of the passed-in type which has
- * been cleaned up suitably for CTF: leading and trailing spaces (if any)
- * removed, and optionally a trailing argument removed as well.
+ * Return, in newly-allocated space, a version of the passed-in type 'vartype'
+ * which has been cleaned up suitably for CTF: leading and trailing spaces (if
+ * any) removed, and optionally a trailing argument removed as well.
  *
  * Type strings look like either
  *
@@ -48,12 +48,12 @@ int			sdt_probetab_mask;
  * Translator components ": (foo, foo)", if any, have been removed by this
  * stage.
  */
-static char *cleanup_type(const char *type, int arg_strip)
+static char *cleanup_type(const char *vartype, int arg_strip)
 {
 	const char *cleaned;
 	const char *p;
 
-	cleaned = type + strspn(type, " \t");
+	cleaned = vartype + strspn(vartype, " \t");
 	for (p = cleaned + strlen(cleaned) - 1; p > cleaned && isspace(*p);
 	     p--);
 	if (arg_strip) {
