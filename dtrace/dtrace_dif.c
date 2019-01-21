@@ -109,7 +109,7 @@ int dtrace_difo_validate(dtrace_difo_t *dp, dtrace_vstate_t *vstate,
 		uint_t		label = DIF_INSTR_LABEL(instr);
 		uint_t		v = DIF_INSTR_VAR(instr);
 		uint_t		subr = DIF_INSTR_SUBR(instr);
-		uint_t		type = DIF_INSTR_TYPE(instr);
+		uint_t		diftype = DIF_INSTR_TYPE(instr);
 		uint_t		op = DIF_INSTR_OP(instr);
 
 		switch (op) {
@@ -323,17 +323,19 @@ int dtrace_difo_validate(dtrace_difo_t *dp, dtrace_vstate_t *vstate,
 				dp->dtdo_destructive = 1;
 			break;
 		case DIF_OP_PUSHTR:
-			if (type != DIF_TYPE_STRING && type != DIF_TYPE_CTF)
-				err += efunc(pc, "invalid ref type %u\n", type);
+			if (diftype != DIF_TYPE_STRING && diftype != DIF_TYPE_CTF)
+				err += efunc(pc, "invalid ref type %u\n",
+					     diftype);
 			if (r2 >= nregs)
 				err += efunc(pc, "invalid register %u\n", r2);
 			if (rs >= nregs)
 				err += efunc(pc, "invalid register %u\n", rs);
 			break;
 		case DIF_OP_PUSHTV:
-			if (type != DIF_TYPE_CTF)
-				err += efunc(pc, "invalid val type %u\n", type);
-			if (r2 >= nregs)
+			if (diftype != DIF_TYPE_CTF)
+				err += efunc(pc, "invalid val type %u\n",
+					     diftype);
+			if (er2 >= nregs)
 				err += efunc(pc, "invalid register %u\n", r2);
 			if (rs >= nregs)
 				err += efunc(pc, "invalid register %u\n", rs);
@@ -1364,12 +1366,12 @@ dtrace_strcanload(uint64_t addr, size_t sz, dtrace_mstate_t *mstate,
  * Convenience routine to check to see if a given variable is within a memory
  * region in which a load may be issued given the user's privilege level.
  */
-int dtrace_vcanload(void *src, dtrace_diftype_t *type, dtrace_mstate_t *mstate,
+int dtrace_vcanload(void *src, dtrace_diftype_t *diftype, dtrace_mstate_t *mstate,
 		    dtrace_vstate_t *vstate)
 {
 	size_t	sz;
 
-	ASSERT(type->dtdt_flags & DIF_TF_BYREF);
+	ASSERT(diftype->dtdt_flags & DIF_TF_BYREF);
 
 	/*
 	 * If we hold the privilege to read from kernel memory, then
@@ -1378,13 +1380,13 @@ int dtrace_vcanload(void *src, dtrace_diftype_t *type, dtrace_mstate_t *mstate,
 	if ((mstate->dtms_access & DTRACE_ACCESS_KERNEL) != 0)
 		return 1;
 
-	if (type->dtdt_kind == DIF_TYPE_STRING)
+	if (diftype->dtdt_kind == DIF_TYPE_STRING)
 		sz = dtrace_strlen(
 			src,
 			vstate->dtvs_state->dts_options[DTRACEOPT_STRSIZE]
 		     ) + 1;
 	else
-		sz = type->dtdt_size;
+		sz = diftype->dtdt_size;
 
 	return dtrace_canload((uintptr_t)src, sz, mstate, vstate);
 }
@@ -1440,14 +1442,14 @@ static void dtrace_strcpy(const void *src, void *dst, size_t len)
  * program.  The dst is assumed to be DTrace variable memory that is of the
  * specified type; we assume that we can store to directly.
  */
-static void dtrace_vcopy(void *src, void *dst, dtrace_diftype_t *type)
+static void dtrace_vcopy(void *src, void *dst, dtrace_diftype_t *diftype)
 {
-	ASSERT(type->dtdt_flags & DIF_TF_BYREF);
+	ASSERT(diftype->dtdt_flags & DIF_TF_BYREF);
 
-	if (type->dtdt_kind == DIF_TYPE_STRING)
-		dtrace_strcpy(src, dst, type->dtdt_size);
+	if (diftype->dtdt_kind == DIF_TYPE_STRING)
+		dtrace_strcpy(src, dst, diftype->dtdt_size);
 	else
-		dtrace_bcopy(src, dst, type->dtdt_size);
+		dtrace_bcopy(src, dst, diftype->dtdt_size);
 }
 
 /*
@@ -3661,8 +3663,8 @@ next:
 
 	case DIF_SUBR_LINK_NTOP: {
 		struct dtrace_hwtype_alen {
-			int hwtype;
-			size_t hwalen;
+			int dhwa_hwtype;
+			size_t dhwa_hwalen;
 		} hwinfo[] = {
 			{ ARPHRD_ETHER, ETH_ALEN },
 			{ ARPHRD_INFINIBAND, INFINIBAND_ALEN },
@@ -3675,22 +3677,22 @@ next:
 #define DTRACE_MAX_HWTYPE_ALEN (ETH_ALEN > INFINIBAND_ALEN ? \
 				ETH_ALEN : INFINIBAND_ALEN)
 		uintptr_t src = tupregs[1].dttk_value;
-		int type = tupregs[0].dttk_value;
+		int hwtype = tupregs[0].dttk_value;
 		uint8_t hwaddr[DTRACE_MAX_HWTYPE_ALEN];
 		char *base;
 		size_t size, len;
 		int i;
 
-		for (i = 0; hwinfo[i].hwtype != -1; i++) {
-			if (type == hwinfo[i].hwtype)
+		for (i = 0; hwinfo[i].dhwa_hwtype != -1; i++) {
+			if (hwtype == hwinfo[i].dhwa_hwtype)
 				break;
 		}
-		if (hwinfo[i].hwtype == -1) {
+		if (hwinfo[i].dhwa_hwtype == -1) {
 			DTRACE_CPUFLAG_SET(CPU_DTRACE_ILLOP);
 			regs[rd] = 0;
 			break;
 		}
-		len = hwinfo[i].hwalen;
+		len = hwinfo[i].dhwa_hwalen;
 
 		/*
 		 * Safely load the hardware address.
