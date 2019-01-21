@@ -22,7 +22,7 @@
  * configuration in order to generate correct DIF.  This information is
  * conveyed via the dtrace_conf structure.
  */
-typedef struct dtrace_conf {
+struct dtrace_conf {
 	uint_t dtc_difversion;			/* supported DIF version */
 	uint_t dtc_difintregs;			/* # of DIF integer registers */
 	uint_t dtc_diftupregs;			/* # of DIF tuple registers */
@@ -30,6 +30,6 @@ typedef struct dtrace_conf {
 	/* Deviation from Solaris...  Used to just be 8 padding entries. */
 	uint_t dtc_maxbufs;			/* max # of buffers */
 	uint_t dtc_pad[7];			/* reserved for future use */
-} dtrace_conf_t;
+};
 
 #endif /* _LINUX_DTRACE_CONF_H */

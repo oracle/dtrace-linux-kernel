@@ -20,10 +20,10 @@
 #include <linux/module.h>
 #include <asm/dtrace_cpuinfo.h>
 
-DEFINE_PER_CPU_SHARED_ALIGNED(cpu_core_t, dtrace_cpu_core);
+DEFINE_PER_CPU_SHARED_ALIGNED(struct cpu_core, dtrace_cpu_core);
 EXPORT_PER_CPU_SYMBOL(dtrace_cpu_core);
 
-DEFINE_PER_CPU_SHARED_ALIGNED(cpuinfo_t, dtrace_cpu_info);
+DEFINE_PER_CPU_SHARED_ALIGNED(struct cpuinfo, dtrace_cpu_info);
 EXPORT_PER_CPU_SYMBOL(dtrace_cpu_info);
 
 void dtrace_cpu_init(void)
@@ -32,8 +32,8 @@ void dtrace_cpu_init(void)
 
 	for_each_present_cpu(cpu) {
 		cpuinfo_arch_t		*ci = &cpu_data(cpu);
-		cpuinfo_t		*cpui = per_cpu_info(cpu);
-		cpu_core_t		*cpuc = per_cpu_core(cpu);
+		struct cpuinfo		*cpui = per_cpu_info(cpu);
+		struct cpu_core		*cpuc = per_cpu_core(cpu);
 
 		cpui->cpu_id = cpu;
 		cpui->cpu_pset = 0;

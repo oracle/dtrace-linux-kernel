@@ -712,7 +712,7 @@
 #include <dtrace/provider_defines.h>
 #include <linux/dtrace/stability.h>
 
-typedef struct dtrace_pops {
+struct dtrace_pops {
 	void (*dtps_provide)(void *, const struct dtrace_probedesc *);
 	void (*dtps_provide_module)(void *, struct module *);
 	int (*dtps_enable)(void *, dtrace_id_t, void *);
@@ -725,9 +725,9 @@ typedef struct dtrace_pops {
 	int (*dtps_usermode)(void *, dtrace_id_t, void *);
 	void (*dtps_destroy)(void *, dtrace_id_t, void *);
 	void (*dtps_destroy_module)(void *, struct module *);
-} dtrace_pops_t;
+};
 
-typedef struct dtrace_helper_probedesc {
+struct dtrace_helper_probedesc {
 	char *dthpb_mod;
 	char *dthpb_func;
 	char *dthpb_name;
@@ -741,53 +741,58 @@ typedef struct dtrace_helper_probedesc {
 	uint8_t dthpb_nargc;
 	char *dthpb_xtypes;
 	char *dthpb_ntypes;
-} dtrace_helper_probedesc_t;
+};
 
-typedef struct dtrace_helper_provdesc {
+struct dtrace_helper_provdesc {
 	char *dthpv_provname;
 	struct dtrace_pattr dthpv_pattr;
-} dtrace_helper_provdesc_t;
+};
 
-typedef struct dtrace_mops {
-	void (*dtms_create_probe)(void *, void *, dtrace_helper_probedesc_t *);
-	void *(*dtms_provide_pid)(void *, dtrace_helper_provdesc_t *, pid_t);
-	void (*dtms_remove_pid)(void *, dtrace_helper_provdesc_t *, pid_t);
-} dtrace_mops_t;
+struct dtrace_mops {
+	void (*dtms_create_probe)(void *, void *,
+				  struct dtrace_helper_probedesc *);
+	void *(*dtms_provide_pid)(void *, struct dtrace_helper_provdesc *,
+				  pid_t);
+	void (*dtms_remove_pid)(void *, struct dtrace_helper_provdesc *,
+				pid_t);
+};
 
 /*
  * DTrace Provider-to-Framework API Functions
  */
 
-typedef struct dtrace_meta {
-	dtrace_mops_t dtm_mops;
+struct dtrace_meta {
+	struct dtrace_mops dtm_mops;
 	char *dtm_name;
 	void *dtm_arg;
 	uint64_t dtm_count;
-} dtrace_meta_t;
+};
 
-typedef struct dtrace_mprovider {
+struct dtrace_mprovider {
 	char			*dtmp_name;
 	char			*dtmp_pref;
-	dtrace_pattr_t		*dtmp_attr;
+	struct dtrace_pattr		*dtmp_attr;
 	uint32_t		dtmp_priv;
-	dtrace_pops_t		*dtmp_pops;
+	struct dtrace_pops		*dtmp_pops;
 	dtrace_provider_id_t	dtmp_id;
-} dtrace_mprovider_t;
+};
 
-typedef struct dtrace_pmod {
+struct dtrace_pmod {
 	struct module		*mod;
 	struct list_head	list;
-} dtrace_pmod_t;
+};
 
-extern int dtrace_register(const char *, const dtrace_pattr_t *, uint32_t,
-			   const cred_t *, const dtrace_pops_t *, void *,
+extern int dtrace_register(const char *, const struct dtrace_pattr *,
+			   uint32_t,
+			   const cred_t *, const struct dtrace_pops *, void *,
 			   dtrace_provider_id_t *);
 extern int dtrace_unregister(dtrace_provider_id_t);
 extern void dtrace_invalidate(dtrace_provider_id_t);
 extern int dtrace_condense(dtrace_provider_id_t);
 extern int dtrace_attached(void);
 
-extern int dtrace_meta_register(const char *, const dtrace_mops_t *, void *,
+extern int dtrace_meta_register(const char *, const struct dtrace_mops *,
+				void *,
 				dtrace_meta_provider_id_t *);
 extern int dtrace_meta_unregister(dtrace_meta_provider_id_t);
 
