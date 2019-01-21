@@ -34,10 +34,10 @@ static int		omni_enabled;
 
 typedef struct cyclic cyclic_t;
 
-typedef struct cyclic_work {
+struct cyclic_work {
 	struct work_struct	work;
 	struct cyclic		*cyc;
-} cyclic_work_t;
+};
 
 struct cyclic {
 	struct list_head		list;
@@ -48,7 +48,7 @@ struct cyclic {
 			cyc_handler_t		hdlr;
 			uint32_t		pend;
 			struct hrtimer		timr;
-			cyclic_work_t		work;
+			struct cyclic_work		work;
 		} cyc;
 		struct {
 			cyc_omni_handler_t	hdlr;
@@ -61,7 +61,7 @@ static LIST_HEAD(cyclics);
 
 static void cyclic_fire(struct work_struct *work)
 {
-	cyclic_work_t	*cwork = (cyclic_work_t *)work;
+	struct cyclic_work	*cwork = (struct cyclic_work *)work;
 	cyclic_t	*cyc = cwork->cyc;
 	uint32_t	cpnd, npnd;
 
@@ -362,12 +362,12 @@ void cyclic_remove(cyclic_id_t id)
 }
 EXPORT_SYMBOL(cyclic_remove);
 
-typedef struct cyclic_reprog {
+struct cyclic_reprog {
 	cyclic_id_t	cycid;
 	ktime_t		delta;
-} cyclic_reprog_t;
+};
 
-static void cyclic_reprogram_xcall(cyclic_reprog_t *creprog)
+static void cyclic_reprogram_xcall(struct cyclic_reprog *creprog)
 {
 	cyclic_reprogram(creprog->cycid, creprog->delta);
 }
@@ -411,7 +411,7 @@ void cyclic_reprogram(cyclic_id_t id, ktime_t delta)
 	 * different CPU we use xcall to trigger reprogram from correct cpu.
 	 */
 	if (cyc->cpu != smp_processor_id()) {
-		cyclic_reprog_t creprog = {
+		struct cyclic_reprog creprog = {
 			.cycid = id,
 			.delta = delta,
 		};
