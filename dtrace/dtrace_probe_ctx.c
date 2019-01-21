@@ -592,7 +592,7 @@ next:
 		return;
 	}
 
-	ASSERT(!(sizeof(dtrace_aggkey_t) & (sizeof(uintptr_t) - 1)));
+	ASSERT(!(sizeof(struct dtrace_aggkey) & (sizeof(uintptr_t) - 1)));
 	key = (dtrace_aggkey_t *)(agb->dtagb_free - sizeof(dtrace_aggkey_t));
 	agb->dtagb_free -= sizeof(dtrace_aggkey_t);
 
