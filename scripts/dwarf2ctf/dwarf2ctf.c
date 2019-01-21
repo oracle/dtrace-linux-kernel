@@ -994,7 +994,8 @@ static void run(char *output, int standalone)
 					   private_per_module_free);
 	variable_blacklist = g_hash_table_new_full(g_str_hash, g_str_equal,
 						   free, free);
-	fn_to_die_to_parent = g_hash_table_new_full(g_str_hash, g_str_equal, free,
+	fn_to_die_to_parent = g_hash_table_new_full(g_str_hash,
+						    g_str_equal, free,
 						    private_fn_die_parent_free);
 
 	dw_ctf_trace("Initializing...\n");
@@ -1061,7 +1062,7 @@ static void init_object_names(const char *object_names_file)
 				       sizeof(char *));
 
 		if (object_names == NULL) {
-			pr_err("Out of memory reading %s", object_names_file);
+			pr_err("Out of memory reading %s\n", object_names_file);
 			exit(1);
 		}
 
@@ -1089,7 +1090,7 @@ static void init_builtin(const char *builtin_objects_file,
 	char *line = NULL;
 	size_t line_size = 0;
 	char *module_name = NULL;
-	char **module_paths;
+	char **paths;
 
 	/*
 	 * Iterate over all modules in modules_thick.builtin and add each to
@@ -1101,17 +1102,17 @@ static void init_builtin(const char *builtin_objects_file,
 		exit(1);
 	}
 
-	while ((module_paths = modules_thick_iter_next(i, &module_name)) != NULL) {
+	while ((paths = modules_thick_iter_next(i, &module_name)) != NULL) {
 		size_t j;
 
-		for (j = 0; module_paths[j] != NULL; j++) {
+		for (j = 0; paths[j] != NULL; j++) {
 			dw_ctf_trace("noting built-in module mapping %s -> %s\n"
-				     module_name, module_paths[j]);
+				     module_name, paths[j]);
 			g_hash_table_replace(object_to_module,
-					     strdup(module_paths[j]),
+					     strdup(paths[j]),
 					     xstrdup(module_name));
 		}
-		free(module_paths);
+		free(paths);
 	}
 	free(module_name);
 	modules_thick_iter_free(i);
@@ -1277,7 +1278,7 @@ static int member_blacklisted(Dwarf_Die *die, Dwarf_Die *parent_die)
 	    (dwarf_tag(parent_die) != DW_TAG_structure_type &&
 		dwarf_tag(parent_die) != DW_TAG_union_type)) {
 		pr_err("Warning: member_blacklisted() called on "
-		       "%s:%s.%s at offset %li, which is not a structure member.",
+		       "%s:%s.%s at offset %li, which is not a structure member.\n",
 		       fname, dwarf_diename(parent_die), dwarf_diename(die),
 		       DIEOFFSET(die));
 		return 0;
@@ -4736,7 +4737,7 @@ static const char *abs_file_name(const char *file_name)
 
 	if (abs_file_names == NULL)
 		abs_file_names = g_hash_table_new_full(g_str_hash, g_str_equal,
-		    free, free);
+						       free, free);
 
 	abs_name = g_hash_table_lookup(abs_file_names, file_name);
 
