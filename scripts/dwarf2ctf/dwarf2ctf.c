@@ -880,6 +880,11 @@ static void private_fn_die_parent_free(void *ptr);
  */
 #define DIEOFFSET(die) (unsigned long) dwarf_dieoffset((die))
 
+/*
+ * A line-shortener with a kernel-familiar name for fprintfing to stderr.
+ */
+#define pr_err(fmt, ...) fprintf(stderr, fmt, ## __VA_ARGS__);
+
 /* Initialization.  */
 
 int main(int argc, char *argv[])
@@ -890,10 +895,10 @@ int main(int argc, char *argv[])
 
 	if ((argc != 4 && argc != 7) ||
 	    (argc == 4 && strcmp(argv[2], "-e") != 0)) {
-		fprintf(stderr, "Syntax: dwarf2ctf output-file srcdir objects.builtin\n");
-		fprintf(stderr, "                  modules.builtin member.blacklist filelist\n");
-		fprintf(stderr, "    or dwarf2ctf output-dir -e filelist\n"
-			"for external module use\n");
+		pr_err("Syntax: dwarf2ctf output-file srcdir objects.builtin\n");
+		pr_err("                  modules.builtin member.blacklist filelist\n");
+		pr_err("    or dwarf2ctf output-dir -e filelist\n"
+		       "for external module use\n");
 		exit(1);
 	}
 
@@ -902,8 +907,8 @@ int main(int argc, char *argv[])
 	elf_version(EV_CURRENT);
 
 	if (elf_errno()) {
-		fprintf(stderr, "Version synchronization fault: %s\n",
-			elf_errmsg(elf_errno()));
+		pr_err("Version synchronization fault: %s\n",
+		       elf_errmsg(elf_errno()));
 		exit(1);
 	}
 
@@ -961,7 +966,7 @@ int main(int argc, char *argv[])
 	g_hash_table_destroy(object_to_module);
 
 	if (num_errors > 0)
-		fprintf(stderr, "%li CTF construction errors.\n", num_errors);
+		pr_err("%li CTF construction errors.\n", num_errors);
 
 	return 0;
 }
@@ -1032,7 +1037,7 @@ static void init_object_names(const char *object_names_file)
 
 	f = fopen(object_names_file, "r");
 	if (f == NULL) {
-		fprintf(stderr, "Cannot open object names file %s: %s\n",
+		pr_err("Cannot open object names file %s: %s\n",
 			object_names_file, strerror(errno));
 		exit(1);
 	}
@@ -1056,8 +1061,7 @@ static void init_object_names(const char *object_names_file)
 				       sizeof(char *));
 
 		if (object_names == NULL) {
-			fprintf(stderr, "Out of memory reading %s",
-				object_names_file);
+			pr_err("Out of memory reading %s", object_names_file);
 			exit(1);
 		}
 
@@ -1066,8 +1070,8 @@ static void init_object_names(const char *object_names_file)
 	free(line);
 
 	if (ferror(f)) {
-		fprintf(stderr, "Error reading from %s: %s\n",
-			object_names_file, strerror(errno));
+		pr_err("Error reading from %s: %s\n", object_names_file,
+		       strerror(errno));
 		exit(1);
 	}
 
@@ -1093,7 +1097,7 @@ static void init_builtin(const char *builtin_objects_file,
 	 */
 	i = modules_thick_iter_new(builtin_module_file);
 	if (i == NULL) {
-		fprintf(stderr, "Cannot iterate over builtin module file.\n");
+		pr_err("Cannot iterate over builtin module file.\n");
 		exit(1);
 	}
 
@@ -1114,8 +1118,8 @@ static void init_builtin(const char *builtin_objects_file,
 
 	f = fopen(builtin_objects_file, "r");
 	if (f == NULL) {
-		fprintf(stderr, "Cannot open builtin objects file %s: %s\n",
-			builtin_objects_file, strerror(errno));
+		pr_err("Cannot open builtin objects file %s: %s\n",
+		       builtin_objects_file, strerror(errno));
 		exit(1);
 	}
 
@@ -1138,8 +1142,8 @@ static void init_builtin(const char *builtin_objects_file,
 	}
 
 	if (ferror(f)) {
-		fprintf(stderr, "Error reading from %s: %s\n",
-			builtin_objects_file, strerror(errno));
+		pr_err("Error reading from %s: %s\n", builtin_objects_file,
+		       strerror(errno));
 		exit(1);
 	}
 
@@ -1164,7 +1168,7 @@ static void init_assembly_tab(void)
 	assembly_filter_tab = calloc(sizeof(ctf_assembly_filter_fun *),
 				     assembly_len + 1);
 	if ((assembly_tab == NULL) || (assembly_filter_tab == NULL)) {
-		fprintf(stderr, "Out of memory allocating assembly table\n");
+		pr_err("Out of memory allocating assembly table\n");
 		exit(1);
 	}
 
@@ -1211,9 +1215,9 @@ static void init_member_blacklist(const char *member_blacklist_file,
 		last_colon = strrchr(line, ':');
 		last_dot = strrchr(last_colon + 1, '.');
 		if (!last_colon || !last_dot) {
-			fprintf(stderr, "Syntax error on line %li of %s.\n"
-			    "Syntax: filename:structure.member.\n",
-			    line_num, member_blacklist_file);
+			pr_err("Syntax error on line %li of %s.\n"
+			       "Syntax: filename:structure.member.\n",
+			       line_num, member_blacklist_file);
 			continue;
 		}
 
@@ -1227,8 +1231,8 @@ static void init_member_blacklist(const char *member_blacklist_file,
 	free(line);
 
 	if (ferror(f)) {
-		fprintf(stderr, "Error reading from %s: %s\n",
-			member_blacklist_file, strerror(errno));
+		pr_err("Error reading from %s: %s\n", member_blacklist_file,
+		       strerror(errno));
 		exit(1);
 	}
 
@@ -1272,10 +1276,10 @@ static int member_blacklisted(Dwarf_Die *die, Dwarf_Die *parent_die)
 	if (dwarf_tag(die) != DW_TAG_member ||
 	    (dwarf_tag(parent_die) != DW_TAG_structure_type &&
 		dwarf_tag(parent_die) != DW_TAG_union_type)) {
-		fprintf(stderr, "Warning: member_blacklisted() called on "
-		    "%s:%s.%s at offset %li, which is not a structure member.",
-		    fname, dwarf_diename(parent_die), dwarf_diename(die),
-		    DIEOFFSET(die));
+		pr_err("Warning: member_blacklisted() called on "
+		       "%s:%s.%s at offset %li, which is not a structure member.",
+		       fname, dwarf_diename(parent_die), dwarf_diename(die),
+		       DIEOFFSET(die));
 		return 0;
 	}
 
@@ -1307,13 +1311,12 @@ static void init_ctf_table(const char *module_name)
 
 	ctf_file = ctf_create(&ctf_err);
 	if (ctf_file == NULL) {
-		fprintf(stderr, "Cannot create CTF file: %s\n",
-			strerror(ctf_err));
+		pr_err("Cannot create CTF file: %s\n", strerror(ctf_err));
 		exit(1);
 	}
 	new_per_mod = malloc(sizeof(struct per_module));
 	if (new_per_mod == NULL) {
-		fprintf(stderr, "Out of memory allocating per-module CTF info\n");
+		pr_err("Out of memory allocating per-module CTF info\n");
 		exit(1);
 	}
 
@@ -1355,8 +1358,8 @@ static void init_ctf_table(const char *module_name)
 						   func_type);
 
 		if (ctf_update(ctf_file) < 0) {
-			fprintf(stderr, "Cannot initialize shared CTF file: "
-				"%s\n", ctf_errmsg(ctf_errno(ctf_file)));
+			pr_err("Cannot initialize shared CTF file: %s\n",
+			       ctf_errmsg(ctf_errno(ctf_file)));
 			exit(1);
 		}
 	} else {
@@ -1366,8 +1369,8 @@ static void init_ctf_table(const char *module_name)
 		 * point.
 		 */
 		if (ctf_import(ctf_file, lookup_ctf_file("shared_ctf")) < 0) {
-			fprintf(stderr, "Cannot set parent of CTF file for module %s: %s\n",
-				module_name, ctf_errmsg(ctf_errno(ctf_file)));
+			pr_err("Cannot set parent of CTF file for module %s: %s\n",
+			       module_name, ctf_errmsg(ctf_errno(ctf_file)));
 			exit(1);
 		}
 		ctf_parent_name_set(ctf_file, "shared_ctf");
@@ -1390,7 +1393,7 @@ static void init_parent_die(const char *file_name, Dwfl *dwfl)
 
 	offs = g_hash_table_new(g_direct_hash, g_direct_equal);
 	if (offs == NULL) {
-		fprintf(stderr, "Out of memory creating DIE offset hash\n");
+		pr_err("Out of memory creating DIE offset hash\n");
 		exit(1);
 	}
 
@@ -1436,9 +1439,9 @@ static void init_parent_die_internal(const char *file_name,
 	}
 	return;
 err:
-	fprintf(stderr, "Cannot fetch %s of DIE at offset %lu in %s: %s\n",
-		err, DIEOFFSET(parent), file_name,
-		dwarf_errmsg(dwarf_errno()));
+	pr_err("Cannot fetch %s of DIE at offset %lu in %s: %s\n",
+	       err, DIEOFFSET(parent), file_name,
+	       dwarf_errmsg(dwarf_errno()));
 	exit(1);
 
 }
@@ -1765,8 +1768,8 @@ static char *type_id_internal(Dwarf_Die *die,
 
 		switch (dwarf_child(die, &dim_die)) {
 		case -1:
-			fprintf(stderr, "Corrupt DWARF: Cannot get array dimensions: %s\n",
-				dwarf_errmsg(dwarf_errno()));
+			pr_err("Corrupt DWARF: Cannot get array dimensions: %s\n",
+			       dwarf_errmsg(dwarf_errno()));
 			exit(1);
 		case 1: /* No dimensions.  */
 			id = str_append(id, "[] ");
@@ -1787,8 +1790,8 @@ static char *type_id_internal(Dwarf_Die *die,
 		} while ((sib_ret = dwarf_siblingof(&dim_die, &dim_die)) == 0);
 
 		if (sib_ret == -1) {
-			fprintf(stderr, "Corrupt DWARF: Cannot get array dimensions: %s\n",
-				dwarf_errmsg(dwarf_errno()));
+			pr_err("Corrupt DWARF: Cannot get array dimensions: %s\n",
+			       dwarf_errmsg(dwarf_errno()));
 			exit(1);
 		}
 		break;
@@ -1861,7 +1864,7 @@ static void process_file(const char *file_name,
 	Dwarf_Addr junk;
 
 	if (seen_before == NULL) {
-		fprintf(stderr, "Out of memory creating seen_before hash\n");
+		pr_err("Out of memory creating seen_before hash\n");
 		exit(1);
 	}
 
@@ -1945,8 +1948,8 @@ static void process_file(const char *file_name,
 	return;
 
  fail:
-	fprintf(stderr, "Cannot %s for %s: %s\n", err, module_name,
-		dwarf_errmsg(dwarf_errno()));
+	pr_err("Cannot %s for %s: %s\n", err, module_name,
+	       dwarf_errmsg(dwarf_errno()));
 	exit(1);
 }
 
@@ -1990,8 +1993,8 @@ static void process_tu_func(const char *module_name,
 
 	return;
  fail:
-	fprintf(stderr, "Cannot %s for %s: %s\n", err, module_name,
-		dwarf_errmsg(dwarf_errno()));
+	pr_err("Cannot %s for %s: %s\n", err, module_name,
+	       dwarf_errmsg(dwarf_errno()));
 	exit(1);
 }
 
@@ -2155,8 +2158,8 @@ static void dedup(const char *module_name, const char *file_name,
 
 		if ((private_dwarf_attr(die, DW_AT_type, &type_attr) != NULL) &&
 		    (dwarf_whatform(&type_attr) == DW_FORM_ref_sig8)) {
-			fprintf(stderr, "Sorry, not yet implemented: %s contains DWARF-4 debugging information.\n",
-				module_name);
+			pr_err("Sorry, not yet implemented: %s contains DWARF-4 debugging information.\n",
+			       module_name);
 			exit(1);
 		}
 	}
@@ -2260,7 +2263,7 @@ static void dedup_will_rescan(Dwarf_Die *die, const char *id,
 
 	id_file = calloc(1, sizeof(struct dedup_id_file));
 	if (id_file == NULL) {
-		fprintf(stderr, "Out of memory allocating id_file\n");
+		pr_err("Out of memory allocating id_file\n");
 		exit(1);
 	}
 	id_file->file_name = xstrdup(state->file_name);
@@ -2447,8 +2450,8 @@ static void mark_seen_contained(Dwarf_Die *die, const char *module_name,
 	return;
 
  fail:
-	fprintf(stderr, "Cannot %s while marking aggregates as seen: %s\n",
-		err, dwfl_errmsg(dwfl_errno()));
+	pr_err("Cannot %s while marking aggregates as seen: %s\n",
+	       err, dwfl_errmsg(dwfl_errno()));
 	exit(1);
 }
 
@@ -2541,8 +2544,8 @@ static void mark_shared(Dwarf_Die *die, const char *id,
 	return;
 
  fail:
-	fprintf(stderr, "Cannot mark aggregate %s members as duplicated: %s\n",
-		dwarf_diename(die), dwarf_errmsg(dwarf_errno()));
+	pr_err("Cannot mark aggregate %s members as duplicated: %s\n",
+	       dwarf_diename(die), dwarf_errmsg(dwarf_errno()));
 	exit(1);
 }
 
@@ -2608,15 +2611,15 @@ static int dedup_alias_fixup(void *id_file_data, void *data)
 
 	line_num = strstr(id_file->id, "//");
 	if (!line_num) {
-		fprintf(stderr, "Internal error: type ID %s is corrupt.\n",
-			id_file->id);
+		pr_err("Internal error: type ID %s is corrupt.\n",
+		       id_file->id);
 		exit(1);
 	}
 
 	type_size = strstr(line_num + 2, "//");
 	if (!type_size) {
-		fprintf(stderr, "Internal error: type ID %s is corrupt.\n",
-			id_file->id);
+		pr_err("Internal error: type ID %s is corrupt.\n",
+		       id_file->id);
 		exit(1);
 	}
 
@@ -2676,8 +2679,8 @@ static int dedup_alias_fixup(void *id_file_data, void *data)
 		}
 		if (!dwarf_offdie(state->dwarf, id_file->dieoff,
 				  &die)) {
-			fprintf(stderr, "Cannot look up offset %li in %s for type with ID %s\n",
-				id_file->dieoff, id_file->file_name, id_file->id);
+			pr_err("Cannot look up offset %li in %s for type with ID %s\n",
+			       id_file->dieoff, id_file->file_name, id_file->id);
 			exit(1);
 		}
 		mark_shared(&die, NULL, NULL, state);
@@ -2720,7 +2723,7 @@ static void mark_shared_by_name(ctf_file_t *ctf, ctf_id_t ctf_id,
 
 	full_ctf_id = malloc(sizeof(struct ctf_full_id));
 	if (full_ctf_id == NULL) {
-		fprintf(stderr, "%s: out of memory\n", __func__);
+		pr_err("%s: out of memory\n", __func__);
 		exit(1);
 	}
 	*full_ctf_id = static_ctf_id;
@@ -2790,19 +2793,19 @@ static struct ctf_full_id *construct_ctf_id(const char *module_name,
 	ctf_module = g_hash_table_lookup(id_to_module, id);
 
 	if (ctf_module == NULL) {
-		fprintf(stderr, "Internal error: within file %s, module %s, type at DIE offset %lx\n"
-			"with ID %s was not already noted by dedup().\n",
-			file_name, module_name, DIEOFFSET(die), id);
-		fprintf(stderr, "dedup() is probably buggy.\n");
+		pr_err("Internal error: within file %s, module %s, type at DIE offset %lx\n"
+		       "with ID %s was not already noted by dedup().\n",
+		       file_name, module_name, DIEOFFSET(die), id);
+		pr_err("dedup() is probably buggy.\n");
 		exit(1);
 	}
 
 	if ((strcmp(ctf_module, module_name) != 0) &&
 	    (strcmp(ctf_module, "shared_ctf") != 0)) {
-		fprintf(stderr, "Internal error: within file %s, module %s, type at DIE offset %lx\n"
-			"with ID %s is in a different non-shared module, %s.\n",
-			file_name, module_name, DIEOFFSET(die), id, ctf_module);
-		fprintf(stderr, "dedup() is probably buggy.\n");
+		pr_err("Internal error: within file %s, module %s, type at DIE offset %lx\n"
+		       "with ID %s is in a different non-shared module, %s.\n",
+		       file_name, module_name, DIEOFFSET(die), id, ctf_module);
+		pr_err("dedup() is probably buggy.\n");
 		exit(1);
 	}
 
@@ -2831,7 +2834,7 @@ static struct ctf_full_id *construct_ctf_id(const char *module_name,
 
 	ctf_id = malloc(sizeof(struct ctf_full_id));
 	if (ctf_id == NULL) {
-		fprintf(stderr, "Out of memory\n");
+		pr_err("Out of memory\n");
 		exit(1);
 	}
 
@@ -2983,10 +2986,10 @@ static ctf_id_t die_to_ctf(const char *module_name, const char *file_name,
 		 */
 		if ((dwarf_tag(die) >= assembly_len) ||
 		    (assembly_tab[dwarf_tag(die)] == NULL)) {
-			fprintf(stderr, "%s:%i: warning: skipping identifier "
-				"%s with unknown DWARF tag %lx.\n",
-				decl_file_name, decl_line_num, id_name,
-				(unsigned long) dwarf_tag(die));
+			pr_err("%s:%i: warning: skipping identifier "
+			       "%s with unknown DWARF tag %lx.\n",
+			       decl_file_name, decl_line_num, id_name,
+			       (unsigned long) dwarf_tag(die));
 			return -1;
 		}
 
@@ -3009,9 +3012,9 @@ static ctf_id_t die_to_ctf(const char *module_name, const char *file_name,
 		if (this_ctf_id < 0) {
 			if ((this_ctf_id == CTF_NO_ERROR_REPORTED) &&
 			    (ctf_errno(ctf) != 0))
-				fprintf(stderr, "%s: CTF error in assembly of item with tag %i: %s\n",
-					locerrstr, dwarf_tag(die),
-					ctf_errmsg(ctf_errno(ctf)));
+				pr_err("%s: CTF error in assembly of item with tag %i: %s\n",
+				       locerrstr, dwarf_tag(die),
+				       ctf_errmsg(ctf_errno(ctf)));
 
 			num_errors++;
 #ifdef DEBUG
@@ -3063,8 +3066,8 @@ static ctf_id_t die_to_ctf(const char *module_name, const char *file_name,
 			int replace = 0;
 
 			if (dwarf_child(die, &child_die) < 0) {
-				fprintf(stderr, "%s: Cannot recurse to DWARF DIE children: %s\n",
-					locerrstr, dwarf_errmsg(dwarf_errno()));
+				pr_err("%s: Cannot recurse to DWARF DIE children: %s\n",
+				       locerrstr, dwarf_errmsg(dwarf_errno()));
 				exit(1);
 			}
 
@@ -3103,8 +3106,8 @@ static ctf_id_t die_to_ctf(const char *module_name, const char *file_name,
 		 (sib_ret = dwarf_siblingof(die, die)) == 0);
 
 	if (sib_ret == -1) {
-		fprintf(stderr, "In module %s, failure walking the sibling list: %s\n",
-			module_name, dwarf_errmsg(dwarf_errno()));
+		pr_err("In module %s, failure walking the sibling list: %s\n",
+		       module_name, dwarf_errmsg(dwarf_errno()));
 		exit(1);
 	}
 
@@ -3187,24 +3190,24 @@ static ctf_id_t lookup_ctf_type(const char *module_name, const char *file_name,
 	 * Pass any error back up.
 	 */
 	if (type_ref == NULL) {
-		fprintf(stderr, "%s: type lookup failed.\n", locerrstr);
+		pr_err("%s: type lookup failed.\n", locerrstr);
 		return -1;
 	}
 
 	if ((type_ref->ctf_file != ctf) &&
 	    type_ref->ctf_file != lookup_ctf_file("shared_ctf")) {
 #ifdef DEBUG
-		fprintf(stderr, "%s: Internal error: lookup of %s found in different file: "
-			"%s/%s versus %s/%s.\n", locerrstr,
-			dwarf_diename(die) ? dwarf_diename(die) : "(unnamed)",
-			type_ref->module_name, type_ref->file_name,
-			module_name, file_name);
+		pr_err("%s: Internal error: lookup of %s found in different file: "
+		       "%s/%s versus %s/%s.\n", locerrstr,
+		       dwarf_diename(die) ? dwarf_diename(die) : "(unnamed)",
+		       type_ref->module_name, type_ref->file_name,
+		       module_name, file_name);
 #else
-		fprintf(stderr, "%s: Internal error: lookup of %s found in different file.\n",
-			locerrstr, dwarf_diename(die) ? dwarf_diename(die) :
-			"(unnamed)");
+		pr_err("%s: Internal error: lookup of %s found in different file.\n",
+		       locerrstr, dwarf_diename(die) ? dwarf_diename(die) :
+		       "(unnamed)");
 #endif
-		fprintf(stderr, "dedup() is probably buggy.\n");
+		pr_err("dedup() is probably buggy.\n");
 		exit(1);
 	}
 
@@ -3213,24 +3216,24 @@ static ctf_id_t lookup_ctf_type(const char *module_name, const char *file_name,
 
 /* Assembly functions.  */
 
-#define CTF_DW_ENFORCE(attribute) do						\
-		if (!private_dwarf_hasattr(die, (DW_AT_##attribute))) {		\
-			fprintf(stderr, "%s: %s: %lx: skipping type, %s attribute not present.\n", \
-				locerrstr, __func__,  DIEOFFSET(die),		\
-				#attribute);					\
-			*skip = SKIP_ABORT;					\
-			return CTF_ERROR_REPORTED;				\
-		}								\
+#define CTF_DW_ENFORCE(attribute) do					\
+		if (!private_dwarf_hasattr(die, (DW_AT_##attribute))) {	\
+			pr_err("%s: %s: %lx: skipping type, %s attribute not present.\n", \
+			       locerrstr, __func__,  DIEOFFSET(die),	\
+			       #attribute);				\
+			*skip = SKIP_ABORT;				\
+			return CTF_ERROR_REPORTED;			\
+		}							\
 	while (0)
 
-#define CTF_DW_ENFORCE_NOT(attribute) do					\
-		if (private_dwarf_hasattr(die, (DW_AT_##attribute))) {		\
-			fprintf(stderr, "%s: %s: %lx: skipping type, %s attribute not supported.\n", \
-				locerrstr, __func__, DIEOFFSET(die),		\
-				#attribute);					\
-			*skip = SKIP_ABORT;					\
-			return CTF_ERROR_REPORTED;				\
-		}								\
+#define CTF_DW_ENFORCE_NOT(attribute) do				\
+		if (private_dwarf_hasattr(die, (DW_AT_##attribute))) {	\
+			pr_err("%s: %s: %lx: skipping type, %s attribute not supported.\n", \
+			       locerrstr, __func__, DIEOFFSET(die),	\
+			       #attribute);				\
+			*skip = SKIP_ABORT;				\
+			return CTF_ERROR_REPORTED;			\
+		}							\
 	while (0)
 
 #define ROOT_TYPE(x) (x) ? CTF_ADD_ROOT : CTF_ADD_NONROOT
@@ -3410,8 +3413,8 @@ static ctf_id_t assemble_ctf_base(const char *module_name,
 	}
 
 	if (all_encodings[encoding_search].func == 0) {
-		fprintf(stderr, "%s: skipping type, base type %li not yet implemented.\n",
-			locerrstr, (long) encoding);
+		pr_err("%s: skipping type, base type %li not yet implemented.\n",
+		       locerrstr, (long) encoding);
 		*skip = SKIP_ABORT;
 		return CTF_ERROR_REPORTED;
 	}
@@ -3670,8 +3673,8 @@ static ctf_id_t assemble_ctf_cvr_qual(const char *module_name,
 	case DW_TAG_volatile_type: ctf_cvr_fun = ctf_add_volatile; break;
 	case DW_TAG_restrict_type: ctf_cvr_fun = ctf_add_restrict; break;
 	default:
-		fprintf(stderr, "%s: internal error: assemble_ctf_cvr_qual() called with\n"
-			"non-const/volatile/restrict: %i\n", locerrstr, dwarf_tag(die));
+		pr_err("%s: internal error: assemble_ctf_cvr_qual() called with\n"
+		       "non-const/volatile/restrict: %i\n", locerrstr, dwarf_tag(die));
 		exit(1);
 	}
 
@@ -3779,7 +3782,7 @@ static ctf_id_t assemble_ctf_struct_union(const char *module_name,
 		 */
 		member_count = malloc(sizeof(struct ctf_memb_count));
 		if (member_count == NULL) {
-			fprintf(stderr, "Out of memory allocating structure/union member count\n");
+			pr_err("Out of memory allocating structure/union member count\n");
 			exit(1);
 		}
 		member_count->count = 0;
@@ -3874,16 +3877,16 @@ static int ctf_su_offset(Dwarf_Die *die, const char *locerrstr,
 
 			if (dwarf_getlocation(&location_attr, &location,
 					      &nlocs) < 0) {
-				fprintf(stderr, "%s: offset not a valid location expression: %s\n",
-					locerrstr, dwarf_errmsg(dwarf_errno()));
+				pr_err("%s: offset not a valid location expression: %s\n",
+				       locerrstr, dwarf_errmsg(dwarf_errno()));
 				return CTF_ERROR_REPORTED;
 			}
 
 			if ((nlocs != 1) ||
 			    ((location[0].atom != DW_OP_plus_uconst) &&
 			     (location[0].atom != DW_OP_constu))) {
-				fprintf(stderr, "%s: complex location lists not supported:\n"
-					"either C++ or non-GCC output: skipped\n", locerrstr);
+				pr_err("%s: complex location lists not supported:\n"
+				       "either C++ or non-GCC output: skipped\n", locerrstr);
 				return CTF_ERROR_REPORTED;
 			}
 
@@ -3896,13 +3899,13 @@ static int ctf_su_offset(Dwarf_Die *die, const char *locerrstr,
 			 * We need a full DWARF expression list interpreter to
 			 * handle this.
 			 */
-			fprintf(stderr, "DWARF 4 expression location lists not supported.\n");
+			pr_err("DWARF 4 expression location lists not supported.\n");
 			exit(1);
 		}
 		default:
 		{
-			fprintf(stderr, "%s: expression location lists in form %u not supported.\n",
-				locerrstr, dwarf_whatform(&location_attr));
+			pr_err("%s: expression location lists in form %u not supported.\n",
+			       locerrstr, dwarf_whatform(&location_attr));
 			exit(1);
 		}
 		}
@@ -4013,8 +4016,8 @@ static ctf_id_t assemble_ctf_su_member(const char *module_name,
 	 */
 	private_dwarf_attr(die, DW_AT_type, &type_attr);
 	if (dwarf_formref_die(&type_attr, &type_die) == NULL) {
-		fprintf(stderr, "%s: nonexistent type reference.\n"
-			"Corrupted DWARF, cannot continue.\n", locerrstr);
+		pr_err("%s: nonexistent type reference.\n"
+		       "Corrupted DWARF, cannot continue.\n", locerrstr);
 		exit(1);
 	}
 	dwarf_diecu(&type_die, &cu_die, NULL, NULL);
@@ -4038,9 +4041,9 @@ static ctf_id_t assemble_ctf_su_member(const char *module_name,
 
 		if ((dwarf_tag(&type_die) != DW_TAG_structure_type) &&
 		    (dwarf_tag(&type_die) != DW_TAG_union_type)) {
-			fprintf(stderr, "%s:%lx: not supported: anonymous structure member\n"
-				"not a structure or union.\n", locerrstr,
-				DIEOFFSET(die));
+			pr_err("%s:%lx: not supported: anonymous structure member\n"
+			       "not a structure or union.\n", locerrstr,
+			       DIEOFFSET(die));
 			*skip = SKIP_ABORT;
 			return CTF_ERROR_REPORTED;
 		}
@@ -4101,10 +4104,10 @@ static ctf_id_t assemble_ctf_su_member(const char *module_name,
 					    &cu_die, o);
 	} else {
 		if (bit_offset != 0) {
-			fprintf(stderr, "%s:%s: error in member %s: No DW_AT_bit_size, but nonzero bit offset\n"
-				"of %lx in overall offset of %lx\n", locerrstr,
-				dwarf_diename(&cu_die), dwarf_diename(die),
-				bit_offset, offset);
+			pr_err("%s:%s: error in member %s: No DW_AT_bit_size, but nonzero bit offset\n"
+			       "of %lx in overall offset of %lx\n", locerrstr,
+			       dwarf_diename(&cu_die), dwarf_diename(die),
+			       bit_offset, offset);
 			return CTF_ERROR_REPORTED;
 		}
 		new_type = construct_ctf_id(module_name, file_name, &type_die,
@@ -4118,11 +4121,11 @@ static ctf_id_t assemble_ctf_su_member(const char *module_name,
 
 	if ((new_type->ctf_file != ctf) &&
 	    (new_type->ctf_file != lookup_ctf_file("shared_ctf"))) {
-		fprintf(stderr, "%s:%s: internal error: referenced type lookup for member %s\n"
-			"yields a different CTF file: %p versus %p\n",
-			locerrstr, dwarf_diename(&cu_die), dwarf_diename(die),
-			ctf, new_type->ctf_file);
-		fprintf(stderr, "dedup() is probably buggy.\n");
+		pr_err("%s:%s: internal error: referenced type lookup for member %s\n"
+		       "yields a different CTF file: %p versus %p\n",
+		       locerrstr, dwarf_diename(&cu_die), dwarf_diename(die),
+		       ctf, new_type->ctf_file);
+		pr_err("dedup() is probably buggy.\n");
 		exit(1);
 	}
 
@@ -4157,8 +4160,8 @@ static ctf_id_t assemble_ctf_su_member(const char *module_name,
 		 */
 
 		if (ctf_update(new_type->ctf_file) < 0) {
-			fprintf(stderr, "Cannot update CTF file: %s\n",
-				ctf_errmsg(ctf_errno(ctf)));
+			pr_err("Cannot update CTF file: %s\n",
+			       ctf_errmsg(ctf_errno(ctf)));
 			exit(1);
 		}
 
@@ -4170,8 +4173,8 @@ static ctf_id_t assemble_ctf_su_member(const char *module_name,
 
 		shared_ctf = lookup_ctf_file("shared_ctf");
 		if (ctf_update(shared_ctf) < 0) {
-			fprintf(stderr, "Cannot update shared CTF: %s\n",
-				ctf_errmsg(ctf_errno(shared_ctf)));
+			pr_err("Cannot update shared CTF: %s\n",
+			       ctf_errmsg(ctf_errno(shared_ctf)));
 			exit(1);
 		}
 
@@ -4181,17 +4184,17 @@ static ctf_id_t assemble_ctf_su_member(const char *module_name,
 					  offset) == 0)
 			return parent_ctf_id;
 #ifdef DEBUG
-		fprintf(stderr, "%s: Internal error: %s %s:%s:%p:%i\n"
-			"on member addition to ctf_file %p.\n",
-			locerrstr, ctf_errmsg(ctf_errno(ctf)),
-			new_type->module_name, new_type->file_name,
-			new_type->ctf_file, (int) new_type->ctf_id, ctf);
+		pr_err("%s: Internal error: %s %s:%s:%p:%i\n"
+		       "on member addition to ctf_file %p.\n",
+		       locerrstr, ctf_errmsg(ctf_errno(ctf)),
+		       new_type->module_name, new_type->file_name,
+		       new_type->ctf_file, (int) new_type->ctf_id, ctf);
 #else
-		fprintf(stderr, "%s: Internal error: %s %p:%i\n"
-			"on member addition to ctf_file %p.\n",
-			locerrstr, ctf_errmsg(ctf_errno(ctf)),
-			new_type->ctf_file, (int) new_type->ctf_id,
-			ctf);
+		pr_err("%s: Internal error: %s %p:%i\n"
+		       "on member addition to ctf_file %p.\n",
+		       locerrstr, ctf_errmsg(ctf_errno(ctf)),
+		       new_type->ctf_file, (int) new_type->ctf_id,
+		       ctf);
 #endif
 		return CTF_ERROR_REPORTED;
 	}
@@ -4295,7 +4298,7 @@ static void write_types(char *output, int standalone)
 		ctfs = calloc(ctf_count, sizeof(ctf_file_t *));
 		names = calloc(ctf_count, sizeof(char *));
 		if (!ctfs || !names)
-			fprintf(stderr, "Out of memory in CTF writeout\n");
+			pr_err("Out of memory in CTF writeout\n");
 	}
 
 	/*
@@ -4310,8 +4313,8 @@ static void write_types(char *output, int standalone)
 		dw_ctf_trace("Writing out %s\n", module);
 
 		if (ctf_update(per_mod->ctf_file) < 0) {
-			fprintf(stderr, "Cannot serialize CTF file %s: %s\n",
-				module, ctf_errmsg(ctf_errno(per_mod->ctf_file)));
+			pr_err("Cannot serialize CTF file %s: %s\n",
+			       module, ctf_errmsg(ctf_errno(per_mod->ctf_file)));
 			exit(1);
 		}
 
@@ -4328,19 +4331,19 @@ static void write_types(char *output, int standalone)
 			fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC,
 				  0666);
 			if (fd < 0) {
-				fprintf(stderr, "Cannot open CTF file %s for writing: %s\n",
-					path, strerror(errno));
+				pr_err("Cannot open CTF file %s for writing: %s\n",
+				       path, strerror(errno));
 				exit(1);
 			}
 			if (ctf_compress_write(per_mod->ctf_file, fd) < 0) {
-				fprintf(stderr, "Cannot write to CTF file %s: "
-					"%s\n", path,
-					ctf_errmsg(ctf_errno(per_mod->ctf_file)));
+				pr_err("Cannot write to CTF file %s: "
+				       "%s\n", path,
+				       ctf_errmsg(ctf_errno(per_mod->ctf_file)));
 				exit(1);
 			}
 			if (close(fd) != 0) {
-				fprintf(stderr, "Cannot close CTF file %s: %s\n",
-					path, strerror(errno));
+				pr_err("Cannot close CTF file %s: %s\n",
+				       path, strerror(errno));
 				exit(1);
 			}
 			free(path);
@@ -4352,9 +4355,9 @@ static void write_types(char *output, int standalone)
 
 		err = ctf_arc_write(output, ctfs, ctf_count, names, 4096);
 		if (err != 0) {
-			fprintf(stderr, "Cannot write to CTF archive %s: %s\n",
-				output, err < ECTF_BASE ? strerror(err) :
-				ctf_errmsg(err));
+			pr_err("Cannot write to CTF archive %s: %s\n",
+			       output, err < ECTF_BASE ? strerror(err) :
+			       ctf_errmsg(err));
 			exit(1);
 		}
 		free(names);
@@ -4374,8 +4377,8 @@ static Dwarf_Die *private_dwarf_type(Dwarf_Die *die, Dwarf_Die *target_die)
 
 	if (private_dwarf_attr(die, DW_AT_type, &type_ref_attr) != NULL) {
 		if (dwarf_formref_die(&type_ref_attr, target_die) == NULL) {
-			fprintf(stderr, "Corrupt DWARF at offset %lx: ref with no target.\n",
-				DIEOFFSET(die));
+			pr_err("Corrupt DWARF at offset %lx: ref with no target.\n",
+			       DIEOFFSET(die));
 			exit(1);
 		}
 		return target_die;
@@ -4406,8 +4409,8 @@ static inline int private_dwarf_hasattr(Dwarf_Die *die,
 
 	if (dwarf_attr(die, DW_AT_specification, &spec_ref_attr) != NULL) {
 		if (dwarf_formref_die(&spec_ref_attr, &spec_die) == NULL) {
-			fprintf(stderr, "Corrupt DWARF at offset %lx: ref with no target.\n",
-				DIEOFFSET(die));
+			pr_err("Corrupt DWARF at offset %lx: ref with no target.\n",
+			       DIEOFFSET(die));
 			exit(1);
 		}
 		return dwarf_hasattr(&spec_die, search_name);
@@ -4432,8 +4435,8 @@ static inline Dwarf_Attribute *private_dwarf_attr(Dwarf_Die *die,
 
 	if (dwarf_attr(die, DW_AT_specification, &spec_ref_attr) != NULL) {
 		if (dwarf_formref_die(&spec_ref_attr, &spec_die) == NULL) {
-			fprintf(stderr, "Corrupt DWARF at offset %lx: ref with no target.\n",
-				DIEOFFSET(die));
+			pr_err("Corrupt DWARF at offset %lx: ref with no target.\n",
+			       DIEOFFSET(die));
 			exit(1);
 		}
 		return dwarf_attr(&spec_die, search_name, result);
@@ -4584,7 +4587,7 @@ static char *xstrdup(const char *s)
 	char *s2 = strdup(s);
 
 	if (s2 == NULL) {
-		fprintf(stderr, "%s: Out of memory\n", __func__);
+		pr_err("%s: Out of memory\n", __func__);
 		exit(1);
 	}
 
@@ -4609,8 +4612,8 @@ static char *str_append(char *s, const char *append)
 	s = realloc(s, s_len + append_len + 1);
 
 	if (s == NULL) {
-		fprintf(stderr, "Out of memory appending a string of length %li to one of length %li\n",
-			strlen(append), s_len);
+		pr_err("Out of memory appending a string of length %li to one of length %li\n",
+		       strlen(append), s_len);
 		exit(1);
 	}
 
@@ -4643,8 +4646,8 @@ static char *str_appendn(char *s, ...)
 
 	s = realloc(s, len + 1);
 	if (s == NULL) {
-		fprintf(stderr, "Out of memory appending a string of length %li to one of length %li\n",
-			len - s_len, s_len);
+		pr_err("Out of memory appending a string of length %li to one of length %li\n",
+		       len - s_len, s_len);
 		exit(1);
 	}
 
@@ -4774,9 +4777,9 @@ static char *rel_abs_file_name(const char *file_name, const char *relative_to)
 	} else {
 		if (chdir(relative_to) < 0)
 			if (!warned) {
-				fprintf(stderr, "Cannot change directory to "
-					"%s: %s\n", relative_to,
-					strerror(errno));
+				pr_err("Cannot change directory to "
+				       "%s: %s\n", relative_to,
+				       strerror(errno));
 				warned = 1;
 			}
 	}
@@ -4847,7 +4850,7 @@ static long count_dwarf_members(Dwarf_Die *d)
 	return count;
 
  fail:
-	fprintf(stderr, "Cannot %s: %s\n", err, dwarf_errmsg(dwarf_errno()));
+	pr_err("Cannot %s: %s\n", err, dwarf_errmsg(dwarf_errno()));
 	exit(1);
 }
 
