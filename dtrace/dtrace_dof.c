@@ -886,7 +886,7 @@ int dtrace_dof_slurp(dof_hdr_t *dof, dtrace_vstate_t *vstate, const cred_t *cr,
 	uint_t			i;
 
 	ASSERT(MUTEX_HELD(&dtrace_lock));
-	ASSERT(dof->dofh_loadsz >= sizeof(dof_hdr_t));
+	ASSERT(dof->dofh_loadsz >= sizeof(struct dof_hdr));
 
 	dt_dbg_dof("  DOF 0x%p Slurping...\n", dof);
 
