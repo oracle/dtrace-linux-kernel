@@ -735,7 +735,7 @@ static inline void enqueue_task(struct rq *rq, struct task_struct *p, int flags)
 {
 	DTRACE_SCHED(enqueue, struct task_struct * : (lwpsinfo_t *,
 						      psinfo_t *), p,
-		     cpuinfo_t *, rq->dtrace_cpu_info);
+		     struct cpuinfo *, rq->dtrace_cpu_info);
 	if (!(flags & ENQUEUE_NOCLOCK))
 		update_rq_clock(rq);
 
@@ -751,7 +751,7 @@ static inline void dequeue_task(struct rq *rq, struct task_struct *p, int flags)
 {
 	DTRACE_SCHED(dequeue, struct task_struct * : (lwpsinfo_t *,
 						      psinfo_t *), p,
-		     cpuinfo_t *, rq->dtrace_cpu_info,
+		     struct cpuinfo *, rq->dtrace_cpu_info,
 		     int, 0);
 	if (!(flags & DEQUEUE_NOCLOCK))
 		update_rq_clock(rq);
