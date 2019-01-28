@@ -1106,7 +1106,7 @@ static void init_builtin(const char *builtin_objects_file,
 		size_t j;
 
 		for (j = 0; paths[j] != NULL; j++) {
-			dw_ctf_trace("noting built-in module mapping %s -> %s\n"
+			dw_ctf_trace("noting built-in module mapping %s -> %s\n",
 				     module_name, paths[j]);
 			g_hash_table_replace(object_to_module,
 					     strdup(paths[j]),
