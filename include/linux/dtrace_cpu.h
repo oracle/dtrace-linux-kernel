@@ -44,6 +44,9 @@ struct cpuinfo {
 
 DECLARE_PER_CPU_SHARED_ALIGNED(struct cpuinfo, dtrace_cpu_info);
 
+/* ABI requirement: type names compiled into DTrace userspace.  */
+typedef struct cpuinfo cpuinfo_t;
+
 extern void dtrace_cpu_init(void);
 
 #endif /* CONFIG_DTRACE */
