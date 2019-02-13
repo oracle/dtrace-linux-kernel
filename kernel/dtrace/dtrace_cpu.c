@@ -30,6 +30,12 @@ void dtrace_cpu_init(void)
 {
 	int	cpu;
 
+	/*
+	 * Force this type into the CTF for the sake of userspace's
+	 * ABI requirements.
+	 */
+	cpuinfo_t *dummy __attribute__((__unused__)) = NULL;
+
 	for_each_present_cpu(cpu) {
 		cpuinfo_arch_t		*ci = &cpu_data(cpu);
 		struct cpuinfo		*cpui = per_cpu_info(cpu);
