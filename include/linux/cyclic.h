@@ -21,27 +21,28 @@ typedef void		(*cyc_func_t)(uintptr_t);
 
 #define CYCLIC_NONE	((cyclic_id_t)0)
 
-typedef struct cyc_handler {
+struct cyc_handler {
 	cyc_func_t cyh_func;
 	uintptr_t cyh_arg;
 	cyc_level_t cyh_level;
-} cyc_handler_t;
+};
 
 #define CY_INTERVAL_INF (-1)
 
-typedef struct cyc_time {
+struct cyc_time {
 	ktime_t cyt_when;
 	ktime_t cyt_interval;
-} cyc_time_t;
+};
 
-typedef struct cyc_omni_handler {
-	void (*cyo_online)(void *, uint32_t, cyc_handler_t *, cyc_time_t *);
+struct cyc_omni_handler {
+	void (*cyo_online)(void *, uint32_t, struct cyc_handler *,
+			   struct cyc_time *);
 	void (*cyo_offline)(void *, uint32_t, void *);
 	void *cyo_arg;
-} cyc_omni_handler_t;
+};
 
-extern cyclic_id_t cyclic_add(cyc_handler_t *, cyc_time_t *);
-extern cyclic_id_t cyclic_add_omni(cyc_omni_handler_t *);
+extern cyclic_id_t cyclic_add(struct cyc_handler *, struct cyc_time *);
+extern cyclic_id_t cyclic_add_omni(struct cyc_omni_handler *);
 extern void cyclic_remove(cyclic_id_t);
 extern void cyclic_reprogram(cyclic_id_t, ktime_t);
 

@@ -614,14 +614,13 @@ static void dtrace_state_prereserve(struct dtrace_state *state)
 
 int dtrace_state_go(struct dtrace_state *state, processorid_t *cpu)
 {
-	dtrace_optval_t		*opt = state->dts_options, sz, nspec;
-	struct dtrace_speculation	*spec;
-	struct dtrace_buffer		*buf;
-	cyc_handler_t		hdlr;
-	cyc_time_t		when;
-	int			rval = 0, i,
-				bufsize = NR_CPUS * sizeof(struct dtrace_buffer);
-	processorid_t           cpuid;
+	dtrace_optval_t           *opt = state->dts_options, sz, nspec;
+	struct dtrace_speculation *spec;
+	struct dtrace_buffer	  *buf;
+	struct cyc_handler	  hdlr;
+	struct cyc_time		  when;
+	processorid_t		  cpuid;
+	int rval = 0, i, bufsize = NR_CPUS * sizeof(struct dtrace_buffer);
 
 	mutex_lock(&cpu_lock);
 	mutex_lock(&dtrace_lock);

@@ -242,7 +242,7 @@ if [ "$tok" = "kmod" ]; then
 	     if (probec > 0) {
 		 for (alias in protom)
 		     printf "extern void %s(void);\n", alias;
-		 print "\nstatic sdt_probedesc_t\t_sdt_probes[] = {";
+		 print "\nstatic struct sdt_probedesc\t_sdt_probes[] = {";
 		 for (i = 0; i < probec; i++)
 		     print probev[i];
 		 print "};\n";
