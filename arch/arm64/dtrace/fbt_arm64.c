@@ -85,7 +85,7 @@ uint64_t fbt_getarg(void *arg, dtrace_id_t id, void *parg, int argno,
 	return 0;
 }
 
-void fbt_provide_probe_arch(fbt_probe_t *fbp, int type, int stype)
+void fbt_provide_probe_arch(struct fbt_probe *fbp, int type, int stype)
 {
 	fbp->fbp_patchval = type == FBT_ENTRY ? BRK64_OPCODE_DPROBE_FBE
 					      : BRK64_OPCODE_DPROBE_FBR;

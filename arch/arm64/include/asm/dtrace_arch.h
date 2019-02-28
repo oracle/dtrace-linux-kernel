@@ -19,13 +19,13 @@ typedef int (*prov_exit_f)(void);
  *	- sdt_probec: number of SDT probes in the module
  *	- pdata: pointer to a dtrace_module struct (for DTrace)
  */
-typedef struct dtrace_module {
+struct dtrace_module {
 	int             enabled_cnt;
 	size_t          sdt_probe_cnt;
 	asm_instr_t	*sdt_tab;
 	size_t          fbt_probe_cnt;
 	asm_instr_t	*fbt_tab;
 	prov_exit_f	prov_exit;	/* Called with module_mutex held */
-} dtrace_module_t;
+};
 
 #endif /* _ASM_ARM64_DTRACE_ARCH_H */
