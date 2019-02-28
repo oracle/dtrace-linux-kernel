@@ -138,8 +138,8 @@ void dtrace_task_init(struct task_struct *tsk)
  */
 void dtrace_task_dup(struct task_struct *src, struct task_struct *dst)
 {
-	struct dtrace_psinfo	*psinfo;
-	struct dtrace_task	*dtsk;
+	struct dtrace_psinfo *psinfo;
+	struct dtrace_task   *dtsk;
 
 	/* Nothing to clone. */
 	if (src->dt_task == NULL)
