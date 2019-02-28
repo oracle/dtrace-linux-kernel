@@ -138,8 +138,9 @@ static void profile_prof_fn(uintptr_t arg)
 	dtrace_probe(prof->prof_id, pc, upc, ktime_to_ns(late), 0, 0, 0, 0);
 }
 
-static void profile_online(void *arg, processorid_t cpu, cyc_handler_t *hdlr,
-			   cyc_time_t *when)
+static void profile_online(void *arg, processorid_t cpu,
+			   struct cyc_handler *hdlr,
+			   struct cyc_time *when)
 {
 	struct profile_probe		*prof = arg;
 	struct profile_probe_percpu	*pcpu;
@@ -366,8 +367,8 @@ void profile_provide(void *arg, const struct dtrace_probedesc *desc)
 
 int profile_enable(void *arg, dtrace_id_t id, void *parg)
 {
-	struct profile_probe		*prof = parg;
-	cyc_time_t		when;
+	struct profile_probe	*prof = parg;
+	struct cyc_time		when;
 
 	if (!ktime_nz(prof->prof_interval)) {
 		WARN_ONCE(1, "%s: trying to enable 0-interval probe %s\n",
@@ -380,7 +381,7 @@ int profile_enable(void *arg, dtrace_id_t id, void *parg)
 	}
 
 	if (prof->prof_kind == PROF_TICK) {
-		cyc_handler_t		hdlr;
+		struct cyc_handler	hdlr;
 
 		hdlr.cyh_func = profile_tick_fn;
 		hdlr.cyh_arg = (uintptr_t)prof;
@@ -391,7 +392,7 @@ int profile_enable(void *arg, dtrace_id_t id, void *parg)
 
 		prof->prof_cyclic = cyclic_add(&hdlr, &when);
 	} else if (prof->prof_kind == PROF_PROFILE) {
-		cyc_omni_handler_t	omni;
+		struct cyc_omni_handler	omni;
 
 		omni.cyo_online = profile_online;
 		omni.cyo_offline = profile_offline;

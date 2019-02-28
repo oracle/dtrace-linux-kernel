@@ -87,7 +87,7 @@ static int dtrace_difo_err(uint_t pc, const char *format, ...)
  * 6. All branch targets must reference a valid instruction _after_ the branch
  */
 int dtrace_difo_validate(struct dtrace_difo *dp, struct dtrace_vstate *vstate,
-			 uint_t nregs, const cred_t *cr)
+			 uint_t nregs, const struct cred *cr)
 {
 	int	err = 0, i;
 	int	(*efunc)(uint_t pc, const char *, ...) = dtrace_difo_err;

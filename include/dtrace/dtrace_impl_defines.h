@@ -168,6 +168,6 @@ enum dtrace_speculation_state {
 
 #define MUTEX_HELD(lock)	mutex_owned(lock)
 
-#define PDATA(mp)		((dtrace_module_t *)mp->pdata)
+#define PDATA(mp)		((struct dtrace_module *)mp->pdata)
 
 #endif /* _LINUX_DTRACE_IMPL_DEFINES_H */

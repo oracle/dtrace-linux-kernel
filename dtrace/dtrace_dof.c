@@ -340,10 +340,11 @@ static struct dtrace_probedesc *dtrace_dof_probedesc(struct dof_hdr *dof,
 	return desc;
 }
 
-static struct dtrace_difo *dtrace_dof_difo(struct dof_hdr *dof,
-					   struct dof_sec *sec,
-					   struct dtrace_vstate *vstate,
-					   const cred_t *cr)
+static struct dtrace_difo *
+dtrace_dof_difo(struct dof_hdr *dof,
+		struct dof_sec *sec,
+		struct dtrace_vstate *vstate,
+		const struct cred *cr)
 {
 	struct dtrace_difo	*dp;
 	size_t		ttl = 0;
@@ -557,10 +558,11 @@ err:
 	return NULL;
 }
 
-static struct dtrace_predicate *dtrace_dof_predicate(struct dof_hdr *dof,
-						     struct dof_sec *sec,
-						     struct dtrace_vstate *vstate,
-						     const cred_t *cr)
+static struct dtrace_predicate *
+dtrace_dof_predicate(struct dof_hdr *dof,
+		     struct dof_sec *sec,
+		     struct dtrace_vstate *vstate,
+		     const struct cred *cr)
 {
 	struct dtrace_difo *dp;
 
@@ -570,10 +572,11 @@ static struct dtrace_predicate *dtrace_dof_predicate(struct dof_hdr *dof,
 	return dtrace_predicate_create(dp);
 }
 
-static struct dtrace_actdesc *dtrace_dof_actdesc(struct dof_hdr *dof,
-						 struct dof_sec *sec,
-						 struct dtrace_vstate *vstate,
-						 const cred_t *cr)
+static struct dtrace_actdesc *
+dtrace_dof_actdesc(struct dof_hdr *dof,
+		   struct dof_sec *sec,
+		   struct dtrace_vstate *vstate,
+		   const struct cred *cr)
 {
 	struct dtrace_actdesc	*act, *first = NULL, *last = NULL, *next;
 	struct dof_actdesc		*desc;
@@ -710,10 +713,11 @@ err:
 	return NULL;
 }
 
-static struct dtrace_ecbdesc *dtrace_dof_ecbdesc(struct dof_hdr *dof,
-						 struct dof_sec *sec,
-						 struct dtrace_vstate *vstate,
-						 const cred_t *cr)
+static struct dtrace_ecbdesc *
+dtrace_dof_ecbdesc(struct dof_hdr *dof,
+		   struct dof_sec *sec,
+		   struct dtrace_vstate *vstate,
+		   const struct cred *cr)
 {
 	struct dtrace_ecbdesc	*ep;
 	struct dof_ecbdesc		*ecb;
@@ -884,9 +888,8 @@ static int dtrace_dof_relocate(struct dof_hdr *dof, struct dof_sec *sec,
  * size.  It need not be validated in any other way.
  */
 int dtrace_dof_slurp(struct dof_hdr *dof, struct dtrace_vstate *vstate,
-		     const cred_t *cr,
-		     struct dtrace_enabling **enabp, uint64_t ubase,
-		     int noprobes)
+		     const struct cred *cr, struct dtrace_enabling **enabp,
+		     uint64_t ubase, int noprobes)
 {
 	uint64_t		len = dof->dofh_loadsz, seclen;
 	uintptr_t		daddr = (uintptr_t)dof;
