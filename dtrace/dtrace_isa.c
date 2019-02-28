@@ -181,10 +181,10 @@ void dtrace_sync(void)
 static int dtrace_fake_copyin(intptr_t addr, size_t size)
 {
 	struct dtrace_psinfo	*psinfo;
-	uintptr_t	argv;
-	unsigned long	argc;
-	uintptr_t	envp;
-	unsigned long	envc;
+	uintptr_t		argv;
+	unsigned long		argc;
+	uintptr_t		envp;
+	unsigned long		envc;
 
 	if (current->dt_task == NULL)
 		return 0;
@@ -354,8 +354,7 @@ int dtrace_getustackdepth(void)
 }
 
 void dtrace_probe_error(struct dtrace_state *state, dtrace_epid_t epid,
-			int act,
-			int fltoffs, int flags, uintptr_t addr)
+			int act, int fltoffs, int flags, uintptr_t addr)
 {
 	dtrace_probe(dtrace_probeid_error, (uintptr_t)state, epid, act,
 		     fltoffs, flags, addr, 0);

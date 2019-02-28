@@ -38,7 +38,7 @@ extern int			dtrace_helptrace_enabled;
 int				dtrace_opens;
 int				dtrace_err_verbose;
 
-struct dtrace_pops			dtrace_provider_ops = {
+struct dtrace_pops		dtrace_provider_ops = {
 	(void (*)(void *, const struct dtrace_probedesc *))dtrace_nullop,
 	(void (*)(void *, struct module *))dtrace_nullop,
 	(int (*)(void *, dtrace_id_t, void *))dtrace_enable_nullop,
@@ -62,7 +62,7 @@ struct kmem_cache		*dtrace_state_cachep;
 
 struct user_namespace		*init_user_namespace;
 
-static struct dtrace_pattr		dtrace_provider_attr = {
+static struct dtrace_pattr	dtrace_provider_attr = {
 { DTRACE_STABILITY_STABLE, DTRACE_STABILITY_STABLE, DTRACE_CLASS_COMMON },
 { DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_UNKNOWN },
 { DTRACE_STABILITY_PRIVATE, DTRACE_STABILITY_PRIVATE, DTRACE_CLASS_UNKNOWN },
@@ -105,8 +105,8 @@ static void dtrace_ioctl_sizes(void)
 static int dtrace_open(struct inode *inode, struct file *file)
 {
 	struct dtrace_state	*state;
-	uint32_t	priv;
-	kuid_t		uid;
+	uint32_t		priv;
+	kuid_t			uid;
 
 	dtrace_cred2priv(file->f_cred, &priv, &uid);
 	if (priv == DTRACE_PRIV_NONE)
@@ -157,10 +157,11 @@ static int dtrace_open(struct inode *inode, struct file *file)
 static long dtrace_ioctl(struct file *file,
 			 unsigned int cmd, unsigned long arg)
 {
-	struct dtrace_state	*state = (struct dtrace_state *)file->private_data;
-	int		rval;
-	void __user	*argp = (void __user *)arg;
+	struct dtrace_state 	*state;
+	int 			rval;
+	void __user		*argp = (void __user *)arg;
 
+	state = (struct dtrace_state *) file->private_data;
 	if (state->dts_anon) {
 		ASSERT(dtrace_anon.dta_state == NULL);
 		state = state->dts_anon;
@@ -169,7 +170,7 @@ static long dtrace_ioctl(struct file *file,
 	switch (cmd) {
 	case DTRACEIOC_PROVIDER: {
 		struct dtrace_providerdesc	pvd;
-		struct dtrace_provider	*pvp;
+		struct dtrace_provider		*pvp;
 
 		dt_dbg_ioctl("IOCTL PROVIDER (cmd %#x), argp %p\n", cmd, argp);
 
@@ -203,9 +204,9 @@ static long dtrace_ioctl(struct file *file,
 	}
 
 	case DTRACEIOC_EPROBE: {
-		struct dtrace_eprobedesc	epdesc;
-		struct dtrace_ecb		*ecb;
-		struct dtrace_action		*act;
+		struct dtrace_eprobedesc epdesc;
+		struct dtrace_ecb	*ecb;
+		struct dtrace_action	*act;
 		void			*buf;
 		size_t			size;
 		uint8_t			*dest;
@@ -285,8 +286,8 @@ static long dtrace_ioctl(struct file *file,
 
 	case DTRACEIOC_AGGDESC: {
 		struct dtrace_aggdesc	aggdesc;
-		struct dtrace_action		*act;
-		struct dtrace_aggregation	*agg;
+		struct dtrace_action	*act;
+		struct dtrace_aggregation *agg;
 		int			nrecs;
 		uint32_t		offs;
 		struct dtrace_recdesc	*lrec;
@@ -395,7 +396,7 @@ static long dtrace_ioctl(struct file *file,
 	case DTRACEIOC_ENABLE: {
 		struct dof_hdr		*dof;
 		struct dtrace_enabling	*enab = NULL;
-		struct dtrace_vstate		*vstate;
+		struct dtrace_vstate	*vstate;
 		int			err = 0;
 		int			rv;
 
@@ -490,7 +491,7 @@ static long dtrace_ioctl(struct file *file,
 	case DTRACEIOC_PROBEMATCH:
 	case DTRACEIOC_PROBES: {
 		int			id;
-		struct dtrace_probe		*probe = NULL;
+		struct dtrace_probe	*probe = NULL;
 		struct dtrace_probedesc	desc;
 		struct dtrace_probekey	pkey;
 		uint32_t		priv;
@@ -576,7 +577,7 @@ static long dtrace_ioctl(struct file *file,
 
 	case DTRACEIOC_PROBEARG: {
 		struct dtrace_argdesc	desc;
-		struct dtrace_probe		*probe;
+		struct dtrace_probe	*probe;
 		struct dtrace_provider	*prov;
 
 		dt_dbg_ioctl("IOCTL PROBEARG (cmd %#x), argp %p\n", cmd, argp);
@@ -692,7 +693,7 @@ static long dtrace_ioctl(struct file *file,
 	case DTRACEIOC_BUFSNAP: {
 		struct dtrace_bufdesc	desc;
 		caddr_t			cached;
-		struct dtrace_buffer		*buf;
+		struct dtrace_buffer	*buf;
 
 		dt_dbg_ioctl("IOCTL %s (cmd %#x), argp %p\n",
 			     cmd == DTRACEIOC_AGGSNAP ? "AGGSNAP"
@@ -843,8 +844,8 @@ static long dtrace_ioctl(struct file *file,
 	case DTRACEIOC_STATUS: {
 		struct dtrace_status	stat;
 		struct dtrace_dstate	*dstate;
-		int		i, j;
-		uint64_t	nerrs;
+		int			i, j;
+		uint64_t		nerrs;
 
 		dt_dbg_ioctl("IOCTL STATUS (cmd %#x), argp %p\n", cmd, argp);
 
@@ -873,8 +874,9 @@ static long dtrace_ioctl(struct file *file,
 		dstate = &state->dts_vstate.dtvs_dynvars;
 
 		for (i = 0; i < NR_CPUS; i++) {
-			struct dtrace_dstate_percpu	*dcpu = &dstate->dtds_percpu[i];
+			struct dtrace_dstate_percpu *dcpu;
 
+			dcpu = &dstate->dtds_percpu[i];
 			stat.dtst_dyndrops += dcpu->dtdsc_drops;
 			stat.dtst_dyndrops_dirty += dcpu->dtdsc_dirty_drops;
 			stat.dtst_dyndrops_rinsing += dcpu->dtdsc_rinsing_drops;
@@ -1004,7 +1006,7 @@ static long dtrace_helper_ioctl(struct file *file,
 			 unsigned int cmd, unsigned long arg)
 {
 	int		rval;
-	struct dof_helper	help, *dhp = NULL;
+	struct dof_helper help, *dhp = NULL;
 	void __user	*argp = (void __user *)arg;
 
 	switch (cmd) {
@@ -1141,8 +1143,8 @@ static void dtrace_module_loaded(struct module *mp)
 
 static void dtrace_module_unloaded(struct module *mp)
 {
-	struct dtrace_probe template, *probe, *first, *next;
-	struct dtrace_provider *prv;
+	struct dtrace_probe	template, *probe, *first, *next;
+	struct dtrace_provider	*prv;
 
 	template.dtpr_mod = mp->name;
 
@@ -1400,8 +1402,7 @@ int dtrace_dev_init(void)
 
 	dtrace_state_cachep = kmem_cache_create("dtrace_state_cache",
 				sizeof(struct dtrace_dstate_percpu) * NR_CPUS,
-				0,
-				SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL);
+				0, SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL);
 
 	/* From now on the failures are results of failed allocations. */
 	rc = -ENOMEM;

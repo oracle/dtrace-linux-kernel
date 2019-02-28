@@ -27,8 +27,8 @@
 
 static int fbt_brk_hook(struct pt_regs *regs, unsigned int esr)
 {
-	uintptr_t	ip = instruction_pointer(regs);
-	struct fbt_probe	*fbp = fbt_probetab[FBT_ADDR2NDX(ip)];
+	uintptr_t	 ip = instruction_pointer(regs);
+	struct fbt_probe *fbp = fbt_probetab[FBT_ADDR2NDX(ip)];
 
 	for (; fbp != NULL; fbp = fbp->fbp_hashnext) {
 		if ((uintptr_t)fbp->fbp_patchpoint == ip) {

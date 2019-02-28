@@ -53,7 +53,7 @@ dtrace_id_t		dtrace_probeid_begin;
 dtrace_id_t		dtrace_probeid_end;
 dtrace_id_t		dtrace_probeid_error;
 
-struct dtrace_dynvar		dtrace_dynhash_sink;
+struct dtrace_dynvar	dtrace_dynhash_sink;
 
 #define DTRACE_DYNHASH_FREE		0
 #define DTRACE_DYNHASH_SINK		1
@@ -65,7 +65,7 @@ static void dtrace_dynvar_clean(struct dtrace_dstate *dstate)
 {
 	struct dtrace_dynvar		*dirty;
 	struct dtrace_dstate_percpu	*dcpu;
-	int			i, work = 0;
+	int				i, work = 0;
 
 	for (i = 0; i < NR_CPUS; i++) {
 		dcpu = &dstate->dtds_percpu[i];
@@ -148,7 +148,7 @@ int dtrace_dstate_init(struct dtrace_dstate *dstate, size_t size)
 			chunksize = dstate->dtds_chunksize;
 	void		*base, *percpu;
 	uintptr_t	limit;
-	struct dtrace_dynvar	*dvar, *next, *start;
+	struct dtrace_dynvar *dvar, *next, *start;
 	int		i;
 
 	ASSERT(MUTEX_HELD(&dtrace_lock));
@@ -179,7 +179,8 @@ int dtrace_dstate_init(struct dtrace_dstate *dstate, size_t size)
 	memset(dstate->dtds_percpu, 0,
 	       NR_CPUS * sizeof(struct dtrace_dstate_percpu));
 
-	hashsize = size / (dstate->dtds_chunksize + sizeof(struct dtrace_dynhash));
+	hashsize = size /
+		(dstate->dtds_chunksize + sizeof(struct dtrace_dynhash));
 
 	if (hashsize != 1 && (hashsize & 1))
 		hashsize--;
@@ -322,13 +323,13 @@ static void dtrace_state_deadman(struct dtrace_state *state)
 
 struct dtrace_state *dtrace_state_create(struct file *file)
 {
-	struct dtrace_state	*state;
-	dtrace_optval_t	*opt;
-	int		bufsize = NR_CPUS * sizeof(struct dtrace_buffer), i;
+	struct dtrace_state *state;
+	dtrace_optval_t	    *opt;
+	int                 bufsize = NR_CPUS * sizeof(struct dtrace_buffer), i;
 #ifdef FIXME
-	const cred_t	*cr = file->f_cred;
+	const struct cred   *cr = file->f_cred;
 #endif
-	dtrace_aggid_t	aggid;
+	dtrace_aggid_t aggid;
 
 	ASSERT(MUTEX_HELD(&cpu_lock));
 	ASSERT(MUTEX_HELD(&dtrace_lock));
@@ -474,8 +475,7 @@ struct dtrace_state *dtrace_state_create(struct file *file)
 }
 
 static int dtrace_state_buffer(struct dtrace_state *state,
-			       struct dtrace_buffer *buf,
-			       int which)
+			       struct dtrace_buffer *buf, int which)
 {
 	dtrace_optval_t	*opt = state->dts_options, size;
 	processorid_t	cpu = DTRACE_CPUALL;
@@ -543,7 +543,7 @@ static int dtrace_state_buffer(struct dtrace_state *state,
 static int dtrace_state_buffers(struct dtrace_state *state)
 {
 	struct dtrace_speculation	*spec = state->dts_speculations;
-	int			rval, i;
+	int				rval, i;
 
 	rval = dtrace_state_buffer(state, state->dts_buffer, DTRACEOPT_BUFSIZE);
 	if (rval != 0)
@@ -998,10 +998,10 @@ int dtrace_state_option(struct dtrace_state *state, dtrace_optid_t option,
 
 void dtrace_state_destroy(struct dtrace_state *state)
 {
-	struct dtrace_ecb		*ecb;
-	struct dtrace_vstate		*vstate = &state->dts_vstate;
+	struct dtrace_ecb	*ecb;
+	struct dtrace_vstate	*vstate = &state->dts_vstate;
 	int			i;
-	struct dtrace_speculation	*spec = state->dts_speculations;
+	struct dtrace_speculation *spec = state->dts_speculations;
 	int			nspec = state->dts_nspeculations;
 	uint32_t		match;
 
@@ -1049,7 +1049,7 @@ void dtrace_state_destroy(struct dtrace_state *state)
 				continue;
 
 			if (match && ecb->dte_probe != NULL) {
-				struct dtrace_probe		*probe =
+				struct dtrace_probe	*probe =
 							ecb->dte_probe;
 				struct dtrace_provider	*prov =
 							probe->dtpr_provider;

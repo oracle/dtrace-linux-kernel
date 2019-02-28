@@ -29,7 +29,7 @@
 
 #define FBT_PROBETAB_SIZE	0x8000		/* 32k entries -- 128K total */
 
-struct fbt_probe		**fbt_probetab;
+struct fbt_probe	**fbt_probetab;
 int			fbt_probetab_size = FBT_PROBETAB_SIZE;
 int			fbt_probetab_mask;
 
@@ -37,9 +37,9 @@ static void *fbt_provide_probe(struct module *mp, char *func, int probetype,
 			       int stype, asm_instr_t *addr, uintptr_t off,
 			       void *pfbt, void *arg)
 {
-	struct fbt_probe	*fbp;
-	struct fbt_probe	*prev;
-	int		*skipped = arg;
+	struct fbt_probe *fbp;
+	struct fbt_probe *prev;
+	int		 *skipped = arg;
 
 	switch (probetype) {
 	case FBT_ENTRY:
@@ -160,8 +160,8 @@ void fbt_provide_module(void *arg, struct module *mp)
 
 int fbt_enable(void *arg, dtrace_id_t id, void *parg)
 {
-	struct fbt_probe	*fbp = parg;
-	struct fbt_probe	*curr;
+	struct fbt_probe *fbp = parg;
+	struct fbt_probe *curr;
 
 	/*
 	 * Ensure that we have a reference to the module.
@@ -186,8 +186,8 @@ int fbt_enable(void *arg, dtrace_id_t id, void *parg)
 
 void fbt_disable(void *arg, dtrace_id_t id, void *parg)
 {
-	struct fbt_probe	*fbp = parg;
-	struct fbt_probe	*curr;
+	struct fbt_probe *fbp = parg;
+	struct fbt_probe *curr;
 
 	for (curr = fbp; curr != NULL; curr = curr->fbp_next)
 		fbt_disable_arch(curr, id, arg);
@@ -205,10 +205,10 @@ void fbt_disable(void *arg, dtrace_id_t id, void *parg)
 
 void fbt_destroy(void *arg, dtrace_id_t id, void *parg)
 {
-	struct fbt_probe	*fbp = parg;
-	struct fbt_probe	*hbp, *lst, *nxt;
-	int		ndx;
-	struct module	*mp = fbp->fbp_module;
+	struct fbt_probe *fbp = parg;
+	struct fbt_probe *hbp, *lst, *nxt;
+	int		 ndx;
+	struct module	 *mp = fbp->fbp_module;
 
 	do {
 		nxt = fbp->fbp_next;

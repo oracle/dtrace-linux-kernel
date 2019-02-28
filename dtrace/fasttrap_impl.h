@@ -134,11 +134,11 @@ struct fasttrap_hash {
 	struct fasttrap_bucket_elem *fth_table;	/* array of buckets */
 };
 
-extern struct fasttrap_hash			fasttrap_tpoints;
+extern struct fasttrap_hash fasttrap_tpoints;
 
 #define	FASTTRAP_ID_INDEX(id)						      \
-	((struct fasttrap_id_tp *)(((char *)(id) -				      \
-	 offsetof(struct fasttrap_id_tp, fit_id))) -				      \
+	((struct fasttrap_id_tp *)(((char *)(id) -			      \
+	 offsetof(struct fasttrap_id_tp, fit_id))) -			      \
 	 &(id)->fti_probe->ftp_tps[0])
 #define FASTTRAP_TPOINTS_INDEX(pid, pc)					      \
 	(((pc) / sizeof(fasttrap_instr_t) + (pid)) &			      \
@@ -163,8 +163,8 @@ extern void *fasttrap_meta_provide(void *, struct dtrace_helper_provdesc *,
 extern void fasttrap_meta_remove(void *, struct dtrace_helper_provdesc *,
 				 pid_t);
 
-extern dtrace_meta_provider_id_t	fasttrap_id;
-extern struct dtrace_mops			fasttrap_mops;
+extern dtrace_meta_provider_id_t fasttrap_id;
+extern struct dtrace_mops	 fasttrap_mops;
 
 extern int fasttrap_dev_init(void);
 extern void fasttrap_dev_exit(void);

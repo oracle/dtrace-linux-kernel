@@ -30,7 +30,7 @@
 
 #define SDT_PROBETAB_SIZE	0x1000		/* 4k entries -- 16K total */
 
-struct sdt_probe		**sdt_probetab;
+struct sdt_probe	**sdt_probetab;
 int			sdt_probetab_size;
 int			sdt_probetab_mask;
 
@@ -302,7 +302,7 @@ void sdt_provide_module(void *arg, struct module *mp)
 		int			i, j;
 		struct dtrace_mprovider	*prov;
 		dtrace_id_t		id;
-		enum fasttrap_probe_type	ptype;
+		enum fasttrap_probe_type ptype;
 
 		if (name[0] == '?') {
 			ptype = SDTPT_IS_ENABLED;
@@ -470,14 +470,14 @@ void sdt_getargdesc(void *arg, dtrace_id_t id, void *parg,
 
 void sdt_destroy(void *arg, dtrace_id_t id, void *parg)
 {
-	struct sdt_probe	*sdp = parg;
+	struct sdt_probe *sdp = parg;
 
 	PDATA(sdp->sdp_module)->sdt_probe_cnt--;
 
 	while (sdp != NULL) {
-		struct sdt_probe	*old = sdp, *last, *hash;
-		int		ndx;
-		size_t		i;
+		struct sdt_probe *old = sdp, *last, *hash;
+		int		 ndx;
+		size_t		 i;
 
 		ndx = SDT_ADDR2NDX(sdp->sdp_patchpoint);
 		last = NULL;
