@@ -31,13 +31,13 @@
  * inactive buffers.  Taking a snapshot of the aggregation buffer _always_ has
  * the additional effect of switching the active and inactive buffers.
  */
-struct dtrace_bufdesc {
+typedef struct dtrace_bufdesc {
 	uint64_t dtbd_size;			/* size of buffer */
 	uint32_t dtbd_cpu;			/* CPU or DTRACE_CPUALL */
 	uint32_t dtbd_errors;			/* number of errors */
 	uint64_t dtbd_drops;			/* number of drops */
 	DTRACE_PTR(char, dtbd_data);		/* data */
 	uint64_t dtbd_oldest;			/* offset of oldest record */
-};
+} dtrace_bufdesc_t;
 
 #endif /* _LINUX_DTRACE_BUFFER_H */
