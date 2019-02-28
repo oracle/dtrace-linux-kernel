@@ -35,12 +35,12 @@ typedef struct dtrace_difo {
 	dif_instr_t *dtdo_buf;		/* instruction buffer */
 	uint64_t *dtdo_inttab;		/* integer table (optional) */
 	char *dtdo_strtab;		/* string table (optional) */
-	struct dtrace_difv *dtdo_vartab;	/* variable table (optional) */
+	struct dtrace_difv *dtdo_vartab; /* variable table (optional) */
 	uint_t dtdo_len;		/* length of instruction buffer */
 	uint_t dtdo_intlen;		/* length of integer table */
 	uint_t dtdo_strlen;		/* length of string table */
 	uint_t dtdo_varlen;		/* length of variable table */
-	struct dtrace_diftype dtdo_rtype;	/* return type */
+	struct dtrace_diftype dtdo_rtype; /* return type */
 	uint_t dtdo_refcnt;		/* owner reference count */
 	uint_t dtdo_destructive;	/* invokes destructive subroutines */
 #ifndef _KERNEL
