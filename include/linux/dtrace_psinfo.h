@@ -27,7 +27,7 @@ struct dtrace_psinfo {
 };
 
 /*
- * DTrace psinfo API. Requires dtrace_task_t as its argument.
+ * DTrace psinfo API. Requires struct dtrace_task as its argument.
  */
 
 extern void dtrace_psinfo_alloc(struct task_struct *);

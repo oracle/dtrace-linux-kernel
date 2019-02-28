@@ -50,7 +50,7 @@
  *   dtps_destroy()          <-- Destroy all state associated with this probe
  *   dtps_destroy_module()   <-- Destroy per-module data
  *
- * 1.2  void dtps_provide(void *arg, const dtrace_probedesc_t *spec)
+ * 1.2  void dtps_provide(void *arg, const struct dtrace_probedesc *spec)
  *
  * 1.2.1  Overview
  *
@@ -235,7 +235,7 @@
  *   memory.
  *
  * 1.8  void dtps_getargdesc(void *arg, dtrace_id_t id, void *parg,
- *           dtrace_argdesc_t *desc)
+ *           struct dtrace_argdesc *desc)
  *
  * 1.8.1  Overview
  *
@@ -256,7 +256,7 @@
  * 1.8.3  Return value
  *
  *   None.  The dtargd_ndx, dtargd_native, dtargd_xlate and dtargd_mapping
- *   members of the dtrace_argdesc_t structure are all output values.
+ *   members of the dtrace_argdesc structure are all output values.
  *
  * 1.8.4  Caller's context
  *
@@ -385,9 +385,9 @@
  *   dtrace_probe_arg()      <-- Return the probe argument for a specific probe
  *   dtrace_probe()          <-- Fire the specified probe
  *
- * 2.2  int dtrace_register(const char *name, const dtrace_pattr_t *pap,
- *          uint32_t priv, cred_t *cr, const dtrace_pops_t *pops, void *arg,
- *          dtrace_provider_id_t *idp)
+ * 2.2  int dtrace_register(const char *name, const struct dtrace_pattr *pap,
+ *          uint32_t priv, struct cred *cr, const struct dtrace_pops *pops,
+ *          void *arg, dtrace_provider_id_t *idp)
  *
  * 2.2.1  Overview
  *
@@ -465,7 +465,7 @@
  *   hold no locks across dtrace_register() that may also be acquired by
  *   dtrace_provide().  cpu_lock and mod_lock must not be held.
  *
- * 2.3  int dtrace_unregister(dtrace_provider_t id)
+ * 2.3  int dtrace_unregister(dtrace_provider_id_t id)
  *
  * 2.3.1  Overview
  *
@@ -564,7 +564,7 @@
  *
  *   dtrace_attached() returns 1 if DTrace has attached, 0 otherwise.
  *
- * 2.7  int dtrace_probe_create(dtrace_provider_t id, const char *mod,
+ * 2.7  int dtrace_probe_create(dtrace_provider_id_t id, const char *mod,
  *	    const char *func, const char *name, int aframes, void *arg)
  *
  * 2.7.1  Overview
@@ -608,8 +608,8 @@
  *   dtps_provide() and/or dtps_provide_module(), it may be called from other
  *   non-DTrace contexts.  Neither cpu_lock nor mod_lock may be held.
  *
- * 2.8  dtrace_id_t dtrace_probe_lookup(dtrace_provider_t id, const char *mod,
- *	    const char *func, const char *name)
+ * 2.8  dtrace_id_t dtrace_probe_lookup(dtrace_provider_id_t id,
+ *	    const char *mod, const char *func, const char *name)
  *
  * 2.8.1  Overview
  *
@@ -638,7 +638,7 @@
  *   dtps_provide() and/or dtps_provide_module(), it may also be called from
  *   other non-DTrace contexts.  Neither cpu_lock nor mod_lock may be held.
  *
- * 2.9  void *dtrace_probe_arg(dtrace_provider_t id, dtrace_id_t probe)
+ * 2.9  void *dtrace_probe_arg(dtrace_provider_id_t id, dtrace_id_t probe)
  *
  * 2.9.1  Overview
  *
