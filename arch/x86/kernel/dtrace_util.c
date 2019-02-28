@@ -128,8 +128,8 @@ int dtrace_die_notifier(struct notifier_block *nb, unsigned long val,
 		dargs->trapnr = 6;
 	}
 	case DIE_TRAP: {
-		struct dtrace_invop_hdlr	*hdlr;
-		int			rval = 0;
+		struct dtrace_invop_hdlr *hdlr;
+		int			 rval = 0;
 
 		if (dargs->trapnr != 6)
 			return NOTIFY_DONE;
@@ -175,8 +175,8 @@ int dtrace_die_notifier(struct notifier_block *nb, unsigned long val,
 		}
 	}
 	case DIE_INT3: {
-		struct dtrace_invop_hdlr	*hdlr;
-		int			rval = 0;
+		struct dtrace_invop_hdlr *hdlr;
+		int			 rval = 0;
 
 		/*
 		 * Let's assume that this is a DTrace probe firing, so we need
@@ -253,7 +253,7 @@ EXPORT_SYMBOL(dtrace_invop_add);
  */
 void dtrace_invop_remove(uint8_t (*func)(struct pt_regs *))
 {
-	struct dtrace_invop_hdlr	*hdlr = dtrace_invop_hdlrs, *prev = NULL;
+	struct dtrace_invop_hdlr *hdlr = dtrace_invop_hdlrs, *prev = NULL;
 
 	for (;;) {
 		if (hdlr == NULL)

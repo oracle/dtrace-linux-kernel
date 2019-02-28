@@ -35,7 +35,7 @@
 
 static uint8_t fbt_invop(struct pt_regs *regs)
 {
-	struct fbt_probe	*fbp = fbt_probetab[FBT_ADDR2NDX(regs->ip)];
+	struct fbt_probe *fbp = fbt_probetab[FBT_ADDR2NDX(regs->ip)];
 
 	for (; fbp != NULL; fbp = fbp->fbp_hashnext) {
 		if ((uintptr_t)fbp->fbp_patchpoint == regs->ip) {

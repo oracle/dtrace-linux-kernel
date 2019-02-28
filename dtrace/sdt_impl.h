@@ -40,7 +40,7 @@ struct sdt_probe {
 	struct module		*sdp_module;	/* modctl for module */
 	int			sdp_loadcnt;	/* load count for module */
 	int			sdp_primary;	/* non-zero if primary mod */
-	enum fasttrap_probe_type	sdp_ptype;	/* probe type */
+	enum fasttrap_probe_type sdp_ptype;	/* probe type */
 	asm_instr_t		*sdp_patchpoint;/* patch point */
 	asm_instr_t		sdp_patchval;	/* instruction to patch */
 	asm_instr_t		sdp_savedval;	/* saved instruction value */
