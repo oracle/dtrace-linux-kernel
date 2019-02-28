@@ -37,25 +37,25 @@
 
 struct dtrace_predicate;
 
-struct dtrace_probedesc {
+typedef struct dtrace_probedesc {
 	dtrace_id_t dtpd_id;			/* probe identifier */
 	char dtpd_provider[DTRACE_PROVNAMELEN]; /* probe provider name */
 	char dtpd_mod[DTRACE_MODNAMELEN];	/* probe module name */
 	char dtpd_func[DTRACE_FUNCNAMELEN];	/* probe function name */
 	char dtpd_name[DTRACE_NAMELEN];		/* probe name */
-};
+} dtrace_probedesc_t;
 
-struct dtrace_repldesc {
-	struct dtrace_probedesc dtrpd_match;		/* probe descr. to match */
+typedef struct dtrace_repldesc {
+	struct dtrace_probedesc dtrpd_match;	/* probe descr. to match */
 	struct dtrace_probedesc dtrpd_create;	/* probe descr. to create */
-};
+} dtrace_repldesc_t;
 
-struct dtrace_preddesc {
+typedef struct dtrace_preddesc {
 	struct dtrace_difo *dtpdd_difo;		/* pointer to DIF object */
 	struct dtrace_predicate *dtpdd_predicate; /* pointer to predicate */
-};
+} dtrace_preddesc_t;
 
-struct dtrace_actdesc {
+typedef struct dtrace_actdesc {
 	struct dtrace_difo *dtad_difo;		/* pointer to DIF object */
 	struct dtrace_actdesc *dtad_next;	/* next action */
 	dtrace_actkind_t dtad_kind;		/* kind of action */
@@ -63,14 +63,14 @@ struct dtrace_actdesc {
 	uint64_t dtad_arg;			/* action argument */
 	uint64_t dtad_uarg;			/* user argument */
 	int dtad_refcnt;			/* reference count */
-};
+} dtrace_actdesc_t;
 
-struct dtrace_ecbdesc {
-	struct dtrace_actdesc *dted_action;		/* action description(s) */
-	struct dtrace_preddesc dted_pred;		/* predicate description */
-	struct dtrace_probedesc dted_probe;		/* probe description */
+typedef struct dtrace_ecbdesc {
+	struct dtrace_actdesc *dted_action;	/* action description(s) */
+	struct dtrace_preddesc dted_pred;	/* predicate description */
+	struct dtrace_probedesc dted_probe;	/* probe description */
 	uint64_t dted_uarg;			/* library argument */
 	int dted_refcnt;			/* reference count */
-};
+} dtrace_ecbdesc_t;
 
 #endif /* _LINUX_DTRACE_ENABLING_H */

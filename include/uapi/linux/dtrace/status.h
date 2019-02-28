@@ -31,7 +31,7 @@
  * this field is non-zero, tracing should be stopped as soon as possible.
  */
 
-struct dtrace_status {
+typedef struct dtrace_status {
 	uint64_t dtst_dyndrops;			/* dynamic drops */
 	uint64_t dtst_dyndrops_rinsing;		/* dyn drops due to rinsing */
 	uint64_t dtst_dyndrops_dirty;		/* dyn drops due to dirty */
@@ -45,6 +45,6 @@ struct dtrace_status {
 	char dtst_killed;			/* non-zero if killed */
 	char dtst_exiting;			/* non-zero if exit() called */
 	char dtst_pad[6];			/* pad out to 64-bit align */
-};
+} dtrace_status_t;
 
 #endif /* _LINUX_DTRACE_STATUS_H */

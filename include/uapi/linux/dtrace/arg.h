@@ -31,12 +31,12 @@
  * maps to by setting the dtargd_mapping member -- allowing a single argument
  * to map to multiple args[X] variables.
  */
-struct dtrace_argdesc {
+typedef struct dtrace_argdesc {
 	dtrace_id_t dtargd_id;
 	int dtargd_ndx;
 	int dtargd_mapping;
 	char dtargd_native[DTRACE_ARGTYPELEN];
 	char dtargd_xlate[DTRACE_ARGTYPELEN];
-};
+} dtrace_argdesc_t;
 
 #endif /* _LINUX_DTRACE_ARG_H */
