@@ -24,7 +24,7 @@
 #include "dtrace.h"
 
 struct dtrace_provider	*dtrace_provider;
-struct dtrace_meta		*dtrace_meta_pid;
+struct dtrace_meta	*dtrace_meta_pid;
 struct dtrace_helpers	*dtrace_deferred_pid;
 
 DEFINE_MUTEX(dtrace_provider_lock);
@@ -35,9 +35,8 @@ DEFINE_MUTEX(dtrace_meta_lock);
  * be called by providers during module initialization.
  */
 int dtrace_register(const char *name, const struct dtrace_pattr *pap,
-		    uint32_t priv,
-		    const cred_t *cr, const struct dtrace_pops *pops,
-		    void *arg,
+		    uint32_t priv, const struct cred *cr,
+		    const struct dtrace_pops *pops, void *arg,
 		    dtrace_provider_id_t *idp)
 {
 	struct dtrace_provider	*provider;
@@ -114,7 +113,8 @@ int dtrace_register(const char *name, const struct dtrace_pattr *pap,
 	if (pops->dtps_provide == NULL) {
 		ASSERT(pops->dtps_provide_module != NULL);
 		provider->dtpv_pops.dtps_provide =
-		    (void (*)(void *, const struct dtrace_probedesc *))dtrace_nullop;
+		    (void (*)(void *, const struct dtrace_probedesc *))
+			dtrace_nullop;
 	}
 
 	if (pops->dtps_provide_module == NULL) {
@@ -201,7 +201,7 @@ EXPORT_SYMBOL(dtrace_register);
 
 struct unreg_state {
 	struct dtrace_provider	*prov;
-	struct dtrace_probe		*first;
+	struct dtrace_probe	*first;
 };
 
 /*
@@ -209,7 +209,7 @@ struct unreg_state {
  */
 static int dtrace_unregister_check(int id, void *p, void *data)
 {
-	struct dtrace_probe		*probe = (struct dtrace_probe *)p;
+	struct dtrace_probe	*probe = (struct dtrace_probe *)p;
 	struct unreg_state	*st = (struct unreg_state *)data;
 
 	if (probe->dtpr_provider != st->prov)
@@ -228,7 +228,7 @@ static int dtrace_unregister_check(int id, void *p, void *data)
  */
 static int dtrace_unregister_probe(int id, void *p, void *data)
 {
-	struct dtrace_probe		*probe = (struct dtrace_probe *)p;
+	struct dtrace_probe	*probe = (struct dtrace_probe *)p;
 	struct unreg_state	*st = (struct unreg_state *)data;
 
 	if (probe->dtpr_provider != st->prov)
@@ -256,7 +256,7 @@ static int dtrace_unregister_probe(int id, void *p, void *data)
  */
 static int dtrace_condense_probe(int id, void *p, void *data)
 {
-	struct dtrace_probe		*probe = (struct dtrace_probe *)p;
+	struct dtrace_probe	*probe = (struct dtrace_probe *)p;
 	struct unreg_state	*st = (struct unreg_state *)data;
 
 	if (probe->dtpr_provider != st->prov)
@@ -291,11 +291,8 @@ int dtrace_unregister(dtrace_provider_id_t id)
 	struct dtrace_provider	*old = (struct dtrace_provider *)id;
 	struct dtrace_provider	*prev = NULL;
 	int			err, self = 0;
-	struct dtrace_probe		*probe;
-	struct unreg_state	st = {
-					old,
-					NULL
-				     };
+	struct dtrace_probe	*probe;
+	struct unreg_state	st = { old, NULL };
 
 	ASSERT(MUTEX_HELD(&module_mutex));
 
@@ -477,11 +474,8 @@ EXPORT_SYMBOL(dtrace_attached);
 int dtrace_condense(dtrace_provider_id_t id)
 {
 	struct dtrace_provider	*prov = (struct dtrace_provider *)id;
-	struct dtrace_probe		*probe;
-	struct unreg_state	st = {
-					prov,
-					NULL
-				     };
+	struct dtrace_probe	*probe;
+	struct unreg_state	st = { prov, NULL };
 
 	/*
 	 * Make sure this isn't the DTrace provider itself.
@@ -532,7 +526,7 @@ EXPORT_SYMBOL(dtrace_condense);
 int dtrace_meta_register(const char *name, const struct dtrace_mops *mops,
 			 void *arg, dtrace_meta_provider_id_t *idp)
 {
-	struct dtrace_meta		*meta;
+	struct dtrace_meta	*meta;
 	struct dtrace_helpers	*help, *next;
 	int			i;
 
@@ -620,7 +614,7 @@ EXPORT_SYMBOL(dtrace_meta_register);
 
 int dtrace_meta_unregister(dtrace_meta_provider_id_t id)
 {
-	struct dtrace_meta	**pp, *old = (struct dtrace_meta *)id;
+	struct dtrace_meta **pp, *old = (struct dtrace_meta *)id;
 
 	dt_dbg_prov("Unregistering meta provider '%s'...\n", old->dtm_name);
 	mutex_lock(&dtrace_meta_lock);

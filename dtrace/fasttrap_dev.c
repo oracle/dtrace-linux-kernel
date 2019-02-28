@@ -42,9 +42,9 @@ static atomic_t			fasttrap_total;
 #define FASTTRAP_ENABLE_FAIL	1
 #define FASTTRAP_ENABLE_PARTIAL	2
 
-struct fasttrap_hash			fasttrap_tpoints;
-static struct fasttrap_hash		fasttrap_provs;
-static struct fasttrap_hash		fasttrap_procs;
+struct fasttrap_hash		fasttrap_tpoints;
+static struct fasttrap_hash	fasttrap_provs;
+static struct fasttrap_hash	fasttrap_procs;
 
 #define FASTTRAP_PROVS_INDEX(pid, name) \
 	((fasttrap_hash_str(name) + (pid)) & fasttrap_provs.fth_mask)
@@ -77,8 +77,7 @@ static void fasttrap_pid_cleanup(void);
 static void fasttrap_probes_cleanup(struct task_struct *);
 
 static int fasttrap_pid_probe(struct fasttrap_machtp *mtp,
-			      struct pt_regs *regs,
-			      int is_ret)
+			      struct pt_regs *regs, int is_ret)
 {
 	struct fasttrap_tracepoint	*tp;
 	struct fasttrap_id		*id;
@@ -130,7 +129,7 @@ static int fasttrap_pid_probe(struct fasttrap_machtp *mtp,
 }
 
 static void fasttrap_pid_provide(void *arg,
-				 const struct dtrace_probedesc *desc)
+                                 const struct dtrace_probedesc *desc)
 {
 	/*
 	 * There are no "default" pid probes.
@@ -1094,9 +1093,8 @@ static struct fasttrap_proc *fasttrap_proc_lookup(pid_t pid)
  * with its lock held.
  */
 static struct fasttrap_provider *
-fasttrap_provider_lookup(pid_t pid,
-			 const char *name,
-			 const struct dtrace_pattr *pa)
+fasttrap_provider_lookup(pid_t pid, const char *name,
+                         const struct dtrace_pattr *pa)
 {
 	struct fasttrap_provider *fp, *new_fp = NULL;
 	struct fasttrap_proc	*proc = NULL;
@@ -1276,7 +1274,7 @@ static void fasttrap_pid_cleanup_cb(struct work_struct *work)
 	dtrace_provider_id_t		provid;
 	int				i, later = 0;
 
-	static volatile int	in;
+	static volatile int		in;
 
 	ASSERT(in == 0);
 	in = 1;
@@ -1709,8 +1707,8 @@ static long fasttrap_ioctl(struct file *file,
 	void __user	*argp = (void __user *)arg;
 
 	if (cmd == FASTTRAPIOC_MAKEPROBE) {
-		struct fasttrap_probe_spec __user	*uprobe = argp;
-		struct fasttrap_probe_spec		*probe;
+		struct fasttrap_probe_spec __user *uprobe = argp;
+		struct fasttrap_probe_spec	*probe;
 		uint8_t				glen;
 		size_t				size;
 		int				ret;
@@ -1798,7 +1796,8 @@ static int fasttrap_init_htable(struct fasttrap_hash *fth, ulong_t nent)
 	ASSERT(fth->fth_nent > 0);
 
 	fth->fth_mask = fth->fth_nent - 1;
-	fth->fth_table = vzalloc(fth->fth_nent * sizeof(struct fasttrap_bucket_elem));
+	fth->fth_table = vzalloc(fth->fth_nent *
+				 sizeof(struct fasttrap_bucket_elem));
 
 	if (fth->fth_table == NULL)
 		return -ENOMEM;

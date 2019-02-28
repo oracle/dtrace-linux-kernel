@@ -65,7 +65,7 @@ void dtrace_buffer_switch(struct dtrace_buffer *buf)
  */
 void dtrace_buffer_activate(struct dtrace_state *state)
 {
-	struct dtrace_buffer		*buf;
+	struct dtrace_buffer	*buf;
 	dtrace_icookie_t	cookie;
 
 	local_irq_save(cookie);
