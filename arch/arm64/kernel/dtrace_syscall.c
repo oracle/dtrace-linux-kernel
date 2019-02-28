@@ -21,7 +21,7 @@ void systrace_stub(dtrace_id_t id, uintptr_t arg0, uintptr_t arg1,
 
 asmlinkage long systrace_syscall(const struct pt_regs *regs);
 
-static struct systrace_info	systrace_info = {
+static struct systrace_info systrace_info = {
 				&systrace_probe,
 				systrace_stub,
 				systrace_syscall,

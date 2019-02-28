@@ -399,18 +399,17 @@ struct dtrace_aggbuffer {
 void dtrace_aggregate(struct dtrace_aggregation *agg,
 		      struct dtrace_buffer *dbuf,
 		      intptr_t offset, struct dtrace_buffer *buf,
-		      uint64_t expr,
-		      uint64_t arg)
+		      uint64_t expr, uint64_t arg)
 {
 	struct dtrace_recdesc	*rec = &agg->dtag_action.dta_rec;
 	uint32_t		i, ndx, size, fsize;
 	uint32_t		align = sizeof(uint64_t) - 1;
 	struct dtrace_aggbuffer	*agb;
-	struct dtrace_aggkey		*key;
+	struct dtrace_aggkey	*key;
 	uint32_t		hashval = 0, limit, isstr;
 	caddr_t			tomax, data, kdata;
 	dtrace_actkind_t	action;
-	struct dtrace_action		*act;
+	struct dtrace_action	*act;
 	uintptr_t		offs;
 
 	if (buf == NULL)
@@ -595,7 +594,8 @@ next:
 	}
 
 	ASSERT(!(sizeof(struct dtrace_aggkey) & (sizeof(uintptr_t) - 1)));
-	key = (struct dtrace_aggkey *)(agb->dtagb_free - sizeof(struct dtrace_aggkey));
+	key = (struct dtrace_aggkey *)
+		(agb->dtagb_free - sizeof(struct dtrace_aggkey));
 	agb->dtagb_free -= sizeof(struct dtrace_aggkey);
 
 	key->dtak_data = kdata = tomax + offs;

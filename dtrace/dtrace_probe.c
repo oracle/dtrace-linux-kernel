@@ -68,7 +68,7 @@ dtrace_id_t dtrace_probe_create(dtrace_provider_id_t prov, const char *mod,
 				const char *func, const char *name,
 				int aframes, void *arg)
 {
-	struct dtrace_probe		*probe;
+	struct dtrace_probe	*probe;
 	struct dtrace_provider	*provider = (struct dtrace_provider *)prov;
 	dtrace_id_t		id;
 
@@ -178,12 +178,13 @@ int dtrace_probe_enable(const struct dtrace_probedesc *desc,
 void *dtrace_probe_arg(dtrace_provider_id_t id, dtrace_id_t pid)
 {
 	struct dtrace_probe	*probe;
-	void		*rval = NULL;
+	void			*rval = NULL;
 
 	mutex_lock(&dtrace_lock);
 
 	probe = dtrace_probe_lookup_id(pid);
-	if (probe != NULL && probe->dtpr_provider == (struct dtrace_provider *)id)
+	if (probe != NULL &&
+	    probe->dtpr_provider == (struct dtrace_provider *)id)
 		rval = probe->dtpr_arg;
 
 	mutex_unlock(&dtrace_lock);
@@ -277,7 +278,7 @@ static int dtrace_priv_kernel_destructive(struct dtrace_state *state)
 
 static void dtrace_action_breakpoint(struct dtrace_ecb *ecb)
 {
-	struct dtrace_probe		*probe = ecb->dte_probe;
+	struct dtrace_probe	*probe = ecb->dte_probe;
 	struct dtrace_provider	*prov = probe->dtpr_provider;
 	char			c[DTRACE_FULLNAMELEN + 80], *str;
 	char			*msg = "dtrace: breakpoint action at probe ";
@@ -339,7 +340,7 @@ static void dtrace_action_breakpoint(struct dtrace_ecb *ecb)
 
 static void dtrace_action_panic(struct dtrace_ecb *ecb)
 {
-	struct dtrace_probe	*probe = ecb->dte_probe;
+	struct dtrace_probe *probe = ecb->dte_probe;
 
 	/*
 	 * It's impossible to be taking action on the NULL probe.
@@ -699,10 +700,10 @@ void dtrace_probe(dtrace_id_t id, uintptr_t arg0, uintptr_t arg1,
 {
 	processorid_t		cpuid;
 	dtrace_icookie_t	cookie;
-	struct dtrace_probe		*probe;
-	struct dtrace_mstate		mstate;
-	struct dtrace_ecb		*ecb;
-	struct dtrace_action		*act;
+	struct dtrace_probe	*probe;
+	struct dtrace_mstate	mstate;
+	struct dtrace_ecb	*ecb;
+	struct dtrace_action	*act;
 	intptr_t		offs;
 	size_t			size;
 	int			onintr;
@@ -710,7 +711,7 @@ void dtrace_probe(dtrace_id_t id, uintptr_t arg0, uintptr_t arg1,
 	volatile uint16_t	*flags;
 	ktime_t			now;
 	uint32_t		re_entry;
-	struct dtrace_task		*dtsk = current->dt_task;
+	struct dtrace_task	*dtsk = current->dt_task;
 	dtrace_id_t		old_id;
 
 #ifdef FIXME
@@ -776,10 +777,10 @@ void dtrace_probe(dtrace_id_t id, uintptr_t arg0, uintptr_t arg1,
 
 	for (ecb = probe->dtpr_ecb; ecb != NULL; ecb = ecb->dte_next) {
 		struct dtrace_predicate	*pred = ecb->dte_predicate;
-		struct dtrace_state		*state = ecb->dte_state;
-		struct dtrace_buffer		*buf = &state->dts_buffer[cpuid];
-		struct dtrace_buffer		*aggbuf = &state->dts_aggbuffer[cpuid];
-		struct dtrace_vstate		*vstate = &state->dts_vstate;
+		struct dtrace_state	*state = ecb->dte_state;
+		struct dtrace_buffer	*buf = &state->dts_buffer[cpuid];
+		struct dtrace_buffer	*aggbuf = &state->dts_aggbuffer[cpuid];
+		struct dtrace_vstate	*vstate = &state->dts_vstate;
 		struct dtrace_provider	*prov = probe->dtpr_provider;
 		int			committed = 0;
 		caddr_t			tomax;
@@ -947,7 +948,7 @@ void dtrace_probe(dtrace_id_t id, uintptr_t arg0, uintptr_t arg1,
 
 		if (pred != NULL) {
 			struct dtrace_difo	*dp = pred->dtp_difo;
-			int		rval;
+			int			rval;
 
 			dt_dbg_probe("  Evaluating predicate...\n");
 
@@ -980,7 +981,7 @@ void dtrace_probe(dtrace_id_t id, uintptr_t arg0, uintptr_t arg1,
 		     !(*flags & CPU_DTRACE_ERROR) && act != NULL;
 		     act = act->dta_next) {
 			size_t			valoffs;
-			struct dtrace_difo		*dp;
+			struct dtrace_difo	*dp;
 			struct dtrace_recdesc	*rec = &act->dta_rec;
 
 			dt_dbg_probe("  Evaluating action %p (kind %d)...\n",
@@ -990,7 +991,7 @@ void dtrace_probe(dtrace_id_t id, uintptr_t arg0, uintptr_t arg1,
 			valoffs = offs + rec->dtrd_offset;
 
 			if (DTRACEACT_ISAGG(act->dta_kind)) {
-				uint64_t		v = 0xbad;
+				uint64_t			v = 0xbad;
 				struct dtrace_aggregation	*agg;
 
 				agg = (struct dtrace_aggregation *)act;
@@ -1380,7 +1381,7 @@ void dtrace_probe(dtrace_id_t id, uintptr_t arg0, uintptr_t arg1,
 		}
 
 		if (*flags & CPU_DTRACE_FAULT) {
-			int		ndx;
+			int			ndx;
 			struct dtrace_action	*err;
 
 			dt_dbg_probe("  -> Failed (%x)\n", *flags);

@@ -25,7 +25,7 @@
 
 static int sdt_brk_hook(struct pt_regs *regs, unsigned int esr)
 {
-	uintptr_t	ip = instruction_pointer(regs);
+	uintptr_t		ip = instruction_pointer(regs);
 	struct sdt_probe	*sdt = sdt_probetab[SDT_ADDR2NDX(ip)];
 
 	for (; sdt != NULL; sdt = sdt->sdp_hashnext) {

@@ -23,16 +23,17 @@
 
 struct dtrace_ecb	*dtrace_ecb_create_cache;
 
-static struct dtrace_action *dtrace_ecb_aggregation_create(struct dtrace_ecb *ecb,
-							   struct dtrace_actdesc *desc)
+static struct dtrace_action *
+dtrace_ecb_aggregation_create(struct dtrace_ecb *ecb,
+                              struct dtrace_actdesc *desc)
 {
-	struct dtrace_aggregation	*agg;
+	struct dtrace_aggregation *agg;
 	size_t			size = sizeof(uint64_t);
 	int			ntuple = desc->dtad_ntuple;
-	struct dtrace_action		*act;
+	struct dtrace_action	*act;
 	struct dtrace_recdesc	*frec;
 	dtrace_aggid_t		aggid;
-	struct dtrace_state		*state = ecb->dte_state;
+	struct dtrace_state	*state = ecb->dte_state;
 
 	agg = kzalloc(sizeof(struct dtrace_aggregation), GFP_KERNEL);
 	if (agg == NULL)
@@ -207,12 +208,12 @@ void dtrace_ecb_aggregation_destroy(struct dtrace_ecb *ecb,
 static int dtrace_ecb_action_add(struct dtrace_ecb *ecb,
 				 struct dtrace_actdesc *desc)
 {
-	struct dtrace_action		*action, *last;
-	struct dtrace_difo		*dp = desc->dtad_difo;
+	struct dtrace_action	*action, *last;
+	struct dtrace_difo	*dp = desc->dtad_difo;
 	uint32_t		size = 0, align = sizeof(uint8_t), mask;
 	uint16_t		format = 0;
 	struct dtrace_recdesc	*rec;
-	struct dtrace_state		*state = ecb->dte_state;
+	struct dtrace_state	*state = ecb->dte_state;
 	dtrace_optval_t		*opt = state->dts_options, nframes, strsize;
 	uint64_t		arg = desc->dtad_arg;
 
@@ -220,7 +221,7 @@ static int dtrace_ecb_action_add(struct dtrace_ecb *ecb,
 	ASSERT(ecb->dte_action == NULL || ecb->dte_action->dta_refcnt == 1);
 
 	if (DTRACEACT_ISAGG(desc->dtad_kind)) {
-		struct dtrace_action	*act;
+		struct dtrace_action *act;
 
 		for (act = ecb->dte_action; act != NULL; act = act->dta_next) {
 			if (act->dta_kind == DTRACEACT_COMMIT)
@@ -372,7 +373,7 @@ static int dtrace_ecb_action_add(struct dtrace_ecb *ecb,
 			break;
 
 		case DTRACEACT_COMMIT: {
-			struct dtrace_action	*act = ecb->dte_action;
+			struct dtrace_action *act = ecb->dte_action;
 
 			for (; act != NULL; act = act->dta_next) {
 				if (act->dta_kind == DTRACEACT_COMMIT)
@@ -394,7 +395,7 @@ static int dtrace_ecb_action_add(struct dtrace_ecb *ecb,
 		}
 
 		if (size != 0 || desc->dtad_kind == DTRACEACT_SPECULATE) {
-			struct dtrace_action	*act = ecb->dte_action;
+			struct dtrace_action *act = ecb->dte_action;
 
 			for (; act != NULL; act = act->dta_next) {
 				if (act->dta_kind == DTRACEACT_COMMIT)
@@ -455,7 +456,7 @@ static void dtrace_ecb_action_remove(struct dtrace_ecb *ecb)
 	struct dtrace_action	*act = ecb->dte_action, *next;
 	struct dtrace_vstate	*vstate = &ecb->dte_state->dts_vstate;
 	struct dtrace_difo	*dp;
-	uint16_t	format;
+	uint16_t		format;
 
 	if (act != NULL && act->dta_refcnt > 1) {
 		ASSERT(act->dta_next == NULL || act->dta_next->dta_refcnt == 1);
@@ -565,10 +566,10 @@ void dtrace_ecb_disable(struct dtrace_ecb *ecb)
 }
 
 static struct dtrace_ecb *dtrace_ecb_add(struct dtrace_state *state,
-					 struct dtrace_probe *probe)
+                                         struct dtrace_probe *probe)
 {
 	struct dtrace_ecb	*ecb;
-	dtrace_epid_t	epid;
+	dtrace_epid_t		epid;
 
 	ASSERT(MUTEX_HELD(&dtrace_lock));
 
@@ -585,7 +586,7 @@ static struct dtrace_ecb *dtrace_ecb_add(struct dtrace_state *state,
 
 	if (epid - 1 >= state->dts_necbs) {
 		struct dtrace_ecb	**oecbs = state->dts_ecbs, **ecbs;
-		int		necbs = state->dts_necbs << 1;
+		int			necbs = state->dts_necbs << 1;
 
 		ASSERT(epid == state->dts_necbs + 1);
 
@@ -631,11 +632,11 @@ static struct dtrace_ecb *dtrace_ecb_add(struct dtrace_state *state,
 	return ecb;
 }
 
-static struct dtrace_ecb *dtrace_ecb_create(struct dtrace_state *state,
-					    struct dtrace_probe *probe,
-					    struct dtrace_enabling *enab)
+static struct dtrace_ecb * dtrace_ecb_create(struct dtrace_state *state,
+                                             struct dtrace_probe *probe,
+                                             struct dtrace_enabling *enab)
 {
-	struct dtrace_ecb		*ecb;
+	struct dtrace_ecb	*ecb;
 	struct dtrace_predicate	*pred;
 	struct dtrace_actdesc	*act;
 	struct dtrace_provider	*prov;
@@ -701,9 +702,9 @@ static struct dtrace_ecb *dtrace_ecb_create(struct dtrace_state *state,
 
 int dtrace_ecb_create_enable(struct dtrace_probe *probe, void *arg)
 {
-	struct dtrace_ecb		*ecb;
+	struct dtrace_ecb	*ecb;
 	struct dtrace_enabling	*enab = arg;
-	struct dtrace_state		*state = enab->dten_vstate->dtvs_state;
+	struct dtrace_state	*state = enab->dten_vstate->dtvs_state;
 
 	ASSERT(state != NULL);
 
@@ -722,8 +723,8 @@ int dtrace_ecb_create_enable(struct dtrace_probe *probe, void *arg)
 
 void dtrace_ecb_destroy(struct dtrace_ecb *ecb)
 {
-	struct dtrace_state		*state = ecb->dte_state;
-	struct dtrace_vstate		*vstate = &state->dts_vstate;
+	struct dtrace_state	*state = ecb->dte_state;
+	struct dtrace_vstate	*vstate = &state->dts_vstate;
 	struct dtrace_predicate	*pred;
 	dtrace_epid_t		epid = ecb->dte_epid;
 
@@ -745,11 +746,11 @@ void dtrace_ecb_destroy(struct dtrace_ecb *ecb)
 
 void dtrace_ecb_resize(struct dtrace_ecb *ecb)
 {
-	uint32_t	maxalign = sizeof(dtrace_epid_t);
-	uint32_t	align = sizeof(uint8_t), offs, diff;
 	struct dtrace_action	*act;
-	int		wastuple = 0;
-	uint32_t	aggbase = UINT32_MAX;
+	uint32_t		maxalign = sizeof(dtrace_epid_t);
+	uint32_t		align = sizeof(uint8_t), offs, diff;
+	int			wastuple = 0;
+	uint32_t		aggbase = UINT32_MAX;
 	struct dtrace_state	*state = ecb->dte_state;
 
 	/*
@@ -802,10 +803,11 @@ void dtrace_ecb_resize(struct dtrace_ecb *ecb)
 		}
 
 		if (DTRACEACT_ISAGG(act->dta_kind)) {
-			struct dtrace_aggregation	*agg =
-						(struct dtrace_aggregation *)act;
-			struct dtrace_action		*first = agg->dtag_first,
-						*prev;
+			struct dtrace_aggregation	*agg;
+			struct dtrace_action		*first, *prev;
+
+			agg = (struct dtrace_aggregation *)act;
+			first = agg->dtag_first;
 
 			ASSERT(rec->dtrd_size != 0 && first != NULL);
 			ASSERT(wastuple);
@@ -907,7 +909,7 @@ int dtrace_ecb_enable(struct dtrace_ecb *ecb)
 }
 
 struct dtrace_ecb *dtrace_epid2ecb(struct dtrace_state *state,
-				   dtrace_epid_t id)
+                                   dtrace_epid_t id)
 {
 	struct dtrace_ecb *ecb;
 
@@ -924,7 +926,7 @@ struct dtrace_ecb *dtrace_epid2ecb(struct dtrace_state *state,
 }
 
 struct dtrace_aggregation *dtrace_aggid2agg(struct dtrace_state *state,
-					    dtrace_aggid_t id)
+                                            dtrace_aggid_t id)
 {
 	ASSERT(MUTEX_HELD(&dtrace_lock));
 
