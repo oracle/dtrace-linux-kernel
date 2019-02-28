@@ -772,9 +772,9 @@ struct dtrace_meta {
 struct dtrace_mprovider {
 	char			*dtmp_name;
 	char			*dtmp_pref;
-	struct dtrace_pattr		*dtmp_attr;
+	struct dtrace_pattr	*dtmp_attr;
 	uint32_t		dtmp_priv;
-	struct dtrace_pops		*dtmp_pops;
+	struct dtrace_pops	*dtmp_pops;
 	dtrace_provider_id_t	dtmp_id;
 };
 
@@ -793,8 +793,7 @@ extern int dtrace_condense(dtrace_provider_id_t);
 extern int dtrace_attached(void);
 
 extern int dtrace_meta_register(const char *, const struct dtrace_mops *,
-				void *,
-				dtrace_meta_provider_id_t *);
+				void *, dtrace_meta_provider_id_t *);
 extern int dtrace_meta_unregister(dtrace_meta_provider_id_t);
 
 extern dtrace_id_t dtrace_probe_create(dtrace_provider_id_t, const char *,

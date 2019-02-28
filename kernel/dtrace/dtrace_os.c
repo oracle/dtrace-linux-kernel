@@ -591,10 +591,10 @@ EXPORT_SYMBOL(dtrace_copy_code);
 static int handler(struct uprobe_consumer *self, struct pt_regs *regs,
 		   int is_ret)
 {
-	struct fasttrap_machtp	*mtp = container_of(self,
-							  struct fasttrap_machtp,
-							  fmtp_cns);
+	struct fasttrap_machtp *mtp;
 	int			rc = 0;
+
+	mtp = container_of(self, struct fasttrap_machtp, fmtp_cns);
 
 	read_lock(&this_cpu_core->cpu_ft_lock);
 	if (dtrace_tracepoint_hit == NULL)
