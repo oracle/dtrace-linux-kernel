@@ -27,20 +27,20 @@
  *
  * Each Solaris process can have multiple providers -- the pid provider as
  * well as any number of user-level statically defined tracing (USDT)
- * providers. Those providers are each represented by a fasttrap_provider_t.
+ * providers. Those providers are each represented by a fasttrap_provider.
  * All providers for a given process have a pointer to a shared
- * fasttrap_proc_t. The fasttrap_proc_t has two states: active or defunct.
+ * fasttrap_proc. The fasttrap_proc has two states: active or defunct.
  * When the count of active providers goes to zero it becomes defunct; a
  * provider drops its active count when it is removed individually or as part
  * of a mass removal when a process exits or performs an exec.
  *
- * Each probe is represented by a fasttrap_probe_t which has a pointer to
- * its associated provider as well as a list of fasttrap_id_tp_t structures
- * which are tuples combining a fasttrap_id_t and a fasttrap_tracepoint_t.
- * A fasttrap_tracepoint_t represents the actual point of instrumentation
- * and it contains two lists of fasttrap_id_t structures (to be fired pre-
+ * Each probe is represented by a fasttrap_probe which has a pointer to
+ * its associated provider as well as a list of fasttrap_id_tp structures
+ * which are tuples combining a fasttrap_id and a fasttrap_tracepoint.
+ * A fasttrap_tracepoint represents the actual point of instrumentation
+ * and it contains two lists of fasttrap_id structures (to be fired pre-
  * and post-instruction emulation) that identify the probes attached to the
- * tracepoint. Tracepoints also have a pointer to the fasttrap_proc_t for the
+ * tracepoint. Tracepoints also have a pointer to the fasttrap_proc for the
  * process they trace which is used when looking up a tracepoint both when a
  * probe fires and when enabling and disabling probes.
  *
