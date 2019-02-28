@@ -24,29 +24,29 @@
  * compute the properties of an input program and report them.
  */
 
-struct dtrace_ppriv {
+typedef struct dtrace_ppriv {
 	uint32_t dtpp_flags;			/* privilege flags */
 	uid_t dtpp_uid;				/* user ID */
-};
+} dtrace_ppriv_t;
 
-struct dtrace_attribute {
+typedef struct dtrace_attribute {
 	dtrace_stability_t dtat_name;		/* entity name stability */
 	dtrace_stability_t dtat_data;		/* entity data stability */
 	dtrace_class_t dtat_class;		/* entity data dependency */
-};
+} dtrace_attribute_t;
 
-struct dtrace_pattr {
+typedef struct dtrace_pattr {
 	struct dtrace_attribute dtpa_provider;	/* provider attributes */
-	struct dtrace_attribute dtpa_mod;		/* module attributes */
-	struct dtrace_attribute dtpa_func;		/* function attributes */
-	struct dtrace_attribute dtpa_name;		/* name attributes */
-	struct dtrace_attribute dtpa_args;		/* args[] attributes */
-};
+	struct dtrace_attribute dtpa_mod;	/* module attributes */
+	struct dtrace_attribute dtpa_func;	/* function attributes */
+	struct dtrace_attribute dtpa_name;	/* name attributes */
+	struct dtrace_attribute dtpa_args;	/* args[] attributes */
+} dtrace_pattr_t;
 
-struct dtrace_providerdesc {
+typedef struct dtrace_providerdesc {
 	char dtvd_name[DTRACE_PROVNAMELEN];	/* provider name */
 	struct dtrace_pattr dtvd_attr;		/* stability attributes */
 	struct dtrace_ppriv dtvd_priv;		/* privileges required */
-};
+} dtrace_providerdesc_t;
 
 #endif /* _LINUX_DTRACE_STABILITY_H */

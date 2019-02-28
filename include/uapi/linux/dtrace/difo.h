@@ -31,7 +31,7 @@
  * result, the definition can change depending on the presence of _KERNEL.
  */
 
-struct dtrace_difo {
+typedef struct dtrace_difo {
 	dif_instr_t *dtdo_buf;		/* instruction buffer */
 	uint64_t *dtdo_inttab;		/* integer table (optional) */
 	char *dtdo_strtab;		/* string table (optional) */
@@ -52,6 +52,6 @@ struct dtrace_difo {
 	uint_t dtdo_urelen;			/* length of urelo table */
 	uint_t dtdo_xlmlen;			/* length of translator table */
 #endif
-};
+} dtrace_difo_t;
 
 #endif /* _LINUX_DTRACE_DIFO_H */
