@@ -466,7 +466,7 @@ struct module {
 #endif
 
 #ifdef CONFIG_DTRACE
-	sdt_probedesc_t *sdt_probes;
+	struct sdt_probedesc *sdt_probes;
 	unsigned int sdt_probec;
 	void *pdata;
 #endif

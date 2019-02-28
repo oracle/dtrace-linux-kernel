@@ -13,7 +13,7 @@
 /*
  * Opaque handle for per-task data.
  */
-typedef struct dtrace_task dtrace_task_t;
+struct dtrace_task;
 
 /*
  * DTrace's kernel API for per-task data manipulation.

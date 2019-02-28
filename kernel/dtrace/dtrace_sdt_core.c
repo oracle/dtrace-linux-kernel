@@ -47,9 +47,9 @@ extern const char __stop_dtrace_sdt_args[];
 extern const char __start_dtrace_sdt_names[];
 extern const char __stop_dtrace_sdt_names[];
 
-static int sdt_probe_set(sdt_probedesc_t *sdp, const char *name,
+static int sdt_probe_set(struct sdt_probedesc *sdp, const char *name,
 			 const char *func, uintptr_t addr, asm_instr_t **paddr,
-			 sdt_probedesc_t *prv)
+			 struct sdt_probedesc *prv)
 {
 	sdp->sdpd_name = kstrdup(name, GFP_KERNEL);
 	if (sdp->sdpd_name == NULL) {
@@ -84,7 +84,7 @@ static int sdt_probe_set(sdt_probedesc_t *sdp, const char *name,
  * that pointed to by sdpd.
  */
 void dtrace_sdt_stash_args(const char *module_name,
-			   sdt_probedesc_t *sdpd, size_t nprobes,
+			   struct sdt_probedesc *sdpd, size_t nprobes,
 			   const char *names_start, size_t names_len,
 			   const char *args_start, size_t args_len)
 {
@@ -196,7 +196,7 @@ void dtrace_sdt_stash_args(const char *module_name,
 void __init dtrace_sdt_register(struct module *mp)
 {
 	int			i, cnt;
-	sdt_probedesc_t		*sdps;
+	struct sdt_probedesc	*sdps;
 	asm_instr_t		**addrs;
 	int			*is_enabled;
 	void			*args;
@@ -221,8 +221,8 @@ void __init dtrace_sdt_register(struct module *mp)
 	 * Allocate the array of SDT probe descriptions to be registered in the
 	 * vmlinux pseudo-module.
 	 */
-	sdps = (sdt_probedesc_t *)vmalloc(dtrace_sdt_nprobes *
-					  sizeof(sdt_probedesc_t));
+	sdps = (struct sdt_probedesc *)vmalloc(dtrace_sdt_nprobes *
+					  sizeof(struct sdt_probedesc));
 	if (sdps == NULL) {
 		pr_warn("%s: cannot allocate SDT probe array\n", __func__);
 		return;
@@ -312,7 +312,7 @@ void dtrace_sdt_register_module(struct module *mp,
 				void *sdt_args_addr, size_t sdt_args_len)
 {
 	int			i, cnt;
-	sdt_probedesc_t		*sdp;
+	struct sdt_probedesc	*sdp;
 	asm_instr_t		**addrs;
 	int			*is_enabled;
 

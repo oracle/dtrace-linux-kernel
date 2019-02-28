@@ -867,8 +867,8 @@ void dtrace_probe(dtrace_id_t id, uintptr_t arg0, uintptr_t arg1,
 			 * we're examining a user context.
 			 */
 			if (ecb->dte_cond & DTRACE_COND_OWNER) {
-				const cred_t	*cr;
-				const cred_t	*s_cr =
+				const struct cred *cr;
+				const struct cred *s_cr =
 					ecb->dte_state->dts_cred.dcr_cred;
 
 				ASSERT(s_cr != NULL);

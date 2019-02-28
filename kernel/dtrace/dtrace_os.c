@@ -67,7 +67,7 @@ void __init dtrace_os_init(void)
 	 * Setup for module handling.
 	 */
 	dtrace_pdata_cachep = kmem_cache_create("dtrace_pdata_cache",
-				sizeof(dtrace_module_t), 0,
+				sizeof(struct dtrace_module), 0,
 				SLAB_HWCACHE_ALIGN|SLAB_PANIC, NULL);
 	if (dtrace_pdata_cachep == NULL)
 		pr_debug("Can't allocate kmem cache for pdata\n");
@@ -203,7 +203,7 @@ EXPORT_SYMBOL_GPL(dtrace_for_each_module);
 
 void dtrace_mod_pdata_alloc(struct module *mp)
 {
-	dtrace_module_t *pdata;
+	struct dtrace_module *pdata;
 
 	pdata = kmem_cache_alloc(dtrace_pdata_cachep, GFP_KERNEL | __GFP_ZERO);
 	if (pdata == NULL) {
@@ -217,7 +217,7 @@ void dtrace_mod_pdata_alloc(struct module *mp)
 
 void dtrace_mod_pdata_free(struct module *mp)
 {
-	dtrace_module_t *pdata = mp->pdata;
+	struct dtrace_module *pdata = mp->pdata;
 
 	if (mp->pdata == NULL)
 		return;
@@ -232,7 +232,7 @@ void dtrace_mod_pdata_free(struct module *mp)
  */
 int dtrace_destroy_prov(struct module *mp)
 {
-	dtrace_module_t *pdata = mp->pdata;
+	struct dtrace_module *pdata = mp->pdata;
 
 	if (pdata != NULL && pdata->prov_exit != NULL)
 		return pdata->prov_exit();

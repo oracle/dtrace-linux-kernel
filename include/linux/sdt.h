@@ -87,7 +87,7 @@
 
 #ifdef CONFIG_DTRACE
 
-typedef struct sdt_probedesc {
+struct sdt_probedesc {
 	char			*sdpd_name;	/* probe name */
 	char			*sdpd_func;	/* probe function */
 #ifndef __GENKSYMS__
@@ -95,7 +95,7 @@ typedef struct sdt_probedesc {
 #endif
 	unsigned long		sdpd_offset;	/* offset of call in text */
 	struct sdt_probedesc	*sdpd_next;	/* next static probe */
-} sdt_probedesc_t;
+};
 
 #endif /* CONFIG_DTRACE */
 
