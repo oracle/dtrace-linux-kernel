@@ -92,10 +92,10 @@
  * helper minor node.
  */
 
-struct dof_helper {
+typedef struct dof_helper {
 	char dofhp_mod[DTRACE_MODNAMELEN];	/* executable or library name */
 	uint64_t dofhp_addr;			/* base address of object */
 	uint64_t dofhp_dof;			/* address of helper DOF */
-};
+} dof_helper_t;
 
 #endif /* _LINUX_DTRACE_HELPERS_H */
