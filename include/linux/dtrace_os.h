@@ -79,8 +79,8 @@ struct stacktrace_state {
 extern void dtrace_stacktrace(struct stacktrace_state *);
 extern void dtrace_user_stacktrace(struct stacktrace_state *);
 extern void dtrace_handle_badaddr(struct pt_regs *);
-extern void dtrace_mod_pdata_init(dtrace_module_t *pdata);
-extern void dtrace_mod_pdata_cleanup(dtrace_module_t *pdata);
+extern void dtrace_mod_pdata_init(struct dtrace_module *pdata);
+extern void dtrace_mod_pdata_cleanup(struct dtrace_module *pdata);
 
 /*
  * This is only safe to call if we know this is a userspace fault
