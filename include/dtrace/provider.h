@@ -706,6 +706,7 @@
  */
 
 #include <dtrace/types.h>
+#include <linux/cred.h>
 #include <linux/module.h>
 #include <linux/dtrace/enabling_defines.h>
 #include <linux/dtrace/arg_defines.h>
@@ -783,8 +784,8 @@ struct dtrace_pmod {
 };
 
 extern int dtrace_register(const char *, const struct dtrace_pattr *,
-			   uint32_t,
-			   const cred_t *, const struct dtrace_pops *, void *,
+			   uint32_t, const struct cred *,
+			   const struct dtrace_pops *, void *,
 			   dtrace_provider_id_t *);
 extern int dtrace_unregister(dtrace_provider_id_t);
 extern void dtrace_invalidate(dtrace_provider_id_t);

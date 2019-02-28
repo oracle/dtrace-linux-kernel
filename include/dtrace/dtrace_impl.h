@@ -70,7 +70,6 @@ struct dtrace_action {
 };
 
 struct dtrace_ecb;
-typedef struct dtrace_ecb	dtrace_ecb_t;
 
 struct dtrace_probe {
 	dtrace_id_t dtpr_id;
@@ -93,7 +92,6 @@ struct dtrace_probe {
 };
 
 struct dtrace_state;
-typedef struct dtrace_state	dtrace_state_t;
 
 struct dtrace_ecb {
 	dtrace_epid_t dte_epid;
@@ -239,7 +237,7 @@ struct dtrace_aggregation {
 };
 
 struct dtrace_cred {
-	const cred_t *dcr_cred;
+	const struct cred *dcr_cred;
 	uint8_t dcr_destructive;
 	uint8_t dcr_visible;
 	uint16_t dcr_action;
@@ -551,8 +549,7 @@ extern int dtrace_canload(uintptr_t, size_t, struct dtrace_mstate *,
 			  struct dtrace_vstate *);
 
 extern int dtrace_difo_validate(struct dtrace_difo *, struct dtrace_vstate *,
-				uint_t,
-				const cred_t *);
+				uint_t, const struct cred *);
 extern int dtrace_difo_validate_helper(struct dtrace_difo *);
 extern int dtrace_difo_cacheable(struct dtrace_difo *);
 extern void dtrace_difo_hold(struct dtrace_difo *);
@@ -1093,8 +1090,8 @@ extern struct dof_hdr *dtrace_dof_copyin(void __user *, int *);
 extern struct dof_hdr *dtrace_dof_property(const char *);
 extern void dtrace_dof_destroy(struct dof_hdr *);
 extern int dtrace_dof_slurp(struct dof_hdr *, struct dtrace_vstate *,
-			    const cred_t *,
-			    struct dtrace_enabling **, uint64_t, int);
+			    const struct cred *, struct dtrace_enabling **,
+			    uint64_t, int);
 extern int dtrace_dof_options(struct dof_hdr *, struct dtrace_state *);
 extern void dtrace_helper_provide(struct dof_helper *dhp, pid_t pid);
 extern int dtrace_helper_slurp(struct dof_hdr *, struct dof_helper *);
@@ -1153,7 +1150,7 @@ extern int dtrace_strncmp(char *, char *, size_t);
 extern size_t dtrace_strlen(const char *, size_t);
 extern int dtrace_badattr(const struct dtrace_attribute *);
 extern int dtrace_badname(const char *);
-extern void dtrace_cred2priv(const cred_t *, uint32_t *, kuid_t *);
+extern void dtrace_cred2priv(const struct cred *, uint32_t *, kuid_t *);
 
 extern void ctf_forceload(void);
 
@@ -1232,8 +1229,8 @@ extern void dtrace_copyin_arch(uintptr_t, uintptr_t, size_t,
 extern void dtrace_copyinstr_arch(uintptr_t, uintptr_t, size_t,
 				  volatile uint16_t *);
 
-extern void pdata_init(dtrace_module_t *, struct module *);
-extern void pdata_cleanup(dtrace_module_t *, struct module *);
+extern void pdata_init(struct dtrace_module *, struct module *);
+extern void pdata_cleanup(struct dtrace_module *, struct module *);
 
 extern void debug_enter(char *);
 

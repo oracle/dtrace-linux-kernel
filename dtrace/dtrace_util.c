@@ -234,18 +234,18 @@ int dtrace_badname(const char *s)
 	return 0;
 }
 
-void dtrace_cred2priv(const cred_t *cr, uint32_t *privp, kuid_t *uidp)
+void dtrace_cred2priv(const struct cred *cr, uint32_t *privp, kuid_t *uidp)
 {
 #ifdef FIXME
 /*
- * This should probably be rewritten based on capabilities in the cred_t struct.
+ * This should probably be rewritten based on capabilities in the struct cred.
  */
 	uint32_t	priv;
 
 	if (cr == NULL)
 		priv = DTRACE_PRIV_ALL;
 	else {
-		const cred_t	*lcr = get_cred(cr);
+		const struct cred *lcr = get_cred(cr);
 
 		if (PRIV_POLICY_ONLY(lcr, PRIV_ALL, FALSE))
 			priv = DTRACE_PRIV_ALL;
@@ -273,7 +273,7 @@ void dtrace_cred2priv(const cred_t *cr, uint32_t *privp, kuid_t *uidp)
 	*privp = DTRACE_PRIV_ALL;
 
 	if (cr != NULL) {
-		const cred_t	*lcr = get_cred(cr);
+		const struct cred *lcr = get_cred(cr);
 
 		*uidp = lcr->uid;
 		put_cred(cr);

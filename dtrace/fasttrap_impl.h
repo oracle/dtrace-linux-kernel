@@ -75,13 +75,9 @@ struct fasttrap_provider {
 	struct fasttrap_provider *ftp_next;	/* next prov in hash chain */
 };
 
-typedef struct fasttrap_id		fasttrap_id_t;
-typedef struct fasttrap_probe		fasttrap_probe_t;
-typedef struct fasttrap_tracepoint	fasttrap_tracepoint_t;
-
 struct fasttrap_id {
-	fasttrap_probe_t *fti_probe;		/* referrring probe */
-	fasttrap_id_t *fti_next;		/* enabled probe list on tp */
+	struct fasttrap_probe *fti_probe;	/* referrring probe */
+	struct fasttrap_id *fti_next;		/* enabled probe list on tp */
 	enum fasttrap_probe_type fti_ptype;	/* probe type */
 };
 
@@ -90,20 +86,20 @@ struct fasttrap_tracepoint {
 	uintptr_t ftt_pc;			/* address of tracepoint */
 	pid_t ftt_pid;				/* pid of tracepoint */
 	struct fasttrap_machtp ftt_mtp;		/* ISA-specific portion */
-	fasttrap_id_t *ftt_ids;			/* NULL-terminated list */
-	fasttrap_id_t *ftt_retids;		/* NULL-terminated list */
-	fasttrap_tracepoint_t *ftt_next;	/* link in global hash */
+	struct fasttrap_id *ftt_ids;		/* NULL-terminated list */
+	struct fasttrap_id *ftt_retids;		/* NULL-terminated list */
+	struct fasttrap_tracepoint *ftt_next;	/* link in global hash */
 };
 
 struct fasttrap_id_tp {
-	fasttrap_id_t fit_id;
-	fasttrap_tracepoint_t *fit_tp;
+	struct fasttrap_id fit_id;
+	struct fasttrap_tracepoint *fit_tp;
 };
 
 struct fasttrap_probe {
 	dtrace_id_t ftp_id;			/* DTrace probe identifier */
 	pid_t ftp_pid;				/* pid for this probe */
-	struct fasttrap_provider *ftp_prov;		/* this probe's provider */
+	struct fasttrap_provider *ftp_prov;	/* this probe's provider */
 	uint64_t ftp_gen;			/* modification generation */
 	uint64_t ftp_ntps;			/* number of tracepoints */
 	uint8_t *ftp_argmap;			/* native to translated args */
@@ -111,7 +107,7 @@ struct fasttrap_probe {
 	uint8_t ftp_enabled;			/* is this probe enabled */
 	char *ftp_xtypes;			/* translated types index */
 	char *ftp_ntypes;			/* native types index */
-	struct fasttrap_id_tp ftp_tps[1];		/* flexible array */
+	struct fasttrap_id_tp ftp_tps[1];	/* flexible array */
 };
 
 struct fasttrap_bucket_elem {
@@ -154,9 +150,9 @@ extern uint64_t fasttrap_pid_getarg(void *arg, dtrace_id_t id, void *parg,
 				    int argno, int aframes);
 extern uint64_t fasttrap_usdt_getarg(void *arg, dtrace_id_t id, void *parg,
 				     int argno, int aframes);
-extern void fasttrap_pid_probe_arch(fasttrap_probe_t *ftp,
+extern void fasttrap_pid_probe_arch(struct fasttrap_probe *ftp,
 				    struct pt_regs *regs);
-extern void fasttrap_pid_retprobe_arch(fasttrap_probe_t *ftp,
+extern void fasttrap_pid_retprobe_arch(struct fasttrap_probe *ftp,
 				       struct pt_regs *regs);
 extern void fasttrap_set_enabled(struct pt_regs *regs);
 
