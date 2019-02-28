@@ -17,16 +17,16 @@
 #include <linux/dtrace/universal.h>
 #include <linux/dtrace/fasttrap_defines.h>
 
-enum fasttrap_probe_type {
+typedef enum fasttrap_probe_type {
 	DTFTP_NONE = 0,
 	DTFTP_ENTRY,
 	DTFTP_RETURN,
 	DTFTP_OFFSETS,
 	DTFTP_POST_OFFSETS,
 	DTFTP_IS_ENABLED
-};
+} fasttrap_probe_type_t;
 
-struct fasttrap_probe_spec {
+typedef struct fasttrap_probe_spec {
 	pid_t ftps_pid;				/* task PID */
 	enum fasttrap_probe_type ftps_type;	/* probe type */
 	char ftps_func[DTRACE_FUNCNAMELEN];	/* probe function */
@@ -35,15 +35,15 @@ struct fasttrap_probe_spec {
 	uint64_t ftps_size;			/* function size (in bytes) */
 	uint8_t ftps_glen;			/* glob pattern length */
 	char ftps_gstr[1];			/* glob pattern string */
-};
+} fasttrap_probe_spec_t;
 
 typedef uint8_t		fasttrap_instr_t;
 
-struct fasttrap_instr_query {
+typedef struct fasttrap_instr_query {
 	uint64_t ftiq_pc;
 	pid_t ftiq_pid;
 	fasttrap_instr_t ftiq_instr;
-};
+} fasttrap_instr_query_t;
 
 /*
  * Include after the definitions, to get ioctl()s when fasttrap.h is included.
