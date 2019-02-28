@@ -283,10 +283,10 @@ void dtrace_brk_stop(void *arg)
 }
 EXPORT_SYMBOL(dtrace_brk_stop);
 
-void dtrace_mod_pdata_init(dtrace_module_t *pdata)
+void dtrace_mod_pdata_init(struct dtrace_module *pdata)
 {
 }
 
-void dtrace_mod_pdata_cleanup(dtrace_module_t *pdata)
+void dtrace_mod_pdata_cleanup(struct dtrace_module *pdata)
 {
 }

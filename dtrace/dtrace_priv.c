@@ -27,7 +27,7 @@
  */
 int dtrace_priv_proc_common_user(struct dtrace_state *state)
 {
-	const cred_t	*cr, *s_cr = state->dts_cred.dcr_cred;
+	const struct cred *cr, *s_cr = state->dts_cred.dcr_cred;
 
 	/*
 	 * We should always have a non-NULL state cred here, since if cred

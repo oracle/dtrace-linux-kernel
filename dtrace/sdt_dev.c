@@ -69,8 +69,9 @@ static char *cleanup_type(const char *vartype, int arg_strip)
  * Set up the args lists, extracting them from their sdpd entry and parsing them
  * into an sdt_argdesc array for each probe.
  */
-static struct sdt_argdesc *sdt_setup_args(sdt_probedesc_t *sdpd,
-				     size_t *sdp_nargdesc)
+static struct sdt_argdesc *
+sdt_setup_args(struct sdt_probedesc *sdpd,
+	       size_t *sdp_nargdesc)
 {
 	struct sdt_argdesc *args;
 	char *argstr;
@@ -259,8 +260,8 @@ void sdt_provide_module(void *arg, struct module *mp)
 {
 	char			*modname = mp->name;
 	struct dtrace_mprovider	*prov;
-	sdt_probedesc_t		*sdpd;
-	struct sdt_probe		*sdp, *prv;
+	struct sdt_probedesc	*sdpd;
+	struct sdt_probe	*sdp, *prv;
 	int			idx, len;
 	int			probes_skipped = 0;
 

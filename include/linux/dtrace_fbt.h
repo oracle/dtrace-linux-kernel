@@ -37,7 +37,7 @@ extern void dtrace_fbt_init(fbt_add_probe_fn, struct module *, void *);
 /*
  * Dynamic blacklist routines.
  */
-typedef struct dt_fbt_bl_entry dt_fbt_bl_entry_t;
+struct dt_fbt_bl_entry;
 
 extern struct dt_fbt_bl_entry *dtrace_fbt_bl_add(unsigned long, const char *);
 extern struct dt_fbt_bl_entry *dtrace_fbt_bl_first(void);
