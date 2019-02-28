@@ -62,13 +62,14 @@ void dtrace_dof_error(struct dof_hdr *dof, const char *str)
  */
 struct dof_hdr *dtrace_dof_create(struct dtrace_state *state)
 {
-	struct dof_hdr	*dof;
-	struct dof_sec	*sec;
+	struct dof_hdr		*dof;
+	struct dof_sec		*sec;
 	struct dof_optdesc	*opt;
-	int		i, len = sizeof(struct dof_hdr) +
-				 roundup(sizeof(struct dof_sec),
-					 sizeof(uint64_t)) +
-				 sizeof(struct dof_optdesc) * DTRACEOPT_MAX;
+
+	int i, len = sizeof(struct dof_hdr) +
+		roundup(sizeof(struct dof_sec),
+			sizeof(uint64_t)) +
+		sizeof(struct dof_optdesc) * DTRACEOPT_MAX;
 
 	ASSERT(MUTEX_HELD(&dtrace_lock));
 
@@ -107,7 +108,8 @@ struct dof_hdr *dtrace_dof_create(struct dtrace_state *state)
 	sec->dofs_entsize = sizeof(struct dof_optdesc);
 
 	opt = (struct dof_optdesc *)((uintptr_t)sec +
-				roundup(sizeof(struct dof_sec), sizeof(uint64_t)));
+				     roundup(sizeof(struct dof_sec),
+					     sizeof(uint64_t)));
 
 	sec->dofs_offset = (uintptr_t)opt - (uintptr_t)dof;
 	sec->dofs_size = sizeof(struct dof_optdesc) * DTRACEOPT_MAX;
@@ -242,11 +244,13 @@ void dtrace_dof_destroy(struct dof_hdr *dof)
  * this type and NULL is returned if the types do not match.
  */
 static struct dof_sec *dtrace_dof_sect(struct dof_hdr *dof, uint32_t doftype,
-				       dof_secidx_t i)
+                                       dof_secidx_t i)
 {
-	struct dof_sec	*sec = (struct dof_sec *)(uintptr_t)((uintptr_t)dof +
-							dof->dofh_secoff +
-							i * dof->dofh_secsize);
+	struct dof_sec *sec;
+
+	sec = (struct dof_sec *)(uintptr_t) ((uintptr_t)dof +
+					     dof->dofh_secoff +
+					     i * dof->dofh_secsize);
 
 	if (i >= dof->dofh_secnum) {
 		dtrace_dof_error(dof, "referenced section index is invalid");
@@ -267,14 +271,14 @@ static struct dof_sec *dtrace_dof_sect(struct dof_hdr *dof, uint32_t doftype,
 }
 
 static struct dtrace_probedesc *dtrace_dof_probedesc(struct dof_hdr *dof,
-						     struct dof_sec *sec,
-						     struct dtrace_probedesc *desc)
+                                                     struct dof_sec *sec,
+                                                     struct dtrace_probedesc *desc)
 {
 	struct dof_probedesc	*probe;
-	struct dof_sec	*strtab;
-	uintptr_t	daddr = (uintptr_t)dof;
-	uintptr_t	str;
-	size_t		size;
+	struct dof_sec		*strtab;
+	uintptr_t		daddr = (uintptr_t)dof;
+	uintptr_t		str;
+	size_t			size;
 
 	if (sec->dofs_type != DOF_SECT_PROBEDESC) {
 		dtrace_dof_error(dof, "invalid probe section");
@@ -286,7 +290,8 @@ static struct dtrace_probedesc *dtrace_dof_probedesc(struct dof_hdr *dof,
 		return NULL;
 	}
 
-	if (sec->dofs_offset + sizeof(struct dof_probedesc) > dof->dofh_loadsz) {
+	if (sec->dofs_offset + sizeof(struct dof_probedesc) >
+	    dof->dofh_loadsz) {
 		dtrace_dof_error(dof, "truncated probe description");
 		return NULL;
 	}
@@ -340,18 +345,17 @@ static struct dtrace_probedesc *dtrace_dof_probedesc(struct dof_hdr *dof,
 	return desc;
 }
 
-static struct dtrace_difo *
-dtrace_dof_difo(struct dof_hdr *dof,
-		struct dof_sec *sec,
-		struct dtrace_vstate *vstate,
-		const struct cred *cr)
+static struct dtrace_difo *dtrace_dof_difo(struct dof_hdr *dof,
+                                           struct dof_sec *sec,
+                                           struct dtrace_vstate *vstate,
+                                           const struct cred *cr)
 {
 	struct dtrace_difo	*dp;
-	size_t		ttl = 0;
+	size_t			ttl = 0;
 	struct dof_difohdr	*dofd;
-	uintptr_t	daddr = (uintptr_t)dof;
-	size_t		max = dtrace_difo_maxsize;
-	int		i, l, n;
+	uintptr_t		daddr = (uintptr_t)dof;
+	size_t			max = dtrace_difo_maxsize;
+	int			i, l, n;
 
 	static const struct {
 		int section;
@@ -527,7 +531,7 @@ dtrace_dof_difo(struct dof_hdr *dof,
 	 * setting of the option.
 	 */
 	for (i = 0; i < dp->dtdo_varlen; i++) {
-		struct dtrace_difv		*v = &dp->dtdo_vartab[i];
+		struct dtrace_difv	*v = &dp->dtdo_vartab[i];
 		struct dtrace_diftype	*t = &v->dtdv_type;
 
 		if (v->dtdv_id < DIF_VAR_OTHER_UBASE)
@@ -558,11 +562,10 @@ err:
 	return NULL;
 }
 
-static struct dtrace_predicate *
-dtrace_dof_predicate(struct dof_hdr *dof,
-		     struct dof_sec *sec,
-		     struct dtrace_vstate *vstate,
-		     const struct cred *cr)
+static struct dtrace_predicate *dtrace_dof_predicate(struct dof_hdr *dof,
+                                                     struct dof_sec *sec,
+                                                     struct dtrace_vstate *vstate,
+                                                     const struct cred *cr)
 {
 	struct dtrace_difo *dp;
 
@@ -572,14 +575,13 @@ dtrace_dof_predicate(struct dof_hdr *dof,
 	return dtrace_predicate_create(dp);
 }
 
-static struct dtrace_actdesc *
-dtrace_dof_actdesc(struct dof_hdr *dof,
-		   struct dof_sec *sec,
-		   struct dtrace_vstate *vstate,
-		   const struct cred *cr)
+static struct dtrace_actdesc *dtrace_dof_actdesc(struct dof_hdr *dof,
+                                                 struct dof_sec *sec,
+                                                 struct dtrace_vstate *vstate,
+                                                 const struct cred *cr)
 {
 	struct dtrace_actdesc	*act, *first = NULL, *last = NULL, *next;
-	struct dof_actdesc		*desc;
+	struct dof_actdesc	*desc;
 	struct dof_sec		*difosec;
 	size_t			offs;
 	uintptr_t		daddr = (uintptr_t)dof;
@@ -713,14 +715,13 @@ err:
 	return NULL;
 }
 
-static struct dtrace_ecbdesc *
-dtrace_dof_ecbdesc(struct dof_hdr *dof,
-		   struct dof_sec *sec,
-		   struct dtrace_vstate *vstate,
-		   const struct cred *cr)
+static struct dtrace_ecbdesc *dtrace_dof_ecbdesc(struct dof_hdr *dof,
+                                                 struct dof_sec *sec,
+                                                 struct dtrace_vstate *vstate,
+                                                 const struct cred *cr)
 {
 	struct dtrace_ecbdesc	*ep;
-	struct dof_ecbdesc		*ecb;
+	struct dof_ecbdesc	*ecb;
 	struct dtrace_probedesc	*desc;
 	struct dtrace_predicate	*pred = NULL;
 
@@ -734,7 +735,8 @@ dtrace_dof_ecbdesc(struct dof_hdr *dof,
 		return NULL;
 	}
 
-	ecb = (struct dof_ecbdesc *)((uintptr_t)dof + (uintptr_t)sec->dofs_offset);
+	ecb = (struct dof_ecbdesc *)
+	  ((uintptr_t)dof + (uintptr_t)sec->dofs_offset);
 	sec = dtrace_dof_sect(dof, DOF_SECT_PROBEDESC, ecb->dofe_probes);
 
 	if (sec == NULL)
@@ -790,12 +792,13 @@ err:
 static int dtrace_dof_relocate(struct dof_hdr *dof, struct dof_sec *sec,
 			       uint64_t ubase)
 {
-	uintptr_t	daddr = (uintptr_t)dof;
-	struct dof_relohdr	*dofr = (struct dof_relohdr *)(uintptr_t)(daddr +
-							     sec->dofs_offset);
-	struct dof_sec	*ss, *rs, *ts;
+	uintptr_t		daddr = (uintptr_t)dof;
+	struct dof_relohdr	*dofr;
+	struct dof_sec		*ss, *rs, *ts;
 	struct dof_relodesc	*r;
-	uint_t		i, n;
+	uint_t			i, n;
+
+	dofr = (struct dof_relohdr *)(uintptr_t) (daddr + sec->dofs_offset);
 
 	if (sec->dofs_size < sizeof(struct dof_relohdr) ||
 	    sec->dofs_align != sizeof(dof_secidx_t)) {
@@ -826,8 +829,7 @@ static int dtrace_dof_relocate(struct dof_hdr *dof, struct dof_sec *sec,
 	do_div(n, rs->dofs_entsize);
 
 	for (i = 0; i < n; i++) {
-		uintptr_t	taddr = daddr + ts->dofs_offset +
-						r->dofr_offset;
+		uintptr_t taddr = daddr + ts->dofs_offset + r->dofr_offset;
 
 		switch (r->dofr_type) {
 		case DOF_RELO_NONE:
@@ -995,10 +997,10 @@ int dtrace_dof_slurp(struct dof_hdr *dof, struct dtrace_vstate *vstate,
 	dt_dbg_dof("    DOF 0x%p Checking section offsets...\n", dof);
 
 	for (i = 0; i < dof->dofh_secnum; i++) {
-		struct dof_sec	*sec =
-				(struct dof_sec *)(daddr +
-					      (uintptr_t)dof->dofh_secoff +
-					      i * dof->dofh_secsize);
+		struct dof_sec *sec;
+
+		sec = (struct dof_sec *)(daddr + (uintptr_t)dof->dofh_secoff +
+					 i * dof->dofh_secsize);
 
 		if (noprobes) {
 			switch (sec->dofs_type) {
@@ -1056,10 +1058,10 @@ int dtrace_dof_slurp(struct dof_hdr *dof, struct dtrace_vstate *vstate,
 	dt_dbg_dof("    DOF 0x%p Performing relocations...\n", dof);
 
 	for (i = 0; i < dof->dofh_secnum; i++) {
-		struct dof_sec	*sec =
-				(struct dof_sec *)(daddr +
-					      (uintptr_t)dof->dofh_secoff +
-					      i * dof->dofh_secsize);
+		struct dof_sec *sec;
+
+		sec = (struct dof_sec *)(daddr + (uintptr_t)dof->dofh_secoff +
+					 i * dof->dofh_secsize);
 
 		/*
 		 * Skip sections that are not loadable.
@@ -1087,10 +1089,10 @@ int dtrace_dof_slurp(struct dof_hdr *dof, struct dtrace_vstate *vstate,
 	}
 
 	for (i = 0; i < dof->dofh_secnum; i++) {
-		struct dof_sec	*sec =
-				(struct dof_sec *)(daddr +
-					      (uintptr_t)dof->dofh_secoff +
-					      i * dof->dofh_secsize);
+		struct dof_sec *sec;
+
+		sec = (struct dof_sec *)(daddr + (uintptr_t)dof->dofh_secoff +
+					 i * dof->dofh_secsize);
 
 		if (sec->dofs_type != DOF_SECT_ECBDESC)
 			continue;
@@ -1121,13 +1123,15 @@ int dtrace_dof_options(struct dof_hdr *dof, struct dtrace_state *state)
 {
 	int		i, rval;
 	uint32_t	entsize;
-	size_t		offs;
-	struct dof_optdesc	*desc;
+	size_t 		offs;
+	struct dof_optdesc *desc;
 
 	for (i = 0; i < dof->dofh_secnum; i++) {
-		struct dof_sec	*sec = (struct dof_sec *)((uintptr_t)dof +
-				       (uintptr_t)dof->dofh_secoff +
-				       i * dof->dofh_secsize);
+		struct dof_sec *sec;
+
+		sec = (struct dof_sec *)((uintptr_t)dof +
+					 (uintptr_t)dof->dofh_secoff +
+					 i * dof->dofh_secsize);
 
 		if (sec->dofs_type != DOF_SECT_OPTDESC)
 			continue;
@@ -1210,7 +1214,7 @@ static struct dtrace_helpers *dtrace_helpers_create(struct task_struct *curr)
 
 static int dtrace_helper_validate(struct dtrace_helper_action *helper)
 {
-	int		err = 0, i;
+	int			err = 0, i;
 	struct dtrace_difo	*dp;
 
 	dp = helper->dtha_predicate;
@@ -1226,15 +1230,16 @@ static int dtrace_helper_validate(struct dtrace_helper_action *helper)
 static int dtrace_helper_provider_validate(struct dof_hdr *dof,
 					   struct dof_sec *sec)
 {
-	uintptr_t	daddr = (uintptr_t)dof;
-	struct dof_sec	*str_sec, *prb_sec, *arg_sec, *off_sec, *enoff_sec;
+	uintptr_t		daddr = (uintptr_t)dof;
+	struct dof_sec		*str_sec, *prb_sec, *arg_sec, *off_sec,
+				*enoff_sec;
 	struct dof_provider	*prov;
 	struct dof_probe	*prb;
-	uint8_t		*arg;
-	char		*strtab, *typestr;
-	dof_stridx_t	typeidx;
-	size_t		typesz;
-	uint_t		 nprobes, j, k;
+	uint8_t			*arg;
+	char			*strtab, *typestr;
+	dof_stridx_t		typeidx;
+	size_t			typesz;
+	uint_t			nprobes, j, k;
 
 	ASSERT(sec->dofs_type == DOF_SECT_PROVIDER);
 
@@ -1468,12 +1473,12 @@ static void dtrace_helper_action_destroy(struct dtrace_helper_action *helper,
 
 static int dtrace_helper_action_add(int which, struct dtrace_ecbdesc *ep)
 {
-	struct dtrace_helpers	*dth;
+	struct dtrace_helpers		*dth;
 	struct dtrace_helper_action	*helper, *last;
-	struct dtrace_actdesc	*act;
+	struct dtrace_actdesc		*act;
 	struct dtrace_vstate		*vstate;
-	struct dtrace_predicate	*pred;
-	int			count = 0, nactions = 0, i;
+	struct dtrace_predicate		*pred;
+	int				count = 0, nactions = 0, i;
 
 	if (which < 0 || which >= DTRACE_NHELPER_ACTIONS)
 		return -EINVAL;
@@ -1610,8 +1615,10 @@ static int dtrace_helper_provider_add(struct dof_helper *dofhp, int gen)
 
 		ASSERT(tmp_maxprovs < dth->dthps_maxprovs);
 
-		dth->dthps_provs = vzalloc(dth->dthps_maxprovs *
-					   sizeof(struct dtrace_helper_provider *));
+		dth->dthps_provs =
+		  vzalloc(dth->dthps_maxprovs *
+			  sizeof(struct dtrace_helper_provider *));
+
 		if (dth->dthps_provs == NULL) {
 			kfree(hprov);
 			return -ENOMEM;
@@ -1678,15 +1685,15 @@ static void dtrace_helper_provider_remove_one(struct dof_helper *dhp,
 	uintptr_t			daddr = (uintptr_t)dhp->dofhp_dof;
 	struct dof_hdr			*dof = (struct dof_hdr *)daddr;
 	struct dof_sec			*str_sec;
-	struct dof_provider			*prov;
+	struct dof_provider		*prov;
 	char				*strtab;
 	struct dtrace_helper_provdesc	dhpv;
-	struct dtrace_meta			*meta = dtrace_meta_pid;
-	struct dtrace_mops			*mops = &meta->dtm_mops;
+	struct dtrace_meta		*meta = dtrace_meta_pid;
+	struct dtrace_mops		*mops = &meta->dtm_mops;
 
 	prov = (struct dof_provider *)(uintptr_t)(daddr + sec->dofs_offset);
 	str_sec = (struct dof_sec *)(uintptr_t)(daddr + dof->dofh_secoff +
-					   prov->dofpv_strtab *
+						prov->dofpv_strtab *
 						dof->dofh_secsize);
 
 	strtab = (char *)(uintptr_t)(daddr + str_sec->dofs_offset);
@@ -1713,9 +1720,10 @@ static void dtrace_helper_provider_remove(struct dof_helper *dhp, pid_t pid)
 	ASSERT(MUTEX_HELD(&dtrace_meta_lock));
 
 	for (i = 0; i < dof->dofh_secnum; i++) {
-		struct dof_sec	*sec = (struct dof_sec *)(uintptr_t)
-				       (daddr + dof->dofh_secoff +
-					i * dof->dofh_secsize);
+		struct dof_sec *sec;
+
+		sec = (struct dof_sec *)(uintptr_t) (daddr + dof->dofh_secoff +
+						     i * dof->dofh_secsize);
 
 		if (sec->dofs_type != DOF_SECT_PROVIDER)
 			continue;
@@ -1728,34 +1736,35 @@ static void dtrace_helper_provide_one(struct dof_helper *dhp,
 				      struct dof_sec *sec,
 				      pid_t pid)
 {
-	uintptr_t			daddr = (uintptr_t)dhp->dofhp_dof;
+	uintptr_t	daddr = (uintptr_t)dhp->dofhp_dof;
+	uint32_t	*off, *enoff;
+	uint8_t		*arg;
+	char		*strtab;
+	uint_t		i, nprobes;
+	void		*parg;
+
 	struct dof_hdr			*dof = (struct dof_hdr *)daddr;
 	struct dof_sec			*str_sec, *prb_sec, *arg_sec, *off_sec,
 					*enoff_sec;
-	struct dof_provider			*prov;
-	struct dof_probe			*probe;
-	uint32_t			*off, *enoff;
-	uint8_t				*arg;
-	char				*strtab;
-	uint_t				i, nprobes;
+	struct dof_provider		*prov;
+	struct dof_probe		*probe;
 	struct dtrace_helper_provdesc	dhpv;
 	struct dtrace_helper_probedesc	dhpb;
-	struct dtrace_meta			*meta = dtrace_meta_pid;
-	struct dtrace_mops			*mops = &meta->dtm_mops;
-	void				*parg;
+	struct dtrace_meta		*meta = dtrace_meta_pid;
+	struct dtrace_mops		*mops = &meta->dtm_mops;
 
 	prov = (struct dof_provider *)(uintptr_t)(daddr + sec->dofs_offset);
 	str_sec = (struct dof_sec *)(uintptr_t)(daddr + dof->dofh_secoff +
-					   prov->dofpv_strtab *
+						prov->dofpv_strtab *
 						dof->dofh_secsize);
 	prb_sec = (struct dof_sec *)(uintptr_t)(daddr + dof->dofh_secoff +
-					   prov->dofpv_probes *
+						prov->dofpv_probes *
 						dof->dofh_secsize);
 	arg_sec = (struct dof_sec *)(uintptr_t)(daddr + dof->dofh_secoff +
-					   prov->dofpv_prargs *
+						prov->dofpv_prargs *
 						dof->dofh_secsize);
 	off_sec = (struct dof_sec *)(uintptr_t)(daddr + dof->dofh_secoff +
-					   prov->dofpv_proffs *
+						prov->dofpv_proffs *
 						dof->dofh_secsize);
 
 	strtab = (char *)(uintptr_t)(daddr + str_sec->dofs_offset);
@@ -1768,11 +1777,11 @@ static void dtrace_helper_provide_one(struct dof_helper *dhp,
 	 */
 	if (dof->dofh_ident[DOF_ID_VERSION] != DOF_VERSION_1 &&
 	    prov->dofpv_prenoffs != DOF_SECT_NONE) {
-		enoff_sec = (struct dof_sec *)(uintptr_t)(daddr + dof->dofh_secoff +
-						     prov->dofpv_prenoffs *
-							dof->dofh_secsize);
-		enoff = (uint32_t *)(uintptr_t)(daddr +
-						enoff_sec->dofs_offset);
+		enoff_sec = (struct dof_sec *)(uintptr_t)
+		  (daddr + dof->dofh_secoff +
+		   prov->dofpv_prenoffs * dof->dofh_secsize);
+		enoff = (uint32_t *)(uintptr_t)
+		  (daddr + enoff_sec->dofs_offset);
 	}
 
 	nprobes = prb_sec->dofs_size / prb_sec->dofs_entsize;
@@ -1847,9 +1856,10 @@ void dtrace_helper_provide(struct dof_helper *dhp, pid_t pid)
 	ASSERT(MUTEX_HELD(&dtrace_meta_lock));
 
 	for (i = 0; i < dof->dofh_secnum; i++) {
-		struct dof_sec	*sec = (struct dof_sec *)(uintptr_t)
-					(daddr + dof->dofh_secoff +
-						 i * dof->dofh_secsize);
+		struct dof_sec *sec;
+
+		sec = (struct dof_sec *)(uintptr_t) (daddr + dof->dofh_secoff +
+						     i * dof->dofh_secsize);
 
 		if (sec->dofs_type != DOF_SECT_PROVIDER)
 			continue;
@@ -1927,7 +1937,7 @@ static void dtrace_helper_provider_register(struct task_struct *tsk,
 int dtrace_helper_slurp(struct dof_hdr *dof, struct dof_helper *dhp)
 {
 	struct dtrace_helpers	*dth;
-	struct dtrace_vstate		*vstate;
+	struct dtrace_vstate	*vstate;
 	struct dtrace_enabling	*enab = NULL;
 	int			i, gen, rv;
 	int			nhelpers = 0, nprovs = 0, destroy = 1;
@@ -1968,9 +1978,11 @@ int dtrace_helper_slurp(struct dof_hdr *dof, struct dof_helper *dhp)
 		dt_dbg_dof("  DOF 0x%p Validating providers...\n", dof);
 
 		for (i = 0; i < dof->dofh_secnum; i++) {
-			struct dof_sec	*sec = (struct dof_sec *)(uintptr_t)
-						(daddr + dof->dofh_secoff +
-						 i * dof->dofh_secsize);
+			struct dof_sec *sec;
+
+			sec = (struct dof_sec *)(uintptr_t)
+				(daddr + dof->dofh_secoff +
+				 i * dof->dofh_secsize);
 
 			if (sec->dofs_type != DOF_SECT_PROVIDER)
 				continue;
@@ -2048,7 +2060,7 @@ int dtrace_helper_slurp(struct dof_hdr *dof, struct dof_helper *dhp)
 void dtrace_helpers_destroy(struct task_struct *tsk)
 {
 	struct dtrace_helpers	*help;
-	struct dtrace_vstate		*vstate;
+	struct dtrace_vstate	*vstate;
 	int			i;
 
 	if (tsk->dt_task == NULL)
@@ -2074,7 +2086,7 @@ void dtrace_helpers_destroy(struct task_struct *tsk)
 	 * Destroy the helper actions.
 	 */
 	for (i = 0; i < DTRACE_NHELPER_ACTIONS; i++) {
-		struct dtrace_helper_action	*h, *next;
+		struct dtrace_helper_action *h, *next;
 
 		for (h = help->dthps_actions[i]; h != NULL; h = next) {
 			next = h->dtha_next;
@@ -2142,11 +2154,12 @@ void dtrace_helpers_duplicate(struct task_struct *from, struct task_struct *to)
 {
 	struct dtrace_task		*dfrom = from->dt_task;
 	struct dtrace_task		*dto = to->dt_task;
-	struct dtrace_helpers	*help, *newhelp;
+	struct dtrace_helpers		*help, *newhelp;
 	struct dtrace_helper_action	*helper, *new, *last;
 	struct dtrace_difo		*dp;
 	struct dtrace_vstate		*vstate;
-	int			i, j, sz, hasprovs = 0;
+
+	int i, j, sz, hasprovs = 0;
 
 	if (dfrom == NULL || dto == NULL)
 		return;
@@ -2188,8 +2201,9 @@ void dtrace_helpers_duplicate(struct task_struct *from, struct task_struct *to)
 			new->dtha_actions = vmalloc(sz);
 
 			for (j = 0; j < new->dtha_nactions; j++) {
-				struct dtrace_difo	*dp = helper->dtha_actions[j];
+				struct dtrace_difo *dp;
 
+				dp = helper->dtha_actions[j];
 				ASSERT(dp != NULL);
 
 				dp = dtrace_difo_duplicate(dp, vstate);
@@ -2213,8 +2227,8 @@ void dtrace_helpers_duplicate(struct task_struct *from, struct task_struct *to)
 		newhelp->dthps_nprovs = help->dthps_nprovs;
 		newhelp->dthps_maxprovs = help->dthps_nprovs;
 		newhelp->dthps_provs = vmalloc(
-					newhelp->dthps_nprovs *
-					sizeof(struct dtrace_helper_provider *));
+			newhelp->dthps_nprovs *
+			sizeof(struct dtrace_helper_provider *));
 
 		for (i = 0; i < newhelp->dthps_nprovs; i++) {
 			newhelp->dthps_provs[i] = help->dthps_provs[i];
@@ -2234,7 +2248,7 @@ int dtrace_helper_destroygen(int gen)
 {
 	struct task_struct	*p = current;
 	struct dtrace_helpers	*dth;
-	struct dtrace_vstate		*vstate;
+	struct dtrace_vstate	*vstate;
 	int			i;
 
 	ASSERT(MUTEX_HELD(&dtrace_lock));
@@ -2250,7 +2264,7 @@ int dtrace_helper_destroygen(int gen)
 	vstate = &dth->dthps_vstate;
 
 	for (i = 0; i < DTRACE_NHELPER_ACTIONS; i++) {
-		struct dtrace_helper_action	*last = NULL, *h, *next;
+		struct dtrace_helper_action *last = NULL, *h, *next;
 
 		for (h = dth->dthps_actions[i]; h != NULL; h = next) {
 			next = h->dtha_next;
@@ -2401,9 +2415,9 @@ uint64_t dtrace_helper(int which, struct dtrace_mstate *mstate,
 	uint64_t		sarg1 = mstate->dtms_arg[1];
 	uint64_t		rval = 0;
 	struct dtrace_helpers	*helpers;
-	struct dtrace_helper_action	*helper;
-	struct dtrace_vstate		*vstate;
-	struct dtrace_difo		*pred;
+	struct dtrace_helper_action *helper;
+	struct dtrace_vstate	*vstate;
+	struct dtrace_difo	*pred;
 	int			i, trace = dtrace_helptrace_enabled;
 
 	ASSERT(which >= 0 && which < DTRACE_NHELPER_ACTIONS);

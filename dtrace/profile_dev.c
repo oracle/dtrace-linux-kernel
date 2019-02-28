@@ -107,8 +107,8 @@ static void profile_tick_fn(uintptr_t arg)
 
 static void profile_prof_fn(uintptr_t arg)
 {
-	struct profile_probe_percpu	*pcpu = (struct profile_probe_percpu *)arg;
-	struct profile_probe		*prof = pcpu->profc_probe;
+	struct profile_probe_percpu *pcpu = (struct profile_probe_percpu *)arg;
+	struct profile_probe	*prof = pcpu->profc_probe;
 	ktime_t			late;
 	struct pt_regs		*regs = get_irq_regs();
 	unsigned long		pc = 0, upc = 0;
@@ -177,7 +177,7 @@ static void profile_offline(void *arg, processorid_t cpu, void *oarg)
 static void profile_create(ktime_t interval, const char *name, int kind)
 {
 	struct profile_probe	*prof;
-	int		nr_frames = 0; /* FIXME */
+	int			nr_frames = 0; /* FIXME */
 
 	if (profile_aframes)
 		nr_frames = profile_aframes;

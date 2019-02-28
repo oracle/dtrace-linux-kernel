@@ -21,8 +21,9 @@
 
 #include "dtrace.h"
 
-struct dtrace_actdesc *dtrace_actdesc_create(dtrace_actkind_t kind, uint32_t ntuple,
-					uint64_t uarg, uint64_t arg)
+struct dtrace_actdesc *dtrace_actdesc_create(dtrace_actkind_t kind,
+                                             uint32_t ntuple,
+                                             uint64_t uarg, uint64_t arg)
 {
 	struct dtrace_actdesc	*act;
 
@@ -60,7 +61,7 @@ void dtrace_actdesc_release(struct dtrace_actdesc *act,
 			    struct dtrace_vstate *vstate)
 {
 	dtrace_actkind_t	kind = act->dtad_kind;
-	struct dtrace_difo		*dp;
+	struct dtrace_difo	*dp;
 
 	ASSERT(act->dtad_refcnt >= 1);
 

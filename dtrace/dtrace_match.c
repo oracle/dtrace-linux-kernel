@@ -221,7 +221,7 @@ struct probe_match {
 static int dtrace_match_one(int id, void *p, void *data)
 {
 	struct probe_match	*pbm	= (struct probe_match *)data;
-	struct dtrace_probe		*probe	= (struct dtrace_probe *)p;
+	struct dtrace_probe	*probe	= (struct dtrace_probe *)p;
 	int			rc;
 
 	if (dtrace_match_probe(probe, pbm->pkp, pbm->priv, pbm->uid) <= 0)
@@ -243,7 +243,7 @@ int dtrace_match(const struct dtrace_probekey *pkp, uint32_t priv, kuid_t uid,
 {
 	struct dtrace_probe	template, *probe;
 	struct dtrace_hash	*hash = NULL;
-	int		len, rc, best = INT_MAX, nmatched = 0;
+	int			len, rc, best = INT_MAX, nmatched = 0;
 
 	if (pkp->dtpk_id != DTRACE_IDNONE) {
 		probe = dtrace_probe_lookup_id(pkp->dtpk_id);

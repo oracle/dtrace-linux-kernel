@@ -46,7 +46,7 @@ struct cyclic {
 			struct cyc_handler	hdlr;
 			uint32_t		pend;
 			struct hrtimer		timr;
-			struct cyclic_work		work;
+			struct cyclic_work	work;
 		} cyc;
 		struct {
 			struct cyc_omni_handler	hdlr;

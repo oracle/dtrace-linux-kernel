@@ -45,10 +45,10 @@ struct dtrace_state *dtrace_anon_grab(void)
 
 void dtrace_anon_property(void)
 {
-	int		i, rv;
+	int			i, rv;
 	struct dtrace_state	*state;
-	struct dof_hdr	*dof;
-	char		c[32];             /* enough for "dof-data-" + digits */
+	struct dof_hdr		*dof;
+	char			c[32];		/* enough for "dof-data-" + digits */
 
 	ASSERT(MUTEX_HELD(&dtrace_lock));
 	ASSERT(MUTEX_HELD(&cpu_lock));

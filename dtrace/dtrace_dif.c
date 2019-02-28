@@ -371,7 +371,7 @@ int dtrace_difo_validate(struct dtrace_difo *dp, struct dtrace_vstate *vstate,
 	}
 
 	for (i = 0; i < dp->dtdo_varlen && err == 0; i++) {
-		struct dtrace_difv		*v = &dp->dtdo_vartab[i],
+		struct dtrace_difv	*v = &dp->dtdo_vartab[i],
 					*existing = NULL;
 		struct dtrace_diftype	*vt, *et;
 		uint_t			id, ndx;
@@ -641,7 +641,7 @@ int dtrace_difo_cacheable(struct dtrace_difo *dp)
 		return 0;
 
 	for (i = 0; i < dp->dtdo_varlen; i++) {
-		struct dtrace_difv	*v = &dp->dtdo_vartab[i];
+		struct dtrace_difv *v = &dp->dtdo_vartab[i];
 
 		if (v->dtdv_scope != DIFV_SCOPE_GLOBAL)
 			continue;
@@ -688,7 +688,7 @@ static void dtrace_difo_chunksize(struct dtrace_difo *dp,
 				  struct dtrace_vstate *vstate)
 {
 	uint64_t		sval = 0;
-	struct dtrace_key		tupregs[DIF_DTR_NREGS + 2]; /* + thread + id */
+	struct dtrace_key	tupregs[DIF_DTR_NREGS + 2]; /* + thread + id */
 	const dif_instr_t	*text = dp->dtdo_buf;
 	uint_t			pc, srd = 0;
 	uint_t			ttop = 0;
@@ -702,7 +702,7 @@ static void dtrace_difo_chunksize(struct dtrace_difo *dp,
 		uint_t		r1 = DIF_INSTR_R1(instr);
 		uint_t		nkeys = 0;
 		uchar_t		scope;
-		struct dtrace_key	*key = tupregs;
+		struct dtrace_key *key = tupregs;
 
 		switch (op) {
 		case DIF_OP_SETX:
@@ -794,7 +794,7 @@ static void dtrace_difo_chunksize(struct dtrace_difo *dp,
 		id = DIF_INSTR_VAR(instr);
 
 		for (i = 0; i < dp->dtdo_varlen; i++) {
-			struct dtrace_difv	*v = &dp->dtdo_vartab[i];
+			struct dtrace_difv *v = &dp->dtdo_vartab[i];
 
 			if (v->dtdv_id == id && v->dtdv_scope == scope) {
 				size += v->dtdv_type.dtdt_size;
@@ -843,7 +843,7 @@ void dtrace_difo_init(struct dtrace_difo *dp, struct dtrace_vstate *vstate)
 	ASSERT(dp->dtdo_buf != NULL && dp->dtdo_len != 0);
 
 	for (i = 0; i < dp->dtdo_varlen; i++) {
-		struct dtrace_difv		*v = &dp->dtdo_vartab[i];
+		struct dtrace_difv	*v = &dp->dtdo_vartab[i];
 		struct dtrace_statvar	*svar, ***svarp;
 		size_t			dsize = 0;
 		uint8_t			scope = v->dtdv_scope;
@@ -858,7 +858,7 @@ void dtrace_difo_init(struct dtrace_difo *dp, struct dtrace_vstate *vstate)
 		switch (scope) {
 		case DIFV_SCOPE_THREAD:
 			while (id >= (otlocals = vstate->dtvs_ntlocals)) {
-				struct dtrace_difv	*tlocals;
+				struct dtrace_difv *tlocals;
 
 				ntlocals = otlocals << 1;
 				if (ntlocals == 0)
@@ -955,10 +955,10 @@ void dtrace_difo_init(struct dtrace_difo *dp, struct dtrace_vstate *vstate)
 }
 
 struct dtrace_difo *dtrace_difo_duplicate(struct dtrace_difo *dp,
-					  struct dtrace_vstate *vstate)
+                                          struct dtrace_vstate *vstate)
 {
 	struct dtrace_difo	*new;
-	size_t		sz;
+	size_t			sz;
 
 	ASSERT(dp->dtdo_buf != NULL);
 	ASSERT(dp->dtdo_refcnt != 0);
@@ -1006,7 +1006,7 @@ void dtrace_difo_destroy(struct dtrace_difo *dp, struct dtrace_vstate *vstate)
 	ASSERT(dp->dtdo_refcnt == 0);
 
 	for (i = 0; i < dp->dtdo_varlen; i++) {
-		struct dtrace_difv		*v = &dp->dtdo_vartab[i];
+		struct dtrace_difv	*v = &dp->dtdo_vartab[i];
 		struct dtrace_statvar	*svar, **svarp;
 		uint_t			id;
 		uint8_t			scope = v->dtdv_scope;
@@ -1512,24 +1512,24 @@ void dtrace_bzero(void *dst, size_t len)
  * will be incremented.
  */
 static struct dtrace_dynvar *dtrace_dynvar(struct dtrace_dstate *dstate,
-					   uint_t nkeys,
-					   struct dtrace_key *key,
-					   size_t dsize,
-					   enum dtrace_dynvar_op op,
-					   struct dtrace_mstate *mstate,
-					   struct dtrace_vstate *vstate)
+                                           uint_t nkeys,
+                                           struct dtrace_key *key,
+                                           size_t dsize,
+                                           enum dtrace_dynvar_op op,
+                                           struct dtrace_mstate *mstate,
+                                           struct dtrace_vstate *vstate)
 {
-	uint64_t		hashval = DTRACE_DYNHASH_VALID;
-	struct dtrace_dynhash	*hash = dstate->dtds_hash;
+	uint64_t			hashval = DTRACE_DYNHASH_VALID;
+	struct dtrace_dynhash		*hash = dstate->dtds_hash;
 	struct dtrace_dynvar		*free, *new_free, *next, *dvar, *start,
-				*prev = NULL;
-	processorid_t		me = smp_processor_id(), cpu = me;
+					*prev = NULL;
+	processorid_t			me = smp_processor_id(), cpu = me;
 	struct dtrace_dstate_percpu	*dcpu = &dstate->dtds_percpu[me];
-	size_t			bucket, ksize;
-	size_t			chunksize = dstate->dtds_chunksize;
-	uintptr_t		kdata, lock;
+	size_t				bucket, ksize;
+	size_t				chunksize = dstate->dtds_chunksize;
+	uintptr_t			kdata, lock;
 	enum dtrace_dstate_state	nstate;
-	uint_t			i;
+	uint_t				i;
 
 	ASSERT(nkeys != 0);
 
@@ -1813,7 +1813,8 @@ next:
 	 * solving this would presumably not amount to solving the Halting
 	 * Problem -- but it still seems awfully hard.
 	 */
-	if (sizeof(struct dtrace_dynvar) + sizeof(struct dtrace_key) * (nkeys - 1) +
+	if (sizeof(struct dtrace_dynvar) +
+	    sizeof(struct dtrace_key) * (nkeys - 1) +
 	    ksize + dsize > chunksize) {
 		dcpu->dtdsc_drops++;
 		return NULL;
@@ -1826,8 +1827,8 @@ retry:
 		free = dcpu->dtdsc_free;
 
 		if (free == NULL) {
-			struct dtrace_dynvar	*clean = dcpu->dtdsc_clean;
-			void		*rval;
+			struct dtrace_dynvar *clean = dcpu->dtdsc_clean;
+			void *rval;
 
 			if (clean == NULL) {
 				/*
@@ -1942,7 +1943,7 @@ retry:
 
 	for (i = 0; i < nkeys; i++) {
 		struct dtrace_key	*dkey = &dvar->dtdv_tuple.dtt_key[i];
-		size_t		kesize = key[i].dttk_size;
+		size_t			kesize = key[i].dttk_size;
 
 		if (kesize != 0) {
 			dtrace_bcopy(
@@ -2038,8 +2039,8 @@ static uintptr_t dtrace_dif_varstr(uintptr_t addr, struct dtrace_state *state,
  * others do not and that messes up the number of frames to skip (aframes).
  */
 static __always_inline uint64_t dtrace_dif_variable(struct dtrace_mstate *mstate,
-						    struct dtrace_state *state,
-						    uint64_t v, uint64_t ndx)
+                                                    struct dtrace_state *state,
+                                                    uint64_t v, uint64_t ndx)
 {
 	/*
 	 * If we're accessing one of the uncached arguments, we'll turn this
@@ -2397,7 +2398,7 @@ static void dtrace_dif_subr(uint_t subr, uint_t rd, uint64_t *regs,
 {
 	volatile uint16_t	*flags = &this_cpu_core->cpuc_dtrace_flags;
 	volatile uintptr_t	*illval = &this_cpu_core->cpuc_dtrace_illval;
-	struct dtrace_vstate		*vstate = &state->dts_vstate;
+	struct dtrace_vstate	*vstate = &state->dts_vstate;
 	struct mutex		mtx;
 
 	union {
@@ -4042,12 +4043,12 @@ uint64_t dtrace_dif_emulate(struct dtrace_difo *difo,
 
 	uint64_t		rval = 0;
 	struct dtrace_statvar	*svar;
-	struct dtrace_dstate		*dstate = &vstate->dtvs_dynvars;
-	struct dtrace_difv		*v;
+	struct dtrace_dstate	*dstate = &vstate->dtvs_dynvars;
+	struct dtrace_difv	*v;
 	volatile uint16_t	*flags = &this_cpu_core->cpuc_dtrace_flags;
 	volatile uintptr_t	*illval = &this_cpu_core->cpuc_dtrace_illval;
 
-	struct dtrace_key		tupregs[DIF_DTR_NREGS + 2];
+	struct dtrace_key	tupregs[DIF_DTR_NREGS + 2];
 						/* +2 for thread and id */
 	uint64_t		regs[DIF_DIR_NREGS];
 	uint64_t		*tmp;
@@ -4709,7 +4710,7 @@ uint64_t dtrace_dif_emulate(struct dtrace_difo *difo,
 		case DIF_OP_LDTAA: {
 			struct dtrace_dynvar	*dvar;
 			struct dtrace_key	*key = tupregs;
-			uint_t		nkeys = ttop;
+			uint_t			nkeys = ttop;
 
 			id = DIF_INSTR_VAR(instr);
 			ASSERT(id >= DIF_VAR_OTHER_UBASE);
@@ -4747,7 +4748,7 @@ uint64_t dtrace_dif_emulate(struct dtrace_difo *difo,
 		case DIF_OP_STTAA: {
 			struct dtrace_dynvar	*dvar;
 			struct dtrace_key	*key = tupregs;
-			uint_t		nkeys = ttop;
+			uint_t			nkeys = ttop;
 
 			id = DIF_INSTR_VAR(instr);
 			ASSERT(id >= DIF_VAR_OTHER_UBASE);

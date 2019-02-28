@@ -42,7 +42,7 @@ void dtrace_psinfo_free(struct dtrace_psinfo *psinfo)
  */
 void dtrace_psinfo_alloc(struct task_struct *tsk)
 {
-	struct dtrace_psinfo		*psinfo;
+	struct dtrace_psinfo	*psinfo;
 	struct mm_struct	*mm = NULL;
 
 	if (unlikely(tsk->dt_task == NULL))
