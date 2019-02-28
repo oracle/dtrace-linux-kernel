@@ -80,7 +80,7 @@ static void dtrace_enabling_addlike(struct dtrace_enabling *enab,
 				    struct dtrace_ecbdesc *ecb,
 				    struct dtrace_probedesc *pd)
 {
-	struct dtrace_ecbdesc *new;
+	struct dtrace_ecbdesc	*new;
 	struct dtrace_predicate	*pred;
 	struct dtrace_actdesc	*act;
 
@@ -123,7 +123,7 @@ void dtrace_enabling_destroy(struct dtrace_enabling *enab)
 {
 	int			i;
 	struct dtrace_ecbdesc	*ep;
-	struct dtrace_vstate		*vstate = enab->dten_vstate;
+	struct dtrace_vstate	*vstate = enab->dten_vstate;
 
 	ASSERT(MUTEX_HELD(&dtrace_lock));
 
