@@ -4,7 +4,7 @@
  * files, and generate CTF in correspondingly-named files, or in a single
  * representation meant for mmapping.
  *
- * Copyright (c) 2011, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2011, 2019, Oracle and/or its affiliates. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -2895,11 +2895,11 @@ static struct ctf_full_id *construct_ctf_id(const char *module_name,
 		strcpy(ctf_id->module_name, ctf_module);
 		strcpy(ctf_id->file_name, file_name);
 #endif
-		g_hash_table_replace(id_to_type, intern(id), ctf_id);
-
-		dw_ctf_trace("    %lx: %s: new type added, CTF ID %p:%i\n",
+		dw_ctf_trace("    %lx: %s: new type added, CTF ID %p:%li\n",
 			     DIEOFFSET(die), id, ctf_id->ctf_file,
-			     (int) ctf_id->ctf_id);
+			     ctf_id->ctf_id);
+
+                g_hash_table_replace(id_to_type, intern(id), ctf_id);
 	} else {
 		/*
 		 * Failure.  Remove the type from the id_to_type mapping, if it
@@ -2908,7 +2908,9 @@ static struct ctf_full_id *construct_ctf_id(const char *module_name,
 		 * If we have had to ctf_update() due to a new type getting
 		 * used, the rollback will fail: discard instead. It might leave
 		 * some spurious types hanging around but it will clean up as
-		 * much as we can at this point.
+		 * much as we can at this point.  (This cannot happen when
+		 * LIBDTRACE_CTF_OMISSIBLE_CTF_UPDATE, but it costs nothing to
+		 * leave in: failure is a rare case.)
 		 */
 
 		if (ctf_rollback(ctf, snapshot) < 0)
@@ -3125,7 +3127,6 @@ static ctf_id_t die_to_ctf(const char *module_name, const char *file_name,
 			new_id = die_to_ctf(module_name, file_name, &child_die,
 					    die, ctf, this_ctf_id, overrides, 0,
 					    0, skip, &replace, NULL);
-
 			if (replace)
 				this_ctf_id = new_id;
 		}
@@ -4182,8 +4183,6 @@ static ctf_id_t assemble_ctf_su_member(const char *module_name,
 
 	if (ctf_add_member_offset(ctf, parent_ctf_id, dwarf_diename(die),
 				  new_type->ctf_id, offset) < 0) {
-		ctf_file_t *shared_ctf;
-
 		/*
 		 * If we have seen this member before, as part of another
 		 * definition somewhere else, that's fine.  We cannot recurse
@@ -4195,14 +4194,18 @@ static ctf_id_t assemble_ctf_su_member(const char *module_name,
 
 		/*
 		 * We have special handling for cases where CTF doesn't know of
-		 * either this member's type or the enclosing structure, trying
-		 * a ctf_update() in case this is recently added, but no special
-		 * handling for other errors, which the caller must report.
+		 * either this member's type or the enclosing structure: when
+		 * libdtrace-ctf is old enough to need it, we try a ctf_update()
+		 * in case this is recently added, but no special handling for
+		 * other errors, which the caller must report.
 		 */
 
 		if (ctf_errno(ctf) != ECTF_BADID &&
 		    ctf_errno(ctf) != ECTF_NOTSOU)
 			return CTF_NO_ERROR_REPORTED;
+
+#ifndef LIBDTRACE_CTF_OMISSIBLE_CTF_UPDATE
+		ctf_file_t *shared_ctf;
 
 		/*
 		 * Try an update of the current CTF file first, to bring the
@@ -4234,6 +4237,7 @@ static ctf_id_t assemble_ctf_su_member(const char *module_name,
 					  new_type->ctf_id,
 					  offset) == 0)
 			return parent_ctf_id;
+#endif
 #ifdef DEBUG
 		pr_err("%s: Internal error: %s %s:%s:%p:%i\n"
 		       "on member addition to ctf_file %p.\n",
