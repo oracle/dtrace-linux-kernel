@@ -2455,6 +2455,11 @@ relock:
 		trace_signal_deliver(SIGKILL, SEND_SIG_NOINFO,
 				&sighand->action[SIGKILL - 1]);
 		recalc_sigpending();
+		DTRACE_PROC(signal__handle,
+			    int, signal->group_exit_code
+						? signal->group_exit_code
+						: signr,
+			    siginfo_t *, NULL, void (*)(void), NULL);
 		goto fatal;
 	}
 
