@@ -2451,6 +2451,11 @@ relock:
 		ksig->info.si_signo = signr = SIGKILL;
 		sigdelset(&current->pending.signal, SIGKILL);
 		recalc_sigpending();
+		DTRACE_PROC(signal__handle,
+			    int, signal->group_exit_code
+						? signal->group_exit_code
+						: signr,
+			    siginfo_t *, NULL, void (*)(void), NULL);
 		goto fatal;
 	}
 
