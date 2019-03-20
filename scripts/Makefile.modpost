@@ -185,7 +185,8 @@ ifeq ($(KBUILD_EXTMOD),)
 ctf-dir-mk :=
 quiet_cmd_ctf = CTFA
       cmd_ctf = scripts/dwarf2ctf/dwarf2ctf $(CTF_FILENAME) $(srctree) objects.builtin modules_thick.builtin $(srctree)/scripts/dwarf2ctf/member.blacklist $(ctf-filelist)
-ctf-builtins := $(CTF_DEBUGDIR)/vmlinux
+ctf-builtins := objects.builtin
+ctf-builtins-prereq := $(ctf-builtins)
  ctf-modules := $(shell find $(CTF_DEBUGDIR) \( -name '*.ko' -o -name '*.ko.debug' \) -print)
 ctf-filelist := .ctf.filelist
 ctf-stamp :=
@@ -195,7 +196,8 @@ ctf-dir := $(KBUILD_EXTMOD)/.ctf
 ctf-dir-mk := $(ctf-dir)
 quiet_cmd_ctf = CTF
       cmd_ctf = scripts/dwarf2ctf/dwarf2ctf $(ctf-dir) -e $(ctf-filelist)
-override ctf-builtins :=
+ctf-builtins := ////.no-builtins
+ctf-builtins-prereq :=
 ctf-modules := $(modules:.ko=.o)
 ctf-filelist := $(ctf-dir)/$(notdir $(M)-extmod).ctf.filelist
 ctf-stamp = $(ctf-dir)/$(notdir $(M)-extmod).stamp
@@ -207,17 +209,18 @@ $(all-module-ctfs): $(ctf-stamp)
 
 endif
 
-$(ctf-filelist): $(ctf-builtins) $(ctf-modules) | $(sdtinfo-prereq)
+$(ctf-filelist): $(ctf-builtins-prereq) $(ctf-modules) | $(sdtinfo-prereq)
 	@rm -f $(ctf-filelist);
 	@if [[ -n "$(ctf-dir-mk)" ]]; then \
 		mkdir -p "$(ctf-dir-mk)"; \
 	fi
 	@for obj in $^; do \
-		if [[ `file $$obj` =~ ' ELF ' ]]; then \
-			echo "$$obj" >> $(ctf-filelist); \
-		else \
-			ar t $$obj >> $(ctf-filelist); \
-		fi; \
+		case $$obj in \
+		$(ctf-builtins)) cat $$obj >> $(ctf-filelist);; \
+		*.a) ar t $$obj > $(ctf-filelist);; \
+		*.builtin) cat $$obj >> $(ctf-filelist);; \
+		*) echo "$$obj" >> $(ctf-filelist);; \
+		esac; \
 	done
 
 ifeq ($(KBUILD_EXTMOD),)
