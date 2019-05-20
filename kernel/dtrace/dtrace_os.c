@@ -345,25 +345,20 @@ void dtrace_vtime_switch(struct task_struct *prev, struct task_struct *next)
 
 void dtrace_stacktrace(struct stacktrace_state *st)
 {
-	struct stack_trace	trace;
-	int			i;
+	int	i;
 
 	if ((st->flags & STACKTRACE_TYPE) == STACKTRACE_USER) {
 		dtrace_user_stacktrace(st);
 		return;
 	}
 
-	trace.nr_entries = 0;
-	trace.max_entries = st->limit ? st->limit : 512;
-	trace.entries = (typeof(trace.entries))st->pcs;
-	trace.skip = st->depth;
-
 	if (st->pcs == NULL) {
 		st->depth = 0;
 		return;
 	}
 
-	save_stack_trace(&trace);
+	st->depth = stack_trace_save((long unsigned int *) st->pcs,
+				     st->limit ? st->limit : 512, st->depth);
 
 	/*
 	 * For entirely unknown reasons, the save_stack_trace() implementation
@@ -375,10 +370,9 @@ void dtrace_stacktrace(struct stacktrace_state *st)
 	 * when nr_entries < max_entries).
 	 * Since ULONG_MAX is never a valid PC, we can just check for that.
 	 */
-	st->depth = trace.nr_entries;
 #if defined(CONFIG_X86_64) || defined(CONFIG_ARM64)
-	if (trace.nr_entries && st->pcs[trace.nr_entries - 1] == ULONG_MAX)
-		st->depth = trace.nr_entries - 1;
+	if (st->depth && st->pcs[st->depth - 1] == ULONG_MAX)
+		st->depth--;
 #endif
 
 	if (st->fps != NULL) {
