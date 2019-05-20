@@ -4,7 +4,7 @@
 
 DTARCHDIR = ../arch/arm64/dtrace
 
-ccflags-y	+= -Iarch/arm64/dtrace/include -Idtrace
+ccflags-y	+= -I$(srctree)/arch/arm64/dtrace/include -Idtrace
 
 dtrace-obj	+= dtrace_asm_arm64.o dtrace_isa_arm64.o
 fasttrap-obj	+= fasttrap_arm64.o
