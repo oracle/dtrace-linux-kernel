@@ -5485,6 +5485,12 @@ W:	https://linuxtv.org
 S:	Odd Fixes
 F:	drivers/media/pci/dt3155/
 
+DTRACE
+M:	Kris Van Hees <kris.van.hees@oracle.com>
+L:	dtrace-devel@oss.oracle.com
+S:	Maintained
+F:	tools/dtrace/
+
 DVB_USB_AF9015 MEDIA DRIVER
 M:	Antti Palosaari <crope@iki.fi>
 L:	linux-media@vger.kernel.org
