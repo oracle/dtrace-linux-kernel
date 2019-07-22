@@ -70,6 +70,12 @@ config TOOLS_SUPPORT_RELR
 config CC_HAS_ASM_INLINE
 	def_bool $(success,echo 'void foo(void) { asm inline (""); }' | $(CC) -x c - -c -o /dev/null)
 
+config HAVE_CTF_TOOLCHAIN
+	def_bool $(cc-option,-gt) && $(ld-option,-lctf -lbfd -liberty -lz -ldl)
+	depends on CC_IS_GCC
+	help
+	  GCC and binutils support CTF generation.
+
 config CONSTRUCTORS
 	bool
 	depends on !UML
