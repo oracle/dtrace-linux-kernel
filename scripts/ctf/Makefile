@@ -1,10 +1,14 @@
 ifdef CONFIG_CTF
-hostprogs-always-$(CONFIG_CTF)	:= dwarf2ctf
+ifdef CONFIG_CTF_USING_BINUTILS
+hostprogs-always-y	:= ctfarchive
+ctfarchive-objs		:= ctfarchive.o modules_thick.o
+else
+hostprogs-always-y	:= dwarf2ctf
+dwarf2ctf-objs		:= dwarf2ctf.o eu_simple.o modules_thick.o
+endif
 
-dwarf2ctf-objs  := dwarf2ctf.o eu_simple.o
-
-HOSTCFLAGS_eu_simple.o := -I$(srctree)/scripts
-HOSTCFLAGS_dwarf2ctf.o := $(shell pkg-config --cflags glib-2.0) -I$(srctree)/scripts
-
+HOSTCFLAGS_eu_simple.o := -I.
+HOSTCFLAGS_dwarf2ctf.o := $(shell pkg-config --cflags glib-2.0) -I.
 HOSTLDLIBS_dwarf2ctf := -ldtrace-ctf -lelf -ldw $(shell pkg-config --libs glib-2.0) -lz
+HOSTLDLIBS_ctfarchive := -lctf
 endif
