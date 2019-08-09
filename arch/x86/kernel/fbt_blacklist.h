@@ -57,6 +57,8 @@ BL_DENTRY(void *, rcu_dynticks_curr_cpu_in_eqs)
 BL_DENTRY(void *, rcu_dynticks_eqs_exit)
 BL_DENTRY(void *, trace_rcu_dyntick)
 BL_DENTRY(void *, rcu_nmi_exit)
+BL_DENTRY(void *, rcu_irq_exit)
+BL_DENTRY(void *, rcu_nmi_exit_common)
 BL_DENTRY(void *, rcu_dynticks_eqs_enter)
 BL_DENTRY(void *, ist_exit)
 
