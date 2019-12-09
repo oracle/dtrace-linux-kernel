@@ -654,12 +654,12 @@ static __always_inline int dtrace_probe_pcap(uint64_t val, size_t *valoffs,
 		void *vaddr;
 
 		flen = dtrace_load32(shinfo + offsetof(struct skb_shared_info,
-				     frags[f].size));
+				     frags[f].bv_len));
 		foff = dtrace_load32(shinfo + offsetof(struct skb_shared_info,
-				     frags[f].page_offset));
+				     frags[f].bv_offset));
 		frag = (struct page *)dtrace_loadptr(shinfo + offsetof(
 						     struct skb_shared_info,
-						     frags[f].page.p));
+						     frags[f].bv_page));
 
 		dtrace_skb_frag_foreach_page(frag, foff, flen,
 					     p, poff, plen, copied) {
