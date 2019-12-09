@@ -97,6 +97,25 @@ mutex_trylock_recursive(struct mutex *lock)
 }
 EXPORT_SYMBOL(mutex_trylock_recursive);
 
+struct task_struct *mutex_owner(struct mutex *lock)
+{
+	return __mutex_owner (lock);
+}
+EXPORT_SYMBOL(mutex_owner);
+
+#if defined(CONFIG_DEBUG_MUTEXES) || defined(CONFIG_SMP)
+int mutex_owned(struct mutex *lock)
+{
+	return mutex_is_locked(lock) && __mutex_owner(lock) == current;
+}
+#else
+int mutex_owned(struct mutex *lock)
+{
+	return mutex_is_locked(lock);
+}
+#endif
+EXPORT_SYMBOL(mutex_owned);
+
 static inline unsigned long __owner_flags(unsigned long owner)
 {
 	return owner & MUTEX_FLAGS;
