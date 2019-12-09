@@ -250,7 +250,10 @@ static struct sk_buff *ip6_rcv_core(struct sk_buff *skb, struct net_device *dev,
 	 * https://tools.ietf.org/html/draft-itojun-v6ops-v4mapped-harmful-02
 	 */
 	if (ipv6_addr_v4mapped(&hdr->saddr))
+	{
+		dropreason = "v4-mapped address in IPv6 packet";
 		goto err;
+	}
 
 	skb->transport_header = skb->network_header + sizeof(*hdr);
 	IP6CB(skb)->nhoff = offsetof(struct ipv6hdr, nexthdr);
