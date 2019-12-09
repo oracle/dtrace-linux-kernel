@@ -513,7 +513,7 @@ dotraplinkage notrace int
 do_nmi(struct pt_regs *regs, long error_code)
 {
 	if (IS_ENABLED(CONFIG_SMP) && cpu_is_offline(smp_processor_id()))
-		return;
+		return 0;
 
 	if (this_cpu_read(nmi_state) != NMI_NOT_RUNNING) {
 		this_cpu_write(nmi_state, NMI_LATCHED);
