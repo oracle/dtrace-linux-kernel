@@ -2439,7 +2439,7 @@ static void dtrace_dif_subr(uint_t subr, uint_t rd, uint64_t *regs,
 			break;
 
 #ifdef CONFIG_SMP
-		regs[rd] = (uintptr_t)__mutex_owner(&mtx);
+		regs[rd] = (uintptr_t)mutex_owner(&mtx);
 #else
 		regs[rd] = 0;
 #endif
