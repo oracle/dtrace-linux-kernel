@@ -377,7 +377,7 @@ if [ -n "${CONFIG_KALLSYMS}" ]; then
 	fi
 fi
 
-vmlinux_link vmlinux "" "${kallsymso}" ${btf_vmlinux_bin_o}
+vmlinux_link vmlinux "" "${kallsymso}" ${btf_vmlinux_bin_o} ${sdtstubo} ${sdtinfoo}
 
 if [ -n "${CONFIG_BUILDTIME_EXTABLE_SORT}" ]; then
 	info SORTEX vmlinux
