@@ -214,16 +214,10 @@ enum mutex_trylock_recursive_enum {
 extern /* __deprecated */ __must_check enum mutex_trylock_recursive_enum
 mutex_trylock_recursive(struct mutex *lock);
 
-#if defined(CONFIG_DEBUG_MUTEXES) || defined(CONFIG_SMP)
-static inline int mutex_owned(struct mutex *lock)
-{
-	return mutex_is_locked(lock) && __mutex_owner(lock) == current;
-}
-#else
-static inline int mutex_owned(struct mutex *lock)
-{
-	return mutex_is_locked(lock);
-}
-#endif
+extern int
+mutex_owned(struct mutex *lock);
+
+extern struct task_struct *
+mutex_owner(struct mutex *lock);
 
 #endif /* __LINUX_MUTEX_H */
