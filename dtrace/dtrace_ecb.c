@@ -258,6 +258,7 @@ static int dtrace_ecb_action_add(struct dtrace_ecb *ecb,
 				format = dtrace_format_add(
 						state, (char *)(uintptr_t)arg);
 			}
+			/* fallthru */
 
 		case DTRACEACT_TRACEMEM:
 		case DTRACEACT_LIBACT:
@@ -301,6 +302,7 @@ static int dtrace_ecb_action_add(struct dtrace_ecb *ecb,
 				nframes = opt[DTRACEOPT_JSTACKFRAMES];
 
 			arg = DTRACE_USTACK_ARG(nframes, strsize);
+			/* fallthru */
 
 		case DTRACEACT_USTACK:
 			if (desc->dtad_kind != DTRACEACT_JSTACK &&

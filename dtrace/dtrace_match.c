@@ -166,10 +166,11 @@ top:
 		c = *p++;
 		if (c == '\0')
 			return 0;
-
+		/* fallthru */
 	default:
 		if (c != s1)
 			return 0;
+		/* fallthru */
 
 	case '?':
 		if (s1 != '\0')
