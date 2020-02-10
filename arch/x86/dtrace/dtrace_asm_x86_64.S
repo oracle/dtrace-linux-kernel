@@ -21,23 +21,23 @@
 #define CPU_DTRACE_BADADDR	0x0004	/* DTrace fault: bad address */
 
 #if defined(__x86_64__)
-	ENTRY(dtrace_caller)
+	SYM_CODE_START(dtrace_caller)
 	movq	$-1, %rax
 	ret
-	ENDPROC(dtrace_caller)
+	SYM_CODE_END(dtrace_caller)
 
 #elif defined(__i386__)
 
-	ENTRY(dtrace_caller)
+	SYM_CODE_START(dtrace_caller)
 	movl	$-1, %eax
 	ret
-	ENDPROC(dtrace_caller)
+	SYM_CODE_END(dtrace_caller)
 
 #endif	/* __i386__ */
 
 #if defined(__x86_64__)
 
-	ENTRY(dtrace_copy)
+	SYM_FUNC_START(dtrace_copy)
 	pushq	%rbp
 	movq	%rsp, %rbp
 
@@ -49,11 +49,11 @@
 	ASM_CLAC
 	leave
 	ret
-	ENDPROC(dtrace_copy)
+	SYM_FUNC_END(dtrace_copy)
 
 #elif defined(__i386__)
 
-	ENTRY(dtrace_copy)
+	SYM_FUNC_START(dtrace_copy)
 	pushl	%ebp
 	movl	%esp, %ebp
 	pushl	%esi
@@ -70,13 +70,13 @@
 	movl	%ebp, %esp
 	popl	%ebp
 	ret
-	ENDPROC(dtrace_copy)
+	SYM_FUNC_END(dtrace_copy)
 
 #endif	/* __i386__ */
 
 #if defined(__x86_64__)
 
-	ENTRY(dtrace_copystr)
+	SYM_FUNC_START(dtrace_copystr)
 	pushq	%rbp
 	movq	%rsp, %rbp
 
@@ -101,11 +101,11 @@
 	leave
 	ret
 
-	ENDPROC(dtrace_copystr)
+	SYM_FUNC_END(dtrace_copystr)
 
 #elif defined(__i386__)
 
-	ENTRY(dtrace_copystr)
+	SYM_FUNC_START(dtrace_copystr)
 
 	pushl	%ebp			# Setup stack frame
 	movl	%esp, %ebp
@@ -138,91 +138,91 @@
 	popl	%ebp
 	ret
 
-	ENDPROC(dtrace_copystr)
+	SYM_FUNC_END(dtrace_copystr)
 
 #endif	/* __i386__ */
 
 #if defined(__x86_64__)
 
-	ENTRY(dtrace_fuword8_nocheck)
+	SYM_CODE_START(dtrace_fuword8_nocheck)
 	xorq	%rax, %rax
 	ASM_STAC
 	movb	(%rdi), %al
 	ASM_CLAC
 	ret
-	ENDPROC(dtrace_fuword8_nocheck)
+	SYM_CODE_END(dtrace_fuword8_nocheck)
 
 #elif defined(__i386__)
 
-	ENTRY(dtrace_fuword8_nocheck)
+	SYM_CODE_START(dtrace_fuword8_nocheck)
 	movl	4(%esp), %ecx
 	xorl	%eax, %eax
 	movzbl	(%ecx), %eax
 	ret
-	ENDPROC(dtrace_fuword8_nocheck)
+	SYM_CODE_END(dtrace_fuword8_nocheck)
 
 #endif	/* __i386__ */
 
 #if defined(__x86_64__)
 
-	ENTRY(dtrace_fuword16_nocheck)
+	SYM_CODE_START(dtrace_fuword16_nocheck)
 	xorq	%rax, %rax
 	ASM_STAC
 	movw	(%rdi), %ax
 	ASM_CLAC
 	ret
-	ENDPROC(dtrace_fuword16_nocheck)
+	SYM_CODE_END(dtrace_fuword16_nocheck)
 
 #elif defined(__i386__)
 
-	ENTRY(dtrace_fuword16_nocheck)
+	SYM_CODE_START(dtrace_fuword16_nocheck)
 	movl	4(%esp), %ecx
 	xorl	%eax, %eax
 	movzwl	(%ecx), %eax
 	ret
-	ENDPROC(dtrace_fuword16_nocheck)
+	SYM_CODE_END(dtrace_fuword16_nocheck)
 
 #endif	/* __i386__ */
 
 #if defined(__x86_64__)
 
-	ENTRY(dtrace_fuword32_nocheck)
+	SYM_CODE_START(dtrace_fuword32_nocheck)
 	xorq	%rax, %rax
 	ASM_STAC
 	movl	(%rdi), %eax
 	ASM_CLAC
 	ret
-	ENDPROC(dtrace_fuword32_nocheck)
+	SYM_CODE_END(dtrace_fuword32_nocheck)
 
 #elif defined(__i386__)
 
-	ENTRY(dtrace_fuword32_nocheck)
+	SYM_CODE_START(dtrace_fuword32_nocheck)
 	movl	4(%esp), %ecx
 	xorl	%eax, %eax
 	movl	(%ecx), %eax
 	ret
-	ENDPROC(dtrace_fuword32_nocheck)
+	SYM_CODE_END(dtrace_fuword32_nocheck)
 
 #endif	/* __i386__ */
 
 #if defined(__x86_64__)
 
-	ENTRY(dtrace_fuword64_nocheck)
+	SYM_CODE_START(dtrace_fuword64_nocheck)
 	ASM_STAC
 	movq	(%rdi), %rax
 	ASM_CLAC
 	ret
-	ENDPROC(dtrace_fuword64_nocheck)
+	SYM_CODE_END(dtrace_fuword64_nocheck)
 
 #elif defined(__i386__)
 
-	ENTRY(dtrace_fuword64_nocheck)
+	SYM_CODE_START(dtrace_fuword64_nocheck)
 	movl	4(%esp), %ecx
 	xorl	%eax, %eax
 	xorl	%edx, %edx
 	movl	(%ecx), %eax
 	movl	4(%ecx), %edx
 	ret
-	ENDPROC(dtrace_fuword64_nocheck)
+	SYM_CODE_END(dtrace_fuword64_nocheck)
 
 #endif	/* __i386__ */

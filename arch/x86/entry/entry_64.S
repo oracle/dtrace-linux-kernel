@@ -1030,7 +1030,7 @@ SYM_CODE_END(\sym)
 .endm
 
 #ifdef CONFIG_DTRACE
-ENTRY(dtrace_error_exit)
+SYM_CODE_START(dtrace_error_exit)
 	UNWIND_HINT_REGS
 	DISABLE_INTERRUPTS(CLBR_NONE)
 	TRACE_IRQS_OFF
@@ -1166,7 +1166,7 @@ dtrace_retint_kernel:
 
 	INTERRUPT_RETURN
 
-END(dtrace_error_exit)
+SYM_CODE_END(dtrace_error_exit)
 
 .pushsection .rodata, "a"
 dtrace_error_msg:
