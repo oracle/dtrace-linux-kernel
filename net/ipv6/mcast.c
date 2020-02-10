@@ -2004,7 +2004,7 @@ static void igmp6_send(struct in6_addr *addr, struct net_device *dev, int type)
 {
 	struct net *net = dev_net(dev);
 	struct sock *sk = net->ipv6.igmp_sk;
-	struct inet6_dev *idev;
+	struct inet6_dev *idev = NULL;
 	struct sk_buff *skb;
 	struct mld_msg *hdr;
 	const struct in6_addr *snd_addr, *saddr;
