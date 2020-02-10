@@ -223,6 +223,7 @@ int dtrace_die_notifier(struct notifier_block *nb, unsigned long val,
 			dargs->regs->ip++;
 		}
 	}
+	/* fallthrough */
 	default:
 		return NOTIFY_DONE;
 	}
