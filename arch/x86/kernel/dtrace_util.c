@@ -127,6 +127,7 @@ int dtrace_die_notifier(struct notifier_block *nb, unsigned long val,
 		orig_trapnr = dargs->trapnr;
 		dargs->trapnr = 6;
 	}
+	/* fallthrough */
 	case DIE_TRAP: {
 		struct dtrace_invop_hdlr *hdlr;
 		int			 rval = 0;
