@@ -947,7 +947,7 @@ extern void dtrace_probe(dtrace_id_t, uintptr_t, uintptr_t, uintptr_t,
 				    prov->dtmp_priv, NULL,		\
 				    prov->dtmp_pops, prov,		\
 				    &prov->dtmp_id) != 0)		\
-			pr_warning("Failed to register provider %s",	\
+			pr_warn("Failed to register provider %s",	\
 				   prov->dtmp_name);			\
 	}								\
 									\
