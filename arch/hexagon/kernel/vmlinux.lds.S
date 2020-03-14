@@ -63,6 +63,7 @@ SECTIONS
 		EXIT_TEXT
 		EXIT_DATA
 		EXIT_CALL
+		*(.ctf)
 	}
 
 	STABS_DEBUG

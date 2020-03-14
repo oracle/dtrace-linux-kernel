@@ -49,6 +49,7 @@
 		EXIT_CALL						\
 		ARM_MMU_DISCARD(*(.text.fixup))				\
 		ARM_MMU_DISCARD(*(__ex_table))				\
+		*(.ctf)							\
 		*(.discard)						\
 		*(.discard.*)
 
