@@ -17,6 +17,10 @@ UBSAN_SANITIZE			:= n
 KCSAN_SANITIZE			:= n
 OBJECT_FILES_NON_STANDARD	:= y
 
+ifdef CONFIG_CTF_USING_BINUTILS
+KBUILD_CFLAGS += -gt0
+endif
+
 # Prevents link failures: __sanitizer_cov_trace_pc() is not linked in.
 KCOV_INSTRUMENT		:= n
 
@@ -160,6 +164,10 @@ ifdef CONFIG_RETPOLINE
 ifneq ($(RETPOLINE_VDSO_CFLAGS),)
   KBUILD_CFLAGS_32 += $(RETPOLINE_VDSO_CFLAGS)
 endif
+endif
+
+ifdef CONFIG_CTF_USING_BINUTILS
+KBUILD_CFLAGS_32 += -gt0
 endif
 
 $(obj)/vdso32.so.dbg: KBUILD_CFLAGS = $(KBUILD_CFLAGS_32)
