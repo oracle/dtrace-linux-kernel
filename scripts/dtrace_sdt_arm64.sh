@@ -89,7 +89,7 @@ fi
     objdump -ht ${lfn}
     objdump -tr ${ofn}
 ) | \
-    awk 'function subl(v0, v1, v0h, v0l, v1h, v1l, d, tmp) {
+    gawk 'function subl(v0, v1, v0h, v0l, v1h, v1l, d, tmp) {
 	     tmp = $0;
 	     if (length(v0) > 8) {
 		 d = length(v0);
@@ -233,7 +233,7 @@ fi
 	     next;
 	 }' | \
     sort -u | \
-    awk 'function addl(v0, v1, v0h, v0l, v1h, v1l, d, tmp) {
+    gawk 'function addl(v0, v1, v0h, v0l, v1h, v1l, d, tmp) {
 	     tmp = $0;
 	     if (length(v0) > 8 || length(v1) > 8) {
 		 d = length(v0);

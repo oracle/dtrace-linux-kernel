@@ -41,7 +41,7 @@ fi
 
 if [ "$opr" = "sdtstub" ]; then
     ${NM} -u $* | grep -E '__dtrace_(probe|isenabled)_' | sort | uniq | \
-	${AWK} -v arch=${ARCH} \
+	gawk -v arch=${ARCH} \
 	       '{
 		    printf("\t.globl %s\n\t.type %s,@function\n%s:\n",
 			   $2, $2, $2);
@@ -107,7 +107,7 @@ if [ "$tok" = "kmod" ]; then
     #        (See STAGE 3b below.)
     #
     ${OBJDUMP} -tr ${ofn} | \
-    awk '/^RELOC/ {
+    gawk '/^RELOC/ {
 	     sect = substr($4, 2, length($4) - 3);
 	     if (sect ~ /^\.(exit|init|meminit)\.text/)
 		 sect = 0;
@@ -143,7 +143,7 @@ if [ "$tok" = "kmod" ]; then
 		 print $4 " " $1 " F " $6;
 	 }' | \
     sort -k1,2 | \
-    awk -v arch=${ARCH} \
+    gawk -v arch=${ARCH} \
 	'function subl(v0, v1, v0h, v0l, v1h, v1l, d, tmp) {
              tmp = $0;
              if (length(v0) > 8) {
@@ -290,7 +290,7 @@ else
     #        Relocation within a section at a specific address
     #
     ${OBJDUMP} -htr ${ofn} | \
-    awk 'function addl(v0, v1, v0h, v0l, v1h, v1l, d, tmp) {
+    gawk 'function addl(v0, v1, v0h, v0l, v1h, v1l, d, tmp) {
 	     tmp = $0;
 	     if (length(v0) > 8 || length(v1) > 8) {
 		 d = length(v0);
@@ -413,7 +413,7 @@ else
 		 print $4 " " $1 " F " $6;
 	 }' | \
     sort -k2 | \
-    awk -v arch=${ARCH} \
+    gawk -v arch=${ARCH} \
 	'function subl(v0, v1, v0h, v0l, v1h, v1l, d, tmp) {
              tmp = $0;
              if (length(v0) > 8) {
