@@ -160,4 +160,5 @@ x509.genkey
 # Generated DTrace SDT files
 #
 *.sdtinfo.c
+*.sdtinfo.h
 *.sdtstub.S

@@ -2258,7 +2258,7 @@ static void add_header(struct buffer *b, struct module *mod)
 	buf_printf(b, "#include <linux/compiler.h>\n");
 	buf_printf(b, "\n");
 	buf_printf(b, "#ifdef CONFIG_DTRACE\n");
-	buf_printf(b, "# include \"%s.sdtinfo.c\"\n", modname);
+	buf_printf(b, "# include \"%s.sdtinfo.h\"\n", modname);
 	buf_printf(b, "#endif\n");
 	buf_printf(b, "\n");
 	buf_printf(b, "BUILD_SALT;\n");
