@@ -8,9 +8,9 @@ LANG=C
 #	dtrace_sdt.sh sdtstub <S-file> <o-file>+
 #		This is used to generate DTrace SDT probe stubs based on one
 #		or more object file(s).  The stubs are written to <S-file>.
-#	dtrace_sdt.sh sdtinfo <c-file> <o-file> kmod
+#	dtrace_sdt.sh sdtinfo <c-file> <o-file> kmod <h-file>
 #		This is used to generate DTrace SDT probe definitions for a
-#		kmod .o file.  The output is written to <c-file>.
+#		kmod .o file.  The output is written to <c-file> and <h-file>.
 #	dtrace_sdt.sh sdtinfo <S-file> <l-file>
 #		This is used to generate DTrace SDT probe definitions for a
 #		linked kernel image file <l-file>.  The output is written to
@@ -71,6 +71,8 @@ if [ "$opr" != "sdtinfo" ]; then
 fi
 
 if [ "$tok" = "kmod" ]; then
+    hfile="$3"
+
     # Pre-process the object file to handle any local functions that contain
     # SDT probes.
     scripts/kmodsdt ${ofn}
@@ -143,7 +145,7 @@ if [ "$tok" = "kmod" ]; then
 		 print $4 " " $1 " F " $6;
 	 }' | \
     sort -k1,2 | \
-    gawk -v arch=${ARCH} \
+    gawk -v arch=${ARCH} -v hfile=${hfile} \
 	'function subl(v0, v1, v0h, v0l, v1h, v1l, d, tmp) {
              tmp = $0;
              if (length(v0) > 8) {
@@ -185,7 +187,6 @@ if [ "$tok" = "kmod" ]; then
 
 	 BEGIN {
 	     print "#include <linux/sdt.h>";
-	     print "#include <linux/fs.h>";
 
 	     probec = 0;
 	 }
@@ -240,18 +241,15 @@ if [ "$tok" = "kmod" ]; then
 	 }
 
 	 END {
-	     if (probec > 0) {
-		 for (alias in protom)
-		     if (alias != "locks_start_grace" && alias != "locks_end_grace")
-			 printf "extern void %s(void);\n", alias;
-		 print "\nstatic struct sdt_probedesc\t_sdt_probes[] = {";
-		 for (i = 0; i < probec; i++)
-		     print probev[i];
-		 print "};\n";
-	     } else
-		print "#define _sdt_probes\tNULL";
+	     for (alias in protom)
+		 printf "extern void %s(void);\n", alias;
+	     print "\nstruct sdt_probedesc\t_sdt_probes[] = {";
+	     for (i = 0; i < probec; i++)
+		 print probev[i];
+	     print "};\n";
 
-	     print "#define _sdt_probec\t" probec;
+	     print "#define _sdt_probec\t" probec > hfile;
+	     print "extern struct sdt_probedesc _sdt_probes[];" >> hfile;
 
 	     exit(errc == 0 ? 0 : 1);
 	 }' > $tfn
