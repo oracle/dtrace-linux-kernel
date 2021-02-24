@@ -30,14 +30,13 @@
 #include "dtrace_dev.h"
 #include "profile.h"
 
-#define PROF_NAMELEN		15
 #define PROF_PROFILE		0
 #define PROF_TICK		1
 #define PROF_PREFIX_PROFILE	"profile-"
 #define PROF_PREFIX_TICK	"tick-"
 
 struct profile_probe {
-	char		prof_name[PROF_NAMELEN];
+	char		prof_name[DTRACE_NAMELEN];
 	dtrace_id_t	prof_id;
 	int		prof_kind;
 	ktime_t		prof_interval;
@@ -198,6 +197,10 @@ static void profile_create(ktime_t interval, const char *name, int kind)
 	if (atomic_read(&profile_total) > profile_max)
 		goto errout;
 
+	if (strlen (name) > (DTRACE_NAMELEN - 1)) {
+		pr_warn("Unable to create probe %s: name too long.\n", name);
+		goto errout;
+	}
 	strcpy(prof->prof_name, name);
 	prof->prof_interval = interval;
 	prof->prof_cyclic = CYCLIC_NONE;
@@ -257,7 +260,7 @@ void profile_provide(void *arg, const struct dtrace_probedesc *desc)
 		       };
 
 	if (desc == NULL) {
-		char	n[PROF_NAMELEN];
+		char	n[DTRACE_NAMELEN];
 
 		/*
 		 * If no description was provided, provide all of our probes.
@@ -267,7 +270,7 @@ void profile_provide(void *arg, const struct dtrace_probedesc *desc)
 			if (rate == 0)
 				continue;
 
-			snprintf(n, PROF_NAMELEN, "%s%d",
+			snprintf(n, DTRACE_NAMELEN, "%s%d",
 				 PROF_PREFIX_PROFILE, rate);
 			profile_create(ktime_set(0, NANOSEC / rate),
 				       n, PROF_PROFILE);
@@ -278,7 +281,7 @@ void profile_provide(void *arg, const struct dtrace_probedesc *desc)
 			if (rate == 0)
 				continue;
 
-			snprintf(n, PROF_NAMELEN, "%s%d",
+			snprintf(n, DTRACE_NAMELEN, "%s%d",
 				 PROF_PREFIX_TICK, rate);
 			profile_create(ktime_set(0, NANOSEC / rate),
 				       n, PROF_TICK);
