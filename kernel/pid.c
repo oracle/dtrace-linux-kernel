@@ -595,11 +595,12 @@ struct task_struct *pidfd_get_task(int pidfd, unsigned int *flags)
 int pidfd_create(struct pid *pid, unsigned int flags)
 {
 	int fd;
+	int task_type = (flags & PIDFD_THREAD) ? PIDTYPE_PID : PIDTYPE_TGID;
 
-	if (!pid || !pid_has_task(pid, PIDTYPE_TGID))
+	if (!pid || !pid_has_task(pid, task_type))
 		return -EINVAL;
 
-	if (flags & ~(O_NONBLOCK | O_RDWR | O_CLOEXEC))
+	if (flags & ~(O_NONBLOCK | O_RDWR | O_CLOEXEC | PIDFD_THREAD))
 		return -EINVAL;
 
 	fd = anon_inode_getfd("[pidfd]", &pidfd_fops, get_pid(pid),
@@ -631,7 +632,7 @@ SYSCALL_DEFINE2(pidfd_open, pid_t, pid, unsigned int, flags)
 	int fd;
 	struct pid *p;
 
-	if (flags & ~PIDFD_NONBLOCK)
+	if (flags & ~(PIDFD_NONBLOCK | PIDFD_THREAD))
 		return -EINVAL;
 
 	if (pid <= 0)

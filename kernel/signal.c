@@ -2006,11 +2006,12 @@ ret:
 	return ret;
 }
 
-static void do_notify_pidfd(struct task_struct *task)
+static void do_notify_pidfd(struct task_struct *task, int warn)
 {
 	struct pid *pid;
 
-	WARN_ON(task->exit_state == 0);
+	if (warn)
+		WARN_ON(task->exit_state == 0);
 	pid = task_pid(task);
 	wake_up_all(&pid->wait_pidfd);
 }
@@ -2039,7 +2040,7 @@ bool do_notify_parent(struct task_struct *tsk, int sig)
 	       (tsk->group_leader != tsk || !thread_group_empty(tsk)));
 
 	/* Wake up all pidfd waiters */
-	do_notify_pidfd(tsk);
+	do_notify_pidfd(tsk, 1);
 
 	if (sig != SIGCHLD) {
 		/*
@@ -2144,6 +2145,8 @@ static void do_notify_parent_cldstop(struct task_struct *tsk,
 
 	if (for_ptracer) {
 		parent = tsk->parent;
+                /* Wake up all pidfd waiters */
+                do_notify_pidfd(tsk, 0);
 	} else {
 		tsk = tsk->group_leader;
 		parent = tsk->real_parent;

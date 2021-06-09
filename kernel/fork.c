@@ -1912,17 +1912,27 @@ static __poll_t pidfd_poll(struct file *file, struct poll_table_struct *pts)
 {
 	struct pid *pid = file->private_data;
 	__poll_t poll_flags = 0;
+	struct task_struct *task_pid;
+	int under_trace = 0;
 
 	poll_wait(file, &pid->wait_pidfd, pts);
 
 	/*
-	 * Inform pollers only when the whole thread group exits.
-	 * If the thread group leader exits before all other threads in the
-	 * group, then poll(2) should block, similar to the wait(2) family.
+	 * If this pid is a thread group leader and is not under ptrace, inform
+	 * pollers only when the whole thread group exits.  If the thread group
+	 * leader exits before all other threads in the group, then poll(2)
+	 * should block, similar to the wait(2) family.
 	 */
-	if (thread_group_exited(pid))
-		poll_flags = EPOLLIN | EPOLLRDNORM;
 
+	rcu_read_lock();
+	task_pid = pid_task(pid, PIDTYPE_PID);
+	if (task_pid)
+		under_trace = (task_pid->ptrace != 0);
+	rcu_read_unlock();
+
+	if (!pid_has_task(pid, PIDTYPE_TGID) || under_trace ||
+	    thread_group_exited(pid))
+		poll_flags = EPOLLIN | EPOLLRDNORM;
 	return poll_flags;
 }
 

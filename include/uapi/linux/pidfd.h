@@ -9,4 +9,7 @@
 /* Flags for pidfd_open().  */
 #define PIDFD_NONBLOCK O_NONBLOCK
 
+/* An arbitrary value unlikely ever to be useful for pidfds.  */
+#define PIDFD_THREAD O_NOCTTY
+
 #endif /* _UAPI_LINUX_PIDFD_H */
