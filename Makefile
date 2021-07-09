@@ -1228,11 +1228,11 @@ PHONY += vmlinux_o
 vmlinux_o: vmlinux.a $(KBUILD_VMLINUX_LIBS)
 	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.vmlinux_o
 
-vmlinux.o modules.builtin.modinfo modules.builtin: vmlinux_o
+vmlinux.o modules.builtin.modinfo modules.builtin modules_thick.builtin: vmlinux_o
 	@:
 
 PHONY += vmlinux
-vmlinux: vmlinux.o $(KBUILD_LDS) modpost
+vmlinux: vmlinux.o $(KBUILD_LDS) modpost modules_thick.builtin
 	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.vmlinux
 
 # The actual objects are generated when descending,
@@ -2008,7 +2008,7 @@ clean: $(clean-dirs)
 		-o -name '*.lex.c' -o -name '*.tab.[ch]' \
 		-o -name '*.asn1.[ch]' \
 		-o -name '*.symtypes' -o -name 'modules.order' \
-		-o -name '.tmp_*' \
+		-o -name '.tmp_*' -o -name 'modules_thick.builtin' \
 		-o -name '*.c.[012]*.*' \
 		-o -name '*.ll' \
 		-o -name '*.gcno' \
