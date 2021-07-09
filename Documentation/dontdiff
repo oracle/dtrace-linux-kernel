@@ -183,6 +183,7 @@ modules.builtin
 modules.builtin.*
 modules.nsdeps
 modules.order
+check-tristates.objs
 modversions.h*
 nconf
 nconf-cfg

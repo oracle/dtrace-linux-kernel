@@ -52,6 +52,7 @@
 *.zst
 Module.symvers
 modules.order
+check-tristates.objs
 
 #
 # Top-level generic files

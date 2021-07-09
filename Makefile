@@ -1689,6 +1689,7 @@ help:
 	@echo  '  coccicheck      - Check with Coccinelle'
 	@echo  '  clang-analyzer  - Check with clang static analyzer'
 	@echo  '  clang-tidy      - Check with clang-tidy'
+	@echo  '  tristatecheck   - Check for non-tristates with MODULE_ declarations'
 	@echo  ''
 	@echo  'Tools:'
 	@echo  '  nsdeps          - Generate missing symbol namespace dependencies'
@@ -2012,7 +2013,7 @@ clean: $(clean-dirs)
 		-o -name '*.lex.c' -o -name '*.tab.[ch]' \
 		-o -name '*.asn1.[ch]' \
 		-o -name '*.symtypes' -o -name 'modules.order' \
-		-o -name '.tmp_*' \
+		-o -name 'check-tristates.objs' -o -name '.tmp_*' \
 		-o -name '*.c.[012]*.*' \
 		-o -name '*.ll' \
 		-o -name '*.gcno' \
@@ -2082,7 +2083,25 @@ coccicheck:
 export_report:
 	$(PERL) $(srctree)/scripts/export_report.pl
 
-PHONY += checkstack kernelrelease kernelversion image_name
+tristatecheck: SHELL=/bin/bash
+tristatecheck: check-tristates.objs modules.builtin.objs
+	$(Q) for name in $$(comm -23 <(sed 's,:,,' modules.builtin.objs | tr ' ' '\n' | sort -u) \
+				    <(sed 's,:,,' check-tristates.objs | tr ' ' '\n' | sort -u)); do \
+		grep -w $$name modules.builtin.objs | while read -r line; do \
+			case $$line in \
+			$$name:\ ) printf "%s " "$$line" | sed 's,: ,,';; \
+			$$name:\ *) printf "%s " "$$line" | sed 's,^.*: ,,';; \
+			*) echo $$name;; \
+			esac; \
+		done; \
+	     done | tr ' ' '\n' | sort -u | while read -r name; do \
+		test -f $${name%.o}.c && echo $${name%.o}.c; \
+	     done | xargs grep -l '^ *MODULE_' || true
+
+check-tristates.objs: $(build-dir)
+	$(Q)$(MAKE) $(tristatecheck)=$^ tristates-file=$@
+
+PHONY += checkstack kernelrelease kernelversion image_name tristatecheck
 
 # UML needs a little special treatment here.  It wants to use the host
 # toolchain, so needs $(SUBARCH) passed to checkstack.pl.  Everyone

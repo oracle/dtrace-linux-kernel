@@ -39,10 +39,16 @@ else
 obj-m := $(filter-out %/, $(obj-m))
 endif
 
-ifdef need-builtin
+ifdef need-tristates
+subdir-ym	:= $(sort $(subdir-y) $(subdir-m) \
+			$(patsubst %/,%, $(filter %/, $(obj-y) $(obj-m) $(obj-Y) $(obj-M))))
 obj-y		:= $(patsubst %/, %/built-in.a, $(obj-y))
 else
+ifdef need-builtin
+obj-y          := $(patsubst %/, %/built-in.a, $(obj-y))
+else
 obj-y		:= $(filter-out %/, $(obj-y))
+endif
 endif
 
 # Expand $(foo-objs) $(foo-y) etc. by replacing their individuals

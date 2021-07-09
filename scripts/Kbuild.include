@@ -79,6 +79,12 @@ endef
 build := -f $(srctree)/scripts/Makefile.build obj
 
 ###
+# Shorthand for $(Q)$(MAKE) -f scripts/check-tristates.mk need-tristates=1 obj=
+# Usage:
+# $(Q)$(MAKE) $(tristatecheck)=dir
+tristatecheck := -f $(srctree)/scripts/check-tristates.mk need-tristates=1 obj
+
+###
 # Shorthand for $(Q)$(MAKE) -f scripts/Makefile.dtbinst obj=
 # Usage:
 # $(Q)$(MAKE) $(dtbinst)=dir
