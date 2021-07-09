@@ -45,6 +45,12 @@ else
 obj-y		:= $(filter-out %/, $(obj-y))
 endif
 
+ifdef need-modbuiltin
+subdir-ym      := $(sort $(subdir-y) $(subdir-m) \
+		      $(patsubst %/,%, $(filter %/, $(obj-y) $(obj-m) $(obj-Y) $(obj-M))))
+obj-y		:= $(patsubst %/, %/built-in.a, $(obj-y))
+endif
+
 # Expand $(foo-objs) $(foo-y) etc. by replacing their individuals
 suffix-search = $(strip $(foreach s, $3, $($(1:%$(strip $2)=%$s))))
 # List composite targets that are constructed by combining other targets
