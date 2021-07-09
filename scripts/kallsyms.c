@@ -6,7 +6,7 @@
  * of the GNU General Public License, incorporated herein by reference.
  *
  * Usage: kallsyms [--all-symbols] [--absolute-percpu]
- *                         [--base-relative] [--lto-clang]
+ *                         [--base-relative] [--lto-clang] [--sizes]
  *                         [--builtin=modules.builtin.objs] in.map > out.S
  *
  *      Table compression uses all the unused char codes on the symbols and
@@ -39,6 +39,7 @@
 
 struct sym_entry {
 	unsigned long long addr;
+	unsigned long long size;
 	unsigned int len;
 	unsigned int seq;
 	unsigned int start_pos;
@@ -70,6 +71,7 @@ static int all_symbols;
 static int absolute_percpu;
 static int base_relative;
 static int lto_clang;
+static int sizes;
 
 static int token_profit[0x10000];
 
@@ -845,8 +847,9 @@ static void check_symbol_range(const char *sym, unsigned long long addr,
 
 static struct sym_entry *read_symbol(FILE *in, char **buf, size_t *buf_len)
 {
-	char *name, type, *p;
+	char *name, type, *field, *p;
 	unsigned long long addr;
+        unsigned long long size = 0;
 	size_t len;
 	ssize_t readlen;
 	struct sym_entry *sym;
@@ -865,8 +868,20 @@ static struct sym_entry *read_symbol(FILE *in, char **buf, size_t *buf_len)
 		(*buf)[readlen - 1] = 0;
 
 	addr = strtoull(*buf, &p, 16);
+        field = *buf;
 
-	if (*buf == p || *p++ != ' ' || !isascii((type = *p++)) || *p++ != ' ') {
+        if (sizes) {
+                if (*buf == p || *p++ != ' ' || *p == 0) {
+                        fprintf(stderr, "line format error\n");
+                        exit(EXIT_FAILURE);
+                }
+
+
+                field = p;
+		size = strtoull(field, &p, 16);
+        }
+
+	if (field == p || *p++ != ' ' || !isascii((type = *p++)) || *p++ != ' ') {
 		fprintf(stderr, "line format error\n");
 		exit(EXIT_FAILURE);
 	}
@@ -906,6 +921,7 @@ static struct sym_entry *read_symbol(FILE *in, char **buf, size_t *buf_len)
 	sym->sym[0] = type;
 	strcpy(sym_name(sym), name);
 	sym->percpu_absolute = 0;
+	sym->size = size;
 
 	return sym;
 }
@@ -1607,6 +1623,12 @@ static void write_src(void)
 			(unsigned char)(table[i]->seq >> 0));
 	printf("\n");
 
+
+	output_label("kallsyms_sizes");
+	for (i = 0; i < table_cnt; i++)
+		printf("\tPTR\t%#llx\n", table[i]->size);
+	printf("\n");
+
 #ifdef CONFIG_KALLMODSYMS
 	output_kallmodsyms_mod_objnames();
 	output_kallmodsyms_objfiles();
@@ -1814,6 +1836,18 @@ static int compare_symbols(const void *a, const void *b)
 	if (sa->addr < sb->addr)
 		return -1;
 
+	/* zero-size markers before nonzero-size symbols */
+	if (sa->size > 0 && sb->size == 0)
+		return 1;
+	if (sa->size == 0 && sb->size > 0)
+		return -1;
+
+	/* sort by size (large size preceding symbols it encompasses) */
+	if (sa->size < sb->size)
+		return 1;
+	if (sa->size > sb->size)
+		return -1;
+
 	/* sort by "weakness" type */
 	wa = (sa->sym[0] == 'w') || (sa->sym[0] == 'W');
 	wb = (sb->sym[0] == 'w') || (sb->sym[0] == 'W');
@@ -2004,6 +2038,7 @@ int main(int argc, char **argv)
 			{"absolute-percpu", no_argument, &absolute_percpu, 1},
 			{"base-relative",   no_argument, &base_relative,   1},
 			{"lto-clang",       no_argument, &lto_clang,       1},
+			{"sizes",           no_argument, &sizes,           1},
 			{"builtin",         required_argument, &has_modules_builtin, 1},
 			{},
 		};
