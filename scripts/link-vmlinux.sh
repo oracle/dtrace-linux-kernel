@@ -60,7 +60,10 @@ vmlinux_link()
 	# skip output file argument
 	shift
 
-	if is_enabled CONFIG_LTO_CLANG || is_enabled CONFIG_X86_KERNEL_IBT; then
+	# kallmodsyms needs a linker mapfile that contains original object
+	# file names, so cannot use this optimization.
+	if { is_enabled CONFIG_LTO_CLANG || is_enabled CONFIG_X86_KERNEL_IBT; } && \
+	   ! is_enabled CONFIG_KALLMODSYMS; then
 		# Use vmlinux.o instead of performing the slow LTO link again.
 		objs=vmlinux.o
 		libs=
@@ -94,7 +97,7 @@ vmlinux_link()
 		ldflags="${ldflags} ${wl}--strip-debug"
 	fi
 
-	if is_enabled CONFIG_VMLINUX_MAP; then
+	if is_enabled CONFIG_VMLINUX_MAP || is_enabled CONFIG_KALLMODSYMS; then
 		ldflags="${ldflags} ${wl}-Map=${output}.map"
 	fi
 
@@ -144,6 +147,21 @@ kallsyms()
 {
 	local kallsymopt;
 
+	# read the linker map to identify ranges of addresses:
+	#   - for each *.o file, report address, size, pathname
+	#       - most such lines will have four fields
+	#       - but sometimes there is a line break after the first field
+	#   - start reading at "Linker script and memory map"
+	#   - stop reading at ".brk"
+	if is_enabled CONFIG_KALLMODSYMS; then
+		${AWK} '
+		    /\.o$/ && start==1 { print $(NF-2), $(NF-1), $NF }
+		    /^Linker script and memory map/ { start = 1 }
+		    /^\.brk/ { exit(0) }
+		' ${3} | sort > .tmp_vmlinux.ranges
+	fi
+
+	# get kallsyms options
 	if is_enabled CONFIG_KALLSYMS_ALL; then
 		kallsymopt="${kallsymopt} --all-symbols"
 	fi
@@ -175,7 +193,7 @@ kallsyms_step()
 
 	vmlinux_link ${kallsyms_vmlinux} "${kallsymso_prev}" ${btf_vmlinux_bin_o}
 	mksysmap ${kallsyms_vmlinux} ${kallsyms_vmlinux}.syms
-	kallsyms ${kallsyms_vmlinux}.syms ${kallsyms_S}
+	kallsyms ${kallsyms_vmlinux}.syms ${kallsyms_S} ${kallsyms_vmlinux}.map
 
 	info AS ${kallsyms_S}
 	${CC} ${NOSTDINC_FLAGS} ${LINUXINCLUDE} ${KBUILD_CPPFLAGS} \
