@@ -216,6 +216,13 @@ static const char *conf_get_autoheader_name(void)
 	return name ? name : "include/generated/autoconf.h";
 }
 
+static const char *conf_get_tristate_name(void)
+{
+	char *name = getenv("KCONFIG_TRISTATE");
+
+	return name ? name : "include/config/tristate.conf";
+}
+
 static int conf_set_sym_val(struct symbol *sym, int def, int def_flags, char *p)
 {
 	char *p2;
@@ -667,13 +674,20 @@ static char *escape_string_value(const char *in)
  */
 enum output_n { OUTPUT_N, OUTPUT_N_AS_UNSET, OUTPUT_N_NONE };
 
+#define PRINT_ESCAPE		0x01
+#define PRINT_UPCASE		0x02
+#define PRINT_TRISTATE_ONLY	0x04
+
 static void __print_symbol(FILE *fp, struct symbol *sym, enum output_n output_n,
-			   bool escape_string)
+			   int flags)
 {
 	const char *val;
 	char *escaped = NULL;
 
 	if (sym->type == S_UNKNOWN)
+		return;
+
+	if (flags & PRINT_TRISTATE_ONLY && sym->type != S_TRISTATE)
 		return;
 
 	val = sym_get_string_value(sym);
@@ -685,29 +699,38 @@ static void __print_symbol(FILE *fp, struct symbol *sym, enum output_n output_n,
 		return;
 	}
 
-	if (sym->type == S_STRING && escape_string) {
+	if (sym->type == S_STRING && flags & PRINT_ESCAPE) {
 		escaped = escape_string_value(val);
 		val = escaped;
 	}
 
-	fprintf(fp, "%s%s=%s\n", CONFIG_, sym->name, val);
+	if (flags & PRINT_UPCASE)
+		fprintf(fp, "%s%s=%c\n", CONFIG_, sym->name, (char)toupper(*val));
+	else
+		fprintf(fp, "%s%s=%s\n", CONFIG_, sym->name, val);
 
 	free(escaped);
 }
 
 static void print_symbol_for_dotconfig(FILE *fp, struct symbol *sym)
 {
-	__print_symbol(fp, sym, OUTPUT_N_AS_UNSET, true);
+	__print_symbol(fp, sym, OUTPUT_N_AS_UNSET, PRINT_ESCAPE);
 }
 
 static void print_symbol_for_autoconf(FILE *fp, struct symbol *sym)
 {
-	__print_symbol(fp, sym, OUTPUT_N_NONE, false);
+	__print_symbol(fp, sym, OUTPUT_N_NONE, 0);
+}
+
+static void print_symbol_for_tristate(FILE *fp, struct symbol *sym)
+{
+	__print_symbol(fp, sym, OUTPUT_N_NONE, PRINT_ESCAPE | PRINT_UPCASE |
+		       PRINT_TRISTATE_ONLY);
 }
 
 void print_symbol_for_listconfig(struct symbol *sym)
 {
-	__print_symbol(stdout, sym, OUTPUT_N, true);
+	__print_symbol(stdout, sym, OUTPUT_N, PRINT_ESCAPE);
 }
 
 static void print_symbol_for_c(FILE *fp, struct symbol *sym)
@@ -1128,6 +1151,13 @@ int conf_write_autoconf(int overwrite)
 	ret = __conf_write_autoconf(conf_get_autoheader_name(),
 				    print_symbol_for_c,
 				    &comment_style_c);
+	if (ret)
+		return ret;
+
+
+	ret = __conf_write_autoconf(conf_get_tristate_name(),
+				    print_symbol_for_tristate,
+				    &comment_style_pound);
 	if (ret)
 		return ret;
 
