@@ -113,3 +113,9 @@ $(modthickbuiltin-files): include/config/tristate.conf
 
 modules_thick.builtin: $(modthickbuiltin-files) $(obj-y)
 	$(Q)$(AWK) '!x[$$0]++' $(patsubst %/built-in.a, %/$@, $(filter %/built-in.a,$(obj-y))) > $@
+
+ifdef CONFIG_KALLMODSYMS
+ifdef need-builtin
+extra-y += modules_thick.builtin
+endif
+endif
