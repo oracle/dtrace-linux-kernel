@@ -144,6 +144,11 @@ kallsyms()
 {
 	local kallsymopt;
 
+	if [[ x$1 == x--sizes ]]; then
+		kallsymopt="${kallsymopt} --sizes"
+		shift
+	fi
+
 	# read the linker map to identify ranges of addresses:
 	#   - for each *.o file, report address, size, pathname
 	#       - most such lines will have four fields
@@ -208,8 +213,19 @@ kallsyms_step()
 	kallsyms_S=${kallsyms_vmlinux}.S
 
 	vmlinux_link ${kallsyms_vmlinux} "${kallsymso_prev}" ${btf_vmlinux_bin_o}
-	mksysmap ${kallsyms_vmlinux} ${kallsyms_vmlinux}.syms ${kallsymso_prev}
+	mksysmap ${kallsyms_vmlinux} ${kallsyms_vmlinux}.syms "${kallsymso_prev}"
 	kallsyms ${kallsyms_vmlinux}.syms ${kallsyms_S} ${kallsyms_vmlinux}.map
+
+	# "nm -S" does not print size when size is 0
+	# Therefore use awk to regularize the data:
+	#   - when there are only three fields, add an explicit "0"
+	#   - when there are already four fields, pass through as is
+
+	mksysmap ${kallsyms_vmlinux} ${kallsyms_vmlinux}.kall.syms.tmp "${kallsymso_prev}" -S
+	${AWK} 'NF==3 {print $1, 0, $2, $3}; NF==4' \
+		< ${kallsyms_vmlinux}.kall.syms.tmp > ${kallsyms_vmlinux}.kall.syms
+	rm -f ${kallsyms_vmlinux}.kall.syms.tmp
+	kallsyms --sizes ${kallsyms_vmlinux}.kall.syms ${kallsyms_S} ${kallsyms_vmlinux}.map
 
 	info AS ${kallsyms_S}
 	${CC} ${NOSTDINC_FLAGS} ${LINUXINCLUDE} ${KBUILD_CPPFLAGS} \
@@ -222,7 +238,7 @@ kallsyms_step()
 mksysmap()
 {
 	info NM ${2}
-	${CONFIG_SHELL} "${srctree}/scripts/mksysmap" ${1} ${2} ${3}
+	${CONFIG_SHELL} "${srctree}/scripts/mksysmap" "${1}" "${2}" "${3}" ${4:-}
 }
 
 sorttable()

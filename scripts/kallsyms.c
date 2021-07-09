@@ -6,7 +6,7 @@
  * of the GNU General Public License, incorporated herein by reference.
  *
  * Usage: kallsyms [--all-symbols] [--absolute-percpu]
- *                         [--base-relative] [--lto-clang]
+ *                         [--base-relative] [--lto-clang] [--sizes]
  *                         [--builtin=modules.builtin.objs] in.map > out.S
  *
  *      Table compression uses all the unused char codes on the symbols and
@@ -54,6 +54,7 @@ _Static_assert(
 
 struct sym_entry {
 	unsigned long long addr;
+	unsigned long long size;
 	unsigned int len;
 	unsigned int seq;
 	unsigned int start_pos;
@@ -85,6 +86,7 @@ static int all_symbols;
 static int absolute_percpu;
 static int base_relative;
 static int lto_clang;
+static int sizes;
 
 static int token_profit[0x10000];
 
@@ -864,10 +866,19 @@ static struct sym_entry *read_symbol(FILE *in)
 	unsigned long long addr;
 	unsigned int len;
 	struct sym_entry *sym;
-	int rc;
+	int rc = 0;
+	unsigned long long size;
+	int expected;
 
-	rc = fscanf(in, "%llx %c %" _stringify(KSYM_NAME_LEN_BUFFER) "s\n", &addr, &type, name);
-	if (rc != 3) {
+	if (sizes) {
+		rc = fscanf(in, "%llx %llx %c %" _stringify(KSYM_NAME_LEN_BUFFER) "s\n", &addr, &size, &type, name);
+		expected = 4;
+	} else {
+		rc = fscanf(in, "%llx %c %" _stringify(KSYM_NAME_LEN_BUFFER) "s\n", &addr, &type, name);
+		expected = 3;
+		size = 0;
+	}
+	if (rc != expected) {
 		if (rc != EOF && fgets(name, ARRAY_SIZE(name), in) == NULL)
 			fprintf(stderr, "Read error or end of file.\n");
 		return NULL;
@@ -905,6 +916,7 @@ static struct sym_entry *read_symbol(FILE *in)
 	sym->sym[0] = type;
 	strcpy(sym_name(sym), name);
 	sym->percpu_absolute = 0;
+	sym->size = size;
 
 	return sym;
 }
@@ -1603,6 +1615,12 @@ static void write_src(void)
 			(unsigned char)(table[i]->seq >> 0));
 	printf("\n");
 
+
+	output_label("kallsyms_sizes");
+	for (i = 0; i < table_cnt; i++)
+		printf("\tPTR\t%#llx\n", table[i]->size);
+	printf("\n");
+
 #ifdef CONFIG_KALLMODSYMS
 	output_kallmodsyms_mod_objnames();
 	output_kallmodsyms_objfiles();
@@ -1810,6 +1828,18 @@ static int compare_symbols(const void *a, const void *b)
 	if (sa->addr < sb->addr)
 		return -1;
 
+	/* zero-size markers before nonzero-size symbols */
+	if (sa->size > 0 && sb->size == 0)
+		return 1;
+	if (sa->size == 0 && sb->size > 0)
+		return -1;
+
+	/* sort by size (large size preceding symbols it encompasses) */
+	if (sa->size < sb->size)
+		return 1;
+	if (sa->size > sb->size)
+		return -1;
+
 	/* sort by "weakness" type */
 	wa = (sa->sym[0] == 'w') || (sa->sym[0] == 'W');
 	wb = (sb->sym[0] == 'w') || (sb->sym[0] == 'W');
@@ -2001,6 +2031,7 @@ int main(int argc, char **argv)
 			{"absolute-percpu", no_argument, &absolute_percpu, 1},
 			{"base-relative",   no_argument, &base_relative,   1},
 			{"lto-clang",       no_argument, &lto_clang,       1},
+			{"sizes",           no_argument, &sizes,           1},
 			{"builtin",         required_argument, &has_modules_builtin, 1},
 			{},
 		};
