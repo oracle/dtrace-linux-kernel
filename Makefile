@@ -1232,7 +1232,7 @@ vmlinux.o modules.builtin.modinfo modules.builtin: vmlinux_o
 	@:
 
 PHONY += vmlinux
-vmlinux: vmlinux.o $(KBUILD_LDS) modpost
+vmlinux: vmlinux.o $(KBUILD_LDS) modules_thick.builtin modpost
 	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.vmlinux
 
 # The actual objects are generated when descending,
@@ -1561,6 +1561,9 @@ __modinst_pre:
 	@cp -f $(objtree)/modules.builtin.modinfo $(MODLIB)/
 
 endif # CONFIG_MODULES
+
+modules_thick.builtin: $(build-dir)
+	@:
 
 ###
 # Cleaning is done on three levels.
