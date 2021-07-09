@@ -104,6 +104,17 @@ static unsigned int strhash(const char *s)
 	return hash;
 }
 
+static unsigned int memhash(char *s, size_t len)
+{
+	/* fnv32 hash */
+	unsigned int hash = 2166136261U;
+	size_t i;
+
+	for (i = 0; i < len; i++)
+		hash = (hash ^ *(s + i)) * 0x01000193;
+	return hash;
+}
+
 #define OBJ2MOD_BITS 10
 #define OBJ2MOD_N (1 << OBJ2MOD_BITS)
 #define OBJ2MOD_MASK (OBJ2MOD_N - 1)
@@ -113,14 +124,35 @@ struct obj2mod_elem {
 	size_t nmods;		/* number of modules in "mods" */
 	size_t mods_size;	/* size of all mods together */
 	int mod_offset;		/* offset of module name in .kallsyms_mod_objnames */
+
+	/*
+	 * Hash values of all module names in this elem, combined: used for
+	 * rapid comparisons.  Populated quite late, at optimize_obj2mod time.
+	 */
+	unsigned int modhash;
+
+	/*
+	 * If set at emission time, this points at another obj2mod entry that
+	 * contains the module name we need (possibly at a slightly later
+	 * offset, if the entry is for an objfile that appears in many modules).
+	 */
+	struct obj2mod_elem *xref;
+
+	/*
+	 * Chain links for object -> module and module->object mappings.
+	 */
 	struct obj2mod_elem *obj2mod_next;
+	struct obj2mod_elem *mod2obj_next;
 };
 
 /*
- * Map from object files to obj2mod entries (a unique mapping).
+ * Map from object files to obj2mod entries (a unique mapping), and vice versa
+ * (not unique, but entries for objfiles in more than one module in this hash
+ * are ignored).
  */
 
 static struct obj2mod_elem *obj2mod[OBJ2MOD_N];
+static struct obj2mod_elem *mod2obj[OBJ2MOD_N];
 static size_t num_objfiles;
 
 /*
@@ -164,6 +196,8 @@ static void obj2mod_add(char *obj, char *mod)
 
 	elem = obj2mod_get(obj);
 	if (!elem) {
+		int j = strhash(mod) & OBJ2MOD_MASK;
+
 		elem = malloc(sizeof(struct obj2mod_elem));
 		if (!elem)
 			goto oom;
@@ -177,8 +211,15 @@ static void obj2mod_add(char *obj, char *mod)
 
 		elem->obj2mod_next = obj2mod[i];
 		obj2mod[i] = elem;
+		elem->mod2obj_next = mod2obj[j];
+		mod2obj[j] = elem;
 		num_objfiles++;
 	} else {
+		/*
+		 * objfile appears in multiple modules.  mod2obj for this entry
+		 * will be ignored from now on, except insofar as it is needed
+		 * to maintain the hash chain.
+		 */
 		elem->mods = realloc(elem->mods, elem->mods_size +
 				     strlen(mod) + 1);
 		if (!elem->mods)
@@ -197,6 +238,162 @@ static void obj2mod_add(char *obj, char *mod)
 oom:
 	fprintf(stderr, "kallsyms: out of memory\n");
 	exit(1);
+}
+
+static int qstrcmp(const void *a, const void *b)
+{
+	return strcmp((const char *) a, (const char *) b);
+}
+
+static int qmodhash(const void *a, const void *b)
+{
+	struct obj2mod_elem * const *el_a = a;
+	struct obj2mod_elem * const *el_b = b;
+	if ((*el_a)->modhash < (*el_b)->modhash)
+		return -1;
+	else if ((*el_a)->modhash > (*el_b)->modhash)
+		return 1;
+	return 0;
+}
+
+/*
+ * Associate all object files in obj2mod which refer to the same module with a
+ * single obj2mod entry for emission, preferring to point into the module list
+ * in a multi-module objfile.
+ */
+static void optimize_obj2mod(void)
+{
+	size_t i;
+	size_t n = 0;
+	struct obj2mod_elem *elem;
+	struct obj2mod_elem *dedup;
+
+	/* An array of all obj2mod_elems, later sorted by hashval.  */
+	struct obj2mod_elem **uniq;
+	struct obj2mod_elem *last;
+
+	/*
+	 * Canonicalize all module lists by sorting them, then compute their
+	 * hash values.
+	 */
+	uniq = malloc(sizeof(struct obj2mod_elem *) * num_objfiles);
+	if (uniq == NULL)
+		goto oom;
+
+	for (i = 0; i < OBJ2MOD_N; i++) {
+		for (elem = obj2mod[i]; elem; elem = elem->obj2mod_next) {
+			if (elem->nmods >= 2) {
+				char **sorter;
+				char *walk;
+				char *tmp_mods;
+				size_t j;
+
+				tmp_mods = malloc(elem->mods_size);
+				sorter = malloc(sizeof(char *) * elem->nmods);
+				if (sorter == NULL || tmp_mods == NULL)
+					goto oom;
+				memcpy(tmp_mods, elem->mods, elem->mods_size);
+
+				for (j = 0, walk = tmp_mods; j < elem->nmods;
+				     j++) {
+					sorter[j] = walk;
+					walk += strlen(walk) + 1;
+				}
+				qsort(sorter, elem->nmods, sizeof (char *),
+				      qstrcmp);
+				for (j = 0, walk = elem->mods; j < elem->nmods;
+				     j++) {
+					strcpy(walk, sorter[j]);
+					walk += strlen(walk) + 1;
+				}
+				free(tmp_mods);
+				free(sorter);
+			}
+
+			uniq[n] = elem;
+			uniq[n]->modhash = memhash(elem->mods, elem->mods_size);
+			n++;
+		}
+	}
+
+	qsort(uniq, num_objfiles, sizeof (struct obj2mod_elem *), qmodhash);
+
+	/*
+	 * Work over multimodule entries.  These must be emitted into
+	 * .kallsyms_mod_objnames as a unit, but we can still optimize by
+	 * reusing some other identical entry.  Single-file modules are amenable
+	 * to the same optimization, but we avoid doing it for now so that we
+	 * can prefer to point them directly inside a multimodule entry.
+	 */
+	for (i = 0, last = NULL; i < num_objfiles; i++) {
+		const char *onemod;
+		size_t j;
+
+		if (uniq[i]->nmods < 2)
+			continue;
+
+		/* Duplicate multimodule.  Reuse the first we saw.  */
+		if (last != NULL && last->modhash == uniq[i]->modhash &&
+			memcmp(uniq[i]->mods, last->mods,
+			       uniq[i]->mods_size) == 0) {
+			uniq[i]->xref = last;
+			continue;
+		}
+
+		/*
+		 * Single-module entries relating to modules also emitted as
+		 * part of this multimodule entry can refer to it: later, we
+		 * will hunt down the right specific module name within this
+		 * multimodule entry and point directly to it.
+		 */
+		onemod = uniq[i]->mods;
+		for (j = uniq[i]->nmods; j > 0; j--) {
+			int h = strhash(onemod) & OBJ2MOD_MASK;
+
+			for (dedup = mod2obj[h]; dedup;
+			     dedup = dedup->mod2obj_next) {
+				if (dedup->nmods > 1)
+					continue;
+
+				if (strcmp(dedup->mods, onemod) != 0)
+					continue;
+				dedup->xref = uniq[i];
+				assert(uniq[i]->xref == NULL);
+			}
+			onemod += strlen(onemod) + 1;
+		}
+
+		last = uniq[i];
+	}
+
+	/*
+	 * Now traverse all single-module entries, xreffing every one that
+	 * relates to a given module to the first one we saw that refers to that
+	 * module.
+	 */
+	for (i = 0, last = NULL; i < num_objfiles; i++) {
+		if (uniq[i]->nmods > 1)
+			continue;
+
+		if (uniq[i]->xref != NULL)
+			continue;
+
+		/* Duplicate module name.  Reuse the first we saw.  */
+		if (last != NULL && last->modhash == uniq[i]->modhash &&
+		    memcmp(uniq[i]->mods, last->mods, uniq[i]->mods_size) == 0) {
+			uniq[i]->xref = last;
+			assert(last->xref == NULL);
+			continue;
+		}
+		last = uniq[i];
+	}
+
+	free(uniq);
+
+	return;
+oom:
+	fprintf(stderr, "kallsyms: out of memory optimizing module list\n");
+	exit(EXIT_FAILURE);
 }
 #endif /* CONFIG_KALLMODSYMS */
 
@@ -509,8 +706,8 @@ static void output_kallmodsyms_mod_objnames(void)
 	size_t i;
 
 	/*
-	 * Traverse and emit, updating mod_offset accordingly.  Emit a single \0
-	 * at the start, to encode non-modular objfiles.
+	 * Traverse and emit, chasing xref and updating mod_offset accordingly.
+	 * Emit a single \0 at the start, to encode non-modular objfiles.
 	 */
 	output_label("kallsyms_mod_objnames");
 	printf("\t.byte\t0\n");
@@ -519,9 +716,25 @@ static void output_kallmodsyms_mod_objnames(void)
 		     elem = elem->obj2mod_next) {
 			const char *onemod;
 			size_t i;
+			struct obj2mod_elem *out_elem = elem;
 
-			elem->mod_offset = offset;
-			onemod = elem->mods;
+			/*
+			 * Single-module ref to a multimodule: will be emitted
+			 * as a whole, so avoid emitting pieces of it (which
+			 * would go unreferenced in any case).
+			 */
+			if (elem->xref &&
+			    elem->nmods == 1 && elem->xref->nmods > 1)
+				continue;
+
+			if (elem->xref)
+				out_elem = elem->xref;
+
+			if (out_elem->mod_offset != 0)
+				continue;	/* Already emitted.  */
+
+			out_elem->mod_offset = offset;
+			onemod = out_elem->mods;
 
 			/*
 			 * Technically this is a waste of space: we could just
@@ -530,13 +743,14 @@ static void output_kallmodsyms_mod_objnames(void)
 			 * entry, but doing it this way makes it more obvious
 			 * when an entry is a multimodule entry.
 			 */
-			if (elem->nmods != 1) {
+			if (out_elem->nmods != 1) {
 				printf("\t.byte\t0\n");
-				printf("\t.byte\t%zi\n", elem->nmods);
+				printf("\t.byte\t%zi\n", out_elem->nmods);
 				offset += 2;
 			}
 
-			for (i = elem->nmods; i > 0; i--) {
+			for (i = out_elem->nmods; i > 0; i--) {
+				printf("/* 0x%lx */\n", offset);
 				printf("\t.asciz\t\"%s\"\n", onemod);
 				offset += strlen(onemod) + 1;
 				onemod += strlen(onemod) + 1;
@@ -563,6 +777,13 @@ static void output_kallmodsyms_objfiles(void)
 		long long offset;
 		int overflow;
 
+                /*
+                 * Fuse consecutive address ranges citing the same object file
+                 * into one.
+                 */
+                if (i > 0 && addrmap[i-1].objfile == addrmap[i].objfile)
+                        continue;
+
 		if (base_relative) {
 			if (!absolute_percpu) {
 				offset = addrmap[i].addr - relative_base;
@@ -588,6 +809,13 @@ static void output_kallmodsyms_objfiles(void)
 
 	for (i = 0; i < addrmap_num; i++) {
 		struct obj2mod_elem *elem = addrmap[i].objfile;
+		int orig_nmods;
+		const char *orig_modname;
+		int mod_offset;
+
+		if (i > 0 && addrmap[i-1].objfile == addrmap[i].objfile)
+			continue;
+
 		/*
 		 * Address range cites no modular object file: point at 0, the
 		 * built-in module.
@@ -598,13 +826,63 @@ static void output_kallmodsyms_objfiles(void)
 			continue;
 		}
 
+		orig_nmods = elem->nmods;
+		orig_modname = elem->mods;
+
+		/*
+		 * Chase down xrefs, if need be.  There can only be one layer of
+		 * these: from single-module entry to other single-module
+		 * entry, or from single- or multi-module entry to another
+		 * multi-module entry.  Single -> single and multi -> multi
+		 * always points at the start of the xref target, so its offset
+		 * can be used as is.
+		 */
+		if (elem->xref)
+			elem = elem->xref;
+
+		if (elem->nmods == 1 || orig_nmods > 1) {
+
+			if (elem->nmods == 1)
+				printf("/* 0x%llx--0x%llx: module %s */\n",
+				       addrmap[i].addr, addrmap[i].end_addr,
+				       elem->mods);
+			else
+				printf("/* 0x%llx--0x%llx: multimodule */\n",
+				       addrmap[i].addr, addrmap[i].end_addr);
+
+			mod_offset = elem->mod_offset;
+		} else {
+			/*
+			 * If this is a reference from a single-module entry to
+			 * a multi-module entry, hunt down the offset to this
+			 * specific module's name (which is guaranteed to be
+			 * present: see optimize_obj2mod).
+			 */
+
+			size_t j = elem->nmods;
+			const char *onemod = elem->mods;
+			mod_offset = elem->mod_offset;
+
+			for (; j > 0; j--) {
+				if (strcmp(orig_modname, onemod) == 0)
+					break;
+				onemod += strlen(onemod) + 1;
+			}
+			assert(j > 0);
+			/*
+			 * +2 to skip the null byte and count at the start of
+			 * the multimodule entry.
+			 */
+			mod_offset += onemod - elem->mods + 2;
+		}
+
 		/*
 		 * Zero offset is the initial \0, there to catch uninitialized
 		 * obj2mod entries, and is forbidden.
 		 */
 		assert(elem->mod_offset != 0);
 
-		printf("\t.long\t0x%x\n", elem->mod_offset);
+		printf("\t.long\t0x%x\n", mod_offset);
 		emitted_objfiles++;
 	}
 
@@ -1217,6 +1495,7 @@ static void read_modules(const char *modules_builtin)
 
 	free(module_name);
 	modules_builtin_iter_free(i);
+	optimize_obj2mod();
 
 	/*
 	 * Read linker map.
