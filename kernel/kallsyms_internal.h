@@ -22,8 +22,22 @@ __section(".rodata") __attribute__((weak));
 extern const unsigned long kallsyms_relative_base
 __section(".rodata") __attribute__((weak));
 
+extern const unsigned long kallsyms_num_modules
+__section(".rodata") __attribute__((weak));
+
+extern const unsigned long kallsyms_num_objfiles
+__section(".rodata") __attribute__((weak));
+
+extern const unsigned long kallsyms_mod_objnames_len
+__section(".rodata") __attribute__((weak));
+
 extern const char kallsyms_token_table[] __weak;
 extern const u16 kallsyms_token_index[] __weak;
+extern const unsigned long kallsyms_module_addresses[] __weak;
+extern const int kallsyms_module_offsets[] __weak;
+extern const u32 kallsyms_modules[] __weak;
+extern const u32 kallsyms_objfiles[] __weak;
+extern const char kallsyms_mod_objnames[] __weak;
 
 extern const unsigned int kallsyms_markers[] __weak;
 extern const u8 kallsyms_seqs_of_names[] __weak;
