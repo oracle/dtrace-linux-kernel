@@ -101,7 +101,7 @@ vmlinux_link()
 	${ld} ${ldflags} -o ${output}					\
 		${wl}--whole-archive ${objs} ${wl}--no-whole-archive	\
 		${wl}--start-group ${libs} ${wl}--end-group		\
-		${wl}-Map=.tmp_vmlinux.map $@ ${ldlibs}
+		$@ ${ldlibs}
 }
 
 # generate .BTF typeinfo from DWARF debuginfo
@@ -150,11 +150,13 @@ kallsyms()
 	#       - but sometimes there is a line break after the first field
 	#   - start reading at "Linker script and memory map"
 	#   - stop reading at ".brk"
-	${AWK} '
-	    /\.o$/ && start==1 { print $(NF-2), $(NF-1), $NF }
-	    /^Linker script and memory map/ { start = 1 }
-	    /^\.brk/ { exit(0) }
-	' .tmp_vmlinux.map | sort > .tmp_vmlinux.ranges
+	if is_enabled CONFIG_KALLMODSYMS; then
+		${AWK} '
+		    /\.o$/ && start==1 { print $(NF-2), $(NF-1), $NF }
+		    /^Linker script and memory map/ { start = 1 }
+		    /^\.brk/ { exit(0) }
+		' ${3} | sort > .tmp_vmlinux.ranges
+	fi
 
 	# get kallsyms options
 	if is_enabled CONFIG_KALLSYMS_ALL; then
@@ -184,8 +186,16 @@ kallsyms_step()
 
 	vmlinux_link ${kallsyms_vmlinux} "${kallsymso_prev}" ${btf_vmlinux_bin_o}
 	mksysmap ${kallsyms_vmlinux} ${kallsyms_vmlinux}.syms
-	kallsyms ${kallsyms_vmlinux}.syms ${kallsyms_S}
+	mksysmap ${kallsyms_vmlinux} ${kallsyms_vmlinux}.kall.syms.tmp -S
+	# "nm -S" does not print symbol size when size is 0
+	# Therefore use awk to regularize the data:
+	#   - when there are only three fields, add an explicit "0"
+	#   - when there are already four fields, pass through as is
 
+	${AWK} 'NF==3 {print $1, 0, $2, $3}; NF==4' \
+		< ${kallsyms_vmlinux}.kall.syms.tmp > ${kallsyms_vmlinux}.kall.syms
+	rm -f ${kallsyms_vmlinux}.kall.syms.tmp
+	kallsyms ${kallsyms_vmlinux}.kall.syms ${kallsyms_S} ${kallsyms_vmlinux}.map
 	info AS ${kallsyms_S}
 	${CC} ${NOSTDINC_FLAGS} ${LINUXINCLUDE} ${KBUILD_CPPFLAGS} \
 	      ${KBUILD_AFLAGS} ${KBUILD_AFLAGS_KERNEL} \
@@ -197,7 +207,7 @@ kallsyms_step()
 mksysmap()
 {
 	info NM ${2}
-	${CONFIG_SHELL} "${srctree}/scripts/mksysmap" ${1} ${2}
+	${CONFIG_SHELL} "${srctree}/scripts/mksysmap" ${1} ${2} ${3:-}
 }
 
 sorttable()
