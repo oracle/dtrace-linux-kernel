@@ -181,6 +181,7 @@ modules-only.symvers
 modules.builtin
 modules.builtin.modinfo
 modules.nsdeps
+modules_thick.builtin
 modules.order
 modules_thick.builtin
 modversions.h*

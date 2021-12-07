@@ -17,6 +17,7 @@
 *.bz2
 *.c.[012]*.*
 *.cover
+*.ctf
 *.dt.yaml
 *.dtb
 *.dtbo
@@ -57,6 +58,7 @@
 Module.symvers
 modules.order
 modules_thick.builtin
+objects.builtin
 
 #
 # Top-level generic files
@@ -67,6 +69,7 @@ modules_thick.builtin
 /vmlinux.32
 /vmlinux.map
 /vmlinux.symvers
+/vmlinux.ctfa
 /vmlinux-gdb.py
 /vmlinuz
 /System.map
