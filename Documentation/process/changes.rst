@@ -60,9 +60,12 @@ openssl & libcrypto    1.0.0            openssl version
 bc                     1.06.95          bc --version
 Sphinx\ [#f1]_         1.7              sphinx-build --version
 cpio                   any              cpio --version
+GNU C\ [#f2]_          12.0             gcc --version
+binutils\ [#f2]_       2.36             ld -v
 ====================== ===============  ========================================
 
 .. [#f1] Sphinx is needed only to build the Kernel documentation
+.. [#f2] These are needed at build-time when CTF or DTrace are enabled
 
 Kernel compilation
 ******************
