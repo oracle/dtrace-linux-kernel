@@ -53,6 +53,9 @@ patch -p1 < %{SOURCE2}
 
 %build
 %{make} %{makeflags} KERNELRELEASE=%{KERNELRELEASE} KBUILD_BUILD_VERSION=%{release}
+%if %{with_ctf}
+%{make} %{makeflags} KERNELRELEASE=%{KERNELRELEASE} KBUILD_BUILD_VERSION=%{release} ctf
+%endif
 
 %install
 mkdir -p %{buildroot}/boot
@@ -64,6 +67,9 @@ ln -s efi/vmlinuz-%{KERNELRELEASE} %{buildroot}/boot/
 cp $(%{make} %{makeflags} -s image_name) %{buildroot}/boot/vmlinuz-%{KERNELRELEASE}
 %endif
 %{make} %{makeflags} INSTALL_MOD_PATH=%{buildroot} modules_install
+%if %{with_ctf}
+%{make} %{makeflags} INSTALL_MOD_PATH=%{buildroot} ctf_install
+%endif
 %{make} %{makeflags} INSTALL_HDR_PATH=%{buildroot}/usr headers_install
 cp System.map %{buildroot}/boot/System.map-%{KERNELRELEASE}
 cp .config %{buildroot}/boot/config-%{KERNELRELEASE}
