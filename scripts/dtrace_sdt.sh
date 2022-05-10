@@ -61,6 +61,8 @@ if [ "$opr" = "sdtstub" ]; then
 			    print "\tret";
 			}
 		    }
+		    print "\t.section .note.GNU-stack, \042\042, @progbits";
+		    print "";
 		}' > $tfn
     exit $?
 fi

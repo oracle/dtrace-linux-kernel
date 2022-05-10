@@ -320,6 +320,9 @@ fi
 	     return off;
 	 }
 
+	 print "\t.section .note.GNU-stack, \042\042, @progbits";
+	 print "";
+
 	 BEGIN {
 	     print "#include <asm/types.h>";
 	     print "#if BITS_PER_LONG == 64";
