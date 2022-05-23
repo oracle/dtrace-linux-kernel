@@ -97,16 +97,28 @@ static int find_symbol_cb(void *arg, const char *name, char type,
 			  u64 start)
 {
 	struct process_symbol_args *args = arg;
+	char *chop, *tmp_alloc = NULL;
+	const char *tmp = name;
+
+	if ((chop = strchr(name, '\t')) != NULL) {
+		tmp_alloc = strndup(name, name - chop);
+		if (tmp_alloc == NULL)
+			return -ENOMEM;
+		tmp = tmp_alloc;
+	}
 
 	/*
 	 * Must be a function or at least an alias, as in PARISC64, where "_text" is
 	 * an 'A' to the same address as "_stext".
 	 */
 	if (!(kallsyms__is_function(type) ||
-	      type == 'A') || strcmp(name, args->name))
+	      type == 'A') || strcmp(tmp, args->name)) {
+		free(tmp_alloc);
 		return 0;
+	}
 
 	args->start = start;
+	free(tmp_alloc);
 	return 1;
 }
 
