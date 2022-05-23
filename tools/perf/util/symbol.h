@@ -66,6 +66,11 @@ struct symbol {
 	u8		annotate2:1;
 	/** Architecture specific. Unused except on PPC where it holds st_other. */
 	u8		arch_sym;
+	/** Null-terminated array of pointers to names of containing modules in the
+	    modules red-black tree.  May be NULL for none.  */
+	char		**modules;
+	/** Set if this symbol is built in to the core kernel.  */
+	int		built_in;
 	/** The name of length namelen associated with the symbol. */
 	char		name[];
 };
@@ -137,8 +142,9 @@ int dso__load_vmlinux(struct dso *dso, struct map *map,
 		      const char *vmlinux, bool vmlinux_allocated);
 int dso__load_vmlinux_path(struct dso *dso, struct map *map);
 int __dso__load_kallsyms(struct dso *dso, const char *filename, struct map *map,
-			 bool no_kcore);
-int dso__load_kallsyms(struct dso *dso, const char *filename, struct map *map);
+			 struct rb_root *modules, bool no_kcore);
+int dso__load_kallsyms(struct dso *dso, const char *filename, struct map *map,
+		       struct rb_root *modules);
 
 void dso__insert_symbol(struct dso *dso,
 			struct symbol *sym);
@@ -161,6 +167,8 @@ int sysfs__read_build_id(const char *filename, struct build_id *bid);
 int modules__parse(const char *filename, void *arg,
 		   int (*process_module)(void *arg, const char *name,
 					 u64 start, u64 size));
+void modules__delete_modules(struct rb_root *modules);
+
 int filename__read_debuglink(const char *filename, char *debuglink,
 			     size_t size);
 

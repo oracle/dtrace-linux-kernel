@@ -55,6 +55,7 @@ struct machine {
 	struct dsos	  dsos;
 	struct maps	  *kmaps;
 	struct map	  *vmlinux_map;
+	struct rb_root	  modules;
 	u64		  kernel_start;
 	pid_t		  *current_tid;
 	size_t		  current_tid_sz;

@@ -35,10 +35,37 @@ static int __cmd_kallsyms(int argc, const char **argv)
 			continue;
 		}
 
-		printf("%s: %s %s %#" PRIx64 "-%#" PRIx64 " (%#" PRIx64 "-%#" PRIx64")\n",
-			symbol->name, map->dso->short_name, map->dso->long_name,
-			map->unmap_ip(map, symbol->start), map->unmap_ip(map, symbol->end),
-			symbol->start, symbol->end);
+		if (!symbol->modules) {
+			printf("%s: %s %s %#" PRIx64 "-%#" PRIx64 " (%#" PRIx64 "-%#" PRIx64")\n",
+			       symbol->name, map->dso->short_name, map->dso->long_name,
+			       map->unmap_ip(map, symbol->start), map->unmap_ip(map, symbol->end),
+			       symbol->start, symbol->end);
+		} else {
+			if (!symbol->built_in)
+				printf("%s: %s %s %#" PRIx64 "-%#" PRIx64 " (%#" PRIx64 "-%#" PRIx64")\n",
+				       symbol->name, map->dso->short_name, map->dso->long_name,
+				       map->unmap_ip(map, symbol->start), map->unmap_ip(map, symbol->end),
+				       symbol->start, symbol->end);
+			else if (symbol->modules[1] == 0)
+				printf("%s: %s (built-in) %#" PRIx64 "-%#" PRIx64 " (%#" PRIx64 "-%#" PRIx64")\n",
+				       symbol->name, symbol->modules[0], map->unmap_ip(map, symbol->start),
+				       map->unmap_ip(map, symbol->end), symbol->start, symbol->end);
+			else { /* Symbol in multiple modules at once  */
+				char **mod;
+
+				printf("%s: ", symbol->name);
+
+				for (mod = symbol->modules; *mod; mod++) {
+					if (mod != symbol->modules)
+						printf(", ");
+					printf("%s", *mod);
+				}
+
+				printf (" (built-in) %#" PRIx64 "-%#" PRIx64 " (%#" PRIx64 "-%#" PRIx64")\n",
+				       map->unmap_ip(map, symbol->start), map->unmap_ip(map, symbol->end),
+					symbol->start, symbol->end);
+			}
+		}
 	}
 
 	machine__delete(machine);

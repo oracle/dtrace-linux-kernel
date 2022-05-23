@@ -41,9 +41,15 @@
 #include <symbol/kallsyms.h>
 #include <sys/utsname.h>
 
-static int dso__load_kernel_sym(struct dso *dso, struct map *map);
+static int dso__load_kernel_sym(struct dso *dso, struct map *map,
+				struct rb_root *modules);
 static int dso__load_guest_kernel_sym(struct dso *dso, struct map *map);
 static bool symbol__is_idle(const char *name);
+
+static int read_proc_modules(const char *filename, struct rb_root *modules);
+static struct module_info *find_module(const char *name,
+				       struct rb_root *modules);
+static void add_module(struct module_info *mi, struct rb_root *modules);
 
 int vmlinux_path__nr_entries;
 char **vmlinux_path;
@@ -84,6 +90,12 @@ static enum dso_binary_type binary_type_symtab[] = {
 };
 
 #define DSO_BINARY_TYPE__SYMTAB_CNT ARRAY_SIZE(binary_type_symtab)
+
+struct module_info {
+	struct rb_node rb_node;
+	char *name;
+	u64 start;
+};
 
 static bool symbol_type__filter(char symbol_type)
 {
@@ -234,15 +246,10 @@ void symbols__fixup_end(struct rb_root_cached *symbols, bool is_kallsyms)
 		 * kernel text segment and beginning of first module's text
 		 * segment is very big.  Therefore do not fill this gap and do
 		 * not assign it to the kernel dso map (kallsyms).
-		 *
-		 * In kallsyms, it determines module symbols using '[' character
-		 * like in:
-		 *   ffffffffc1937000 T hdmi_driver_init  [snd_hda_codec_hdmi]
 		 */
 		if (prev->end == prev->start) {
 			/* Last kernel/module symbol mapped to end of page */
-			if (is_kallsyms && (!strchr(prev->name, '[') !=
-					    !strchr(curr->name, '[')))
+			if (is_kallsyms && prev->built_in != curr->built_in)
 				prev->end = roundup(prev->end + 4096, 4096);
 			else
 				prev->end = curr->start;
@@ -301,6 +308,8 @@ struct symbol *symbol__new(u64 start, u64 len, u8 binding, u8 type, const char *
 	sym->type    = type;
 	sym->binding = binding;
 	sym->namelen = namelen - 1;
+	sym->modules  = NULL;
+	sym->built_in = 0;
 
 	pr_debug4("%s: %s %#" PRIx64 "-%#" PRIx64 "\n",
 		  __func__, name, start, sym->end);
@@ -318,6 +327,7 @@ void symbol__delete(struct symbol *sym)
 			annotation__exit(notes);
 		}
 	}
+	free(sym->modules);
 	free(((void *)sym) - symbol_conf.priv_size);
 }
 
@@ -716,12 +726,37 @@ static bool symbol__is_idle(const char *name)
 	return strlist__has_entry(idle_symbols_list, name);
 }
 
-static int map__process_kallsym_symbol(void *arg, const char *name,
+struct process_kallsym_symbol_arg {
+	struct dso *dso;
+	struct rb_root *modules;
+	int seen_end;
+};
+
+static int map__process_kallsym_symbol(void *arg_, const char *name,
 				       char type, u64 start)
 {
 	struct symbol *sym;
-	struct dso *dso = arg;
+	struct process_kallsym_symbol_arg *arg = arg_;
+	struct dso *dso = arg->dso;
 	struct rb_root_cached *root = &dso->symbols;
+	struct rb_root *modules = arg->modules;
+	char *module;
+	const char *modulep;
+	int counting = 1;
+	size_t nmods = 0;
+	char **mods = NULL;
+	char **modp = NULL;
+
+	/*
+	 * Split off the modules part.
+	 */
+	if ((module = strchr(name, '\t')) != NULL) {
+		*module = 0;
+		module++;
+	}
+
+	if (strcmp(name, "_end") == 0)
+		arg->seen_end = 1;
 
 	if (!symbol_type__filter(type))
 		return 0;
@@ -731,18 +766,88 @@ static int map__process_kallsym_symbol(void *arg, const char *name,
 		return 0;
 
 	/*
-	 * module symbols are not sorted so we add all
-	 * symbols, setting length to 0, and rely on
-	 * symbols__fixup_end() to fix it up.
+	 * non-builtin module symbols are not sorted so we add all symbols,
+	 * setting length to 0, and rely on symbols__fixup_end() to fix it up.
 	 */
 	sym = symbol__new(start, 0, kallsyms2elf_binding(type), kallsyms2elf_type(type), name);
 	if (sym == NULL)
 		return -ENOMEM;
+
+	sym->built_in = !arg->seen_end;
+
+	/*
+	 * Pass over the modules list twice: once to count the number of
+	 * modules this symbol is part of and allocate an array to store their
+	 * names, then again to fill it out.
+	 *
+	 * Arguably inefficient, due to one allocation per built-in symbol, even
+	 * though many symbols will have the same mods array.  In practice,
+	 * it's just too small a waste to matter.  The module names are pointers
+	 * into the machine->modules rb-tree (lazily populated here).
+	 */
+
+fill:
+	modulep = module;
+	while (modulep && (modulep = strchr(modulep, '[')) != NULL) {
+		struct module_info *mi;
+		const char *end_bra = strchr(modulep, ']');
+
+		modulep++;
+		if (end_bra == NULL || end_bra <= modulep)
+			continue;
+
+		if (counting) {
+			nmods++;
+			continue;
+		}
+
+		/*
+		 * Fill-out phase.
+		 */
+
+		*modp = strndup(modulep, end_bra - modulep);
+		if (*modp == NULL) {
+			free(mods);
+			return -ENOMEM;
+		}
+
+		mi = find_module(*modp, modules);
+		if (!mi) {
+			mi = zalloc(sizeof(struct module_info));
+
+			if (!mi) {
+				free (mods);
+				free (*modp);
+				return -ENOMEM;
+			}
+			mi->name = *modp;
+		}
+		else {
+			free(*modp);
+			*modp = mi->name;
+		}
+
+		modp++;
+	}
+
+	if (counting && nmods > 0) {
+		mods = calloc(nmods + 1, sizeof (char *));
+		if (mods == NULL)
+			return -ENOMEM;
+		modp = mods;
+
+		counting = 0;
+		goto fill;
+	}
+
+	sym->modules = mods;
+
 	/*
 	 * We will pass the symbols to the filter later, in
-	 * map__split_kallsyms, when we have split the maps per module
+	 * map__split_kallsyms, when we have split the maps per
+	 * (non-built-in) module
 	 */
-	__symbols__insert(root, sym, !strchr(name, '['));
+	__symbols__insert(root, sym, !arg->seen_end);
 
 	return 0;
 }
@@ -752,9 +857,11 @@ static int map__process_kallsym_symbol(void *arg, const char *name,
  * so that we can in the next step set the symbol ->end address and then
  * call kernel_maps__split_kallsyms.
  */
-static int dso__load_all_kallsyms(struct dso *dso, const char *filename)
+static int dso__load_all_kallsyms(struct dso *dso, const char *filename,
+	struct rb_root *modules)
 {
-	return kallsyms__parse(filename, dso, map__process_kallsym_symbol);
+	struct process_kallsym_symbol_arg arg = {dso, modules, 0};
+	return kallsyms__parse(filename, &arg, map__process_kallsym_symbol);
 }
 
 static int maps__split_kallsyms_for_kcore(struct maps *kmaps, struct dso *dso)
@@ -766,22 +873,14 @@ static int maps__split_kallsyms_for_kcore(struct maps *kmaps, struct dso *dso)
 	struct rb_root_cached *root = &dso->symbols;
 	struct rb_node *next = rb_first_cached(root);
 
-	if (!kmaps)
-		return -1;
-
 	*root = RB_ROOT_CACHED;
 
 	while (next) {
-		char *module;
-
 		pos = rb_entry(next, struct symbol, rb_node);
 		next = rb_next(&pos->rb_node);
 
 		rb_erase_cached(&pos->rb_node, &old_root);
 		RB_CLEAR_NODE(&pos->rb_node);
-		module = strchr(pos->name, '\t');
-		if (module)
-			*module = '\0';
 
 		curr_map = maps__find(kmaps, pos->start);
 
@@ -830,19 +929,19 @@ static int maps__split_kallsyms(struct maps *kmaps, struct dso *dso, u64 delta,
 	x86_64 = machine__is(machine, "x86_64");
 
 	while (next) {
-		char *module;
-
 		pos = rb_entry(next, struct symbol, rb_node);
 		next = rb_next(&pos->rb_node);
 
-		module = strchr(pos->name, '\t');
-		if (module) {
+		if (!pos->built_in && pos->modules) {
 			if (!symbol_conf.use_modules)
 				goto discard_symbol;
 
-			*module++ = '\0';
-
-			if (strcmp(curr_map->dso->short_name, module)) {
+			/*
+			 * Non-built-in symbols can only be in one module at
+			 * once.
+			 */
+			assert(pos->modules[1] == NULL);
+			if (strcmp(curr_map->dso->short_name, pos->modules[0])) {
 				if (curr_map != initial_map &&
 				    dso->kernel == DSO_SPACE__KERNEL_GUEST &&
 				    machine__is_default_guest(machine)) {
@@ -856,12 +955,12 @@ static int maps__split_kallsyms(struct maps *kmaps, struct dso *dso, u64 delta,
 					dso__set_loaded(curr_map->dso);
 				}
 
-				curr_map = maps__find_by_name(kmaps, module);
+				curr_map = maps__find_by_name(kmaps, pos->modules[0]);
 				if (curr_map == NULL) {
 					pr_debug("%s/proc/{kallsyms,modules} "
 					         "inconsistency while looking "
 						 "for \"%s\" module!\n",
-						 machine->root_dir, module);
+						 machine->root_dir, pos->modules[0]);
 					curr_map = initial_map;
 					goto discard_symbol;
 				}
@@ -971,12 +1070,6 @@ bool symbol__restricted_filename(const char *filename,
 	return restricted;
 }
 
-struct module_info {
-	struct rb_node rb_node;
-	char *name;
-	u64 start;
-};
-
 static void add_module(struct module_info *mi, struct rb_root *modules)
 {
 	struct rb_node **p = &modules->rb_node;
@@ -995,7 +1088,7 @@ static void add_module(struct module_info *mi, struct rb_root *modules)
 	rb_insert_color(&mi->rb_node, modules);
 }
 
-static void delete_modules(struct rb_root *modules)
+void modules__delete_modules(struct rb_root *modules)
 {
 	struct module_info *mi;
 	struct rb_node *next = rb_first(modules);
@@ -1060,7 +1153,7 @@ static int read_proc_modules(const char *filename, struct rb_root *modules)
 		return -1;
 
 	if (modules__parse(filename, modules, __read_proc_modules)) {
-		delete_modules(modules);
+		modules__delete_modules(modules);
 		return -1;
 	}
 
@@ -1101,9 +1194,9 @@ int compare_proc_modules(const char *from, const char *to)
 	if (!from_node && !to_node)
 		ret = 0;
 
-	delete_modules(&to_modules);
+	modules__delete_modules(&to_modules);
 out_delete_from:
-	delete_modules(&from_modules);
+	modules__delete_modules(&from_modules);
 
 	return ret;
 }
@@ -1133,7 +1226,7 @@ static int do_validate_kcore_modules(const char *filename, struct maps *kmaps)
 		}
 	}
 out:
-	delete_modules(&modules);
+	modules__delete_modules(&modules);
 	return err;
 }
 
@@ -1467,18 +1560,20 @@ static int kallsyms__delta(struct kmap *kmap, const char *filename, u64 *delta)
 }
 
 int __dso__load_kallsyms(struct dso *dso, const char *filename,
-			 struct map *map, bool no_kcore)
+			 struct map *map, struct rb_root *modules,
+			 bool no_kcore)
 {
 	struct kmap *kmap = map__kmap(map);
 	u64 delta = 0;
 
-	if (symbol__restricted_filename(filename, "/proc/kallsyms"))
+	if (symbol__restricted_filename(filename, "/proc/kallsyms") &&
+	    symbol__restricted_filename(filename, "/proc/kallmodsyms"))
 		return -1;
 
 	if (!kmap || !kmap->kmaps)
 		return -1;
 
-	if (dso__load_all_kallsyms(dso, filename) < 0)
+	if (dso__load_all_kallsyms(dso, filename, modules) < 0)
 		return -1;
 
 	if (kallsyms__delta(kmap, filename, &delta))
@@ -1499,9 +1594,9 @@ int __dso__load_kallsyms(struct dso *dso, const char *filename,
 }
 
 int dso__load_kallsyms(struct dso *dso, const char *filename,
-		       struct map *map)
+		       struct map *map, struct rb_root *modules)
 {
-	return __dso__load_kallsyms(dso, filename, map, false);
+	return __dso__load_kallsyms(dso, filename, map, modules, false);
 }
 
 static int dso__load_perf_map(const char *map_path, struct dso *dso)
@@ -1814,12 +1909,13 @@ int dso__load(struct dso *dso, struct map *map)
 		dso->symtab_type == DSO_BINARY_TYPE__GUEST_KMODULE_COMP;
 
 	if (dso->kernel && !kmod) {
+		machine = map__kmaps(map)->machine;
+
 		if (dso->kernel == DSO_SPACE__KERNEL)
-			ret = dso__load_kernel_sym(dso, map);
+			ret = dso__load_kernel_sym(dso, map, &machine->modules);
 		else if (dso->kernel == DSO_SPACE__KERNEL_GUEST)
 			ret = dso__load_guest_kernel_sym(dso, map);
 
-		machine = map__kmaps(map)->machine;
 		if (machine__is(machine, "x86_64"))
 			machine__map_x86_64_entry_trampolines(machine, dso);
 		goto out;
@@ -2220,7 +2316,8 @@ proc_kallsyms:
 	return strdup(path);
 }
 
-static int dso__load_kernel_sym(struct dso *dso, struct map *map)
+static int dso__load_kernel_sym(struct dso *dso, struct map *map,
+				struct rb_root *modules)
 {
 	int err;
 	const char *kallsyms_filename = NULL;
@@ -2282,7 +2379,7 @@ static int dso__load_kernel_sym(struct dso *dso, struct map *map)
 	kallsyms_filename = kallsyms_allocated_filename;
 
 do_kallsyms:
-	err = dso__load_kallsyms(dso, kallsyms_filename, map);
+	err = dso__load_kallsyms(dso, kallsyms_filename, map, modules);
 	if (err > 0)
 		pr_debug("Using %s for symbols\n", kallsyms_filename);
 	free(kallsyms_allocated_filename);
@@ -2323,11 +2420,11 @@ static int dso__load_guest_kernel_sym(struct dso *dso, struct map *map)
 		if (!kallsyms_filename)
 			return -1;
 	} else {
-		sprintf(path, "%s/proc/kallsyms", machine->root_dir);
+		sprintf(path, "%s/proc/kallmodsyms", machine->root_dir);
 		kallsyms_filename = path;
 	}
 
-	err = dso__load_kallsyms(dso, kallsyms_filename, map);
+	err = dso__load_kallsyms(dso, kallsyms_filename, map, &machine->modules);
 	if (err > 0)
 		pr_debug("Using %s for symbols\n", kallsyms_filename);
 	if (err > 0 && !dso__is_kcore(dso)) {
