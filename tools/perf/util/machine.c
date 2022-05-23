@@ -173,7 +173,7 @@ struct machine *machine__new_kallsyms(void)
 	 *    ask for not using the kcore parsing code, once this one is fixed
 	 *    to create a map per module.
 	 */
-	if (machine && machine__load_kallsyms(machine, "/proc/kallsyms") <= 0) {
+	if (machine && machine__load_kallsyms(machine, "/proc/kallmodsyms") <= 0) {
 		machine__delete(machine);
 		machine = NULL;
 	}
@@ -237,6 +237,7 @@ void machine__exit(struct machine *machine)
 	zfree(&machine->mmap_name);
 	zfree(&machine->current_tid);
 	zfree(&machine->kallsyms_filename);
+	modules__delete_modules(&machine->modules);
 
 	for (i = 0; i < THREADS__TABLE_SIZE; i++) {
 		struct threads *threads = &machine->threads[i];
@@ -1410,7 +1411,8 @@ int machines__create_kernel_maps(struct machines *machines, pid_t pid)
 int machine__load_kallsyms(struct machine *machine, const char *filename)
 {
 	struct map *map = machine__kernel_map(machine);
-	int ret = __dso__load_kallsyms(map->dso, filename, map, true);
+	int ret = __dso__load_kallsyms(map->dso, filename, map, &machine->modules,
+				       true);
 
 	if (ret > 0) {
 		dso__set_loaded(map->dso);
