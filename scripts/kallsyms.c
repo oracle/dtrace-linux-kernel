@@ -115,6 +115,9 @@ static unsigned int memhash(char *s, size_t len)
 	return hash;
 }
 
+/*
+ * Object file -> module and shortened object file name tracking machinery.
+ */
 #define OBJ2MOD_BITS 10
 #define OBJ2MOD_N (1 << OBJ2MOD_BITS)
 #define OBJ2MOD_MASK (OBJ2MOD_N - 1)
@@ -146,14 +149,39 @@ struct obj2mod_elem {
 };
 
 /*
+ * Shortened object file names.  These are only ever consulted after checking
+ * the obj2mod hashes: names that already exist in there are used directly from
+ * there (pointed to via the mod_xref field) rather than being re-emitted.
+ * Entries that do not exist there are added to the end of the mod_objnames
+ * list.
+ */
+struct obj2short_elem {
+	const char *obj;
+	char *desuffixed;	/* objname sans suffix */
+	const char *short_obj;	/* shortened at / and suffix */
+	int short_offset;	/* offset of short name in .kallsyms_mod_objnames */
+	int last_rehash;	/* used during disambiguate_hash_syms */
+
+	struct obj2mod_elem *mod_xref;
+	struct obj2short_elem *short_xref;
+	struct obj2short_elem *short_next;
+};
+
+/*
  * Map from object files to obj2mod entries (a unique mapping), and vice versa
  * (not unique, but entries for objfiles in more than one module in this hash
- * are ignored).
+ * are ignored); also map from object file names to shortened names for them
+ * (also unique: there is no point storing both longer and shorter forms of one
+ * name, so if a longer name is needed we consistently use it instead of the
+ * shorter form.)
+ *
+ * obj2short is populated very late, at disambiguate_syms time.
  */
 
 static struct obj2mod_elem *obj2mod[OBJ2MOD_N];
 static struct obj2mod_elem *mod2obj[OBJ2MOD_N];
-static size_t num_objfiles;
+static struct obj2short_elem *obj2short[OBJ2MOD_N];
+static size_t num_objfiles, num_shortnames;
 
 /*
  * An ordered list of address ranges and the objfile that occupies that range.
@@ -167,6 +195,9 @@ struct addrmap_entry {
 static struct addrmap_entry *addrmap;
 static int addrmap_num, addrmap_alloced;
 
+static void disambiguate_syms(void);
+static void optimize_objnames(void);
+
 static void obj2mod_init(void)
 {
 	memset(obj2mod, 0, sizeof(obj2mod));
@@ -178,6 +209,18 @@ static struct obj2mod_elem *obj2mod_get(const char *obj)
 	struct obj2mod_elem *elem;
 
 	for (elem = obj2mod[i]; elem; elem = elem->obj2mod_next) {
+		if (strcmp(elem->obj, obj) == 0)
+			return elem;
+	}
+	return NULL;
+}
+
+static struct obj2short_elem *obj2short_get(const char *obj)
+{
+	int i = strhash(obj) & OBJ2MOD_MASK;
+	struct obj2short_elem *elem;
+
+	for (elem = obj2short[i]; elem; elem = elem->short_next) {
 		if (strcmp(elem->obj, obj) == 0)
 			return elem;
 	}
@@ -254,6 +297,12 @@ static int qmodhash(const void *a, const void *b)
 	else if ((*el_a)->modhash > (*el_b)->modhash)
 		return 1;
 	return 0;
+}
+
+static int qobj2short(const void *a, const void *b)
+{
+	return strcmp((*(struct obj2short_elem **)a)->short_obj,
+		      (*(struct obj2short_elem **)b)->short_obj);
 }
 
 /*
@@ -395,6 +444,370 @@ oom:
 	fprintf(stderr, "kallsyms: out of memory optimizing module list\n");
 	exit(EXIT_FAILURE);
 }
+
+/*
+ * Associate all short-name entries in obj2short that refer to the same short
+ * name with a single entry for emission, either (preferably) a module that
+ * shares that name or (alternatively) the first obj2short entry referencing
+ * that name.
+ */
+static void optimize_objnames(void)
+{
+	size_t i;
+	size_t num_objnames = 0;
+	struct obj2short_elem *elem;
+	struct obj2short_elem **uniq;
+	struct obj2short_elem *last;
+
+	uniq = malloc(sizeof(struct obj2short_elem *) * num_shortnames);
+	if (uniq == NULL) {
+		fprintf(stderr, "kallsyms: out of memory optimizing object file name list\n");
+		exit(EXIT_FAILURE);
+	}
+
+	/*
+	 * Much like optimize_obj2mod, except there is no need to canonicalize
+	 * anything or handle multimodule entries, and we need to chase down
+	 * possible entries in mod2obj first (so as not to duplicate them in the
+	 * final kallsyms_mod_objnames strtab).
+	 */
+	for (i = 0; i < OBJ2MOD_N; i++)
+		for (elem = obj2short[i]; elem; elem = elem->short_next)
+			uniq[num_objnames++] = elem;
+
+	qsort(uniq, num_objnames, sizeof(struct obj2short_elem *), qobj2short);
+
+	for (i = 0, last = NULL; i < num_objnames; i++) {
+		int h = strhash(uniq[i]->short_obj) & OBJ2MOD_MASK;
+		struct obj2mod_elem *mod_elem;
+
+		for (mod_elem = mod2obj[h]; mod_elem;
+		     mod_elem = mod_elem->mod2obj_next) {
+			/*
+			 * mod_elem entries are only valid if they are for
+			 * single-module objfiles: see obj2mod_add
+			 */
+			if (mod_elem->nmods > 1)
+				continue;
+
+			if (strcmp(mod_elem->mods, uniq[i]->short_obj) != 0)
+				continue;
+			uniq[i]->mod_xref = mod_elem;
+			break;
+		}
+
+		/*
+		 * Only look for a short_xref match if we don't already have one
+		 * in mod_xref.  (This means that multiple objfiles with the
+		 * same short name that is also a module name all chain directly
+		 * to the module name via mod_xref, rather than going through a
+		 * chain of short_xrefs.)
+		 */
+		if (uniq[i]->mod_xref)
+			continue;
+
+		if (last != NULL && strcmp(last->short_obj,
+					   uniq[i]->short_obj) == 0) {
+			uniq[i]->short_xref = last;
+			continue;
+		}
+
+		last = uniq[i];
+	}
+
+	free(uniq);
+}
+
+/*
+ * Used inside disambiguate_syms to identify colliding symbols.  We spot this by
+ * hashing symbol\0modhash (or just the symbol name if this is in the core
+ * kernel) and seeing if that collides.  (This means we don't need to bother
+ * canonicalizing the module list, since optimize_obj2mod already did it for
+ * us.)
+ *
+ * If that collides, we try disambiguating by adding ever-longer pieces of the
+ * object file name before the modhash until we no longer collide.  The result
+ * of this repeated addition becomes the obj2short hashtab.
+ */
+struct sym_maybe_collides {
+	struct sym_entry *sym;
+	struct addrmap_entry *addr;
+	unsigned int symhash;
+	int warned;
+};
+
+static int qsymhash(const void *a, const void *b)
+{
+	const struct sym_maybe_collides *el_a = a;
+	const struct sym_maybe_collides *el_b = b;
+	if (el_a->symhash < el_b->symhash)
+		return -1;
+	else if (el_a->symhash > el_b->symhash)
+		return 1;
+	return 0;
+}
+
+static int find_addrmap(const void *a, const void *b)
+{
+	const struct sym_entry *sym = a;
+	const struct addrmap_entry *map = b;
+
+	if (sym->addr < map->addr)
+		return -1;
+	else if (sym->addr >= map->end_addr)
+		return 1;
+	return 0;
+}
+
+/*
+ * Allocate or lengthen an object file name for a symbol that needs it.
+ */
+static int lengthen_short_name(struct sym_maybe_collides *sym,
+			       struct sym_maybe_collides *last_sym,
+			       int hash_cycle)
+{
+	struct obj2short_elem *short_objname;
+
+	/*
+	 * If both symbols come from the same object file, skip as unresolvable
+	 * and avoid retrying.  This can happen if the intermediate object file
+	 * was partially linked via ld -r, concealing the original object file
+	 * names from the linker and thus from us.
+	 */
+	if (strcmp(last_sym->addr->obj, sym->addr->obj) == 0) {
+		if (!sym->warned && !last_sym->warned) {
+			fprintf(stderr, "Symbol %s appears multiple times in %s; likely linked with ld -r; entry in /proc/kallmodsyms will be ambiguous\n",
+				&sym->sym->sym[1], sym->addr->obj);
+		}
+		sym->warned = 1;
+		last_sym->warned = 1;
+		return 0;
+	}
+
+	/*
+	 * Always lengthen the symbol that has the longest objname to lengthen,
+	 * ensuring that where one objname is a strict subset of another, we
+	 * always lengthen the one that will eventually resolve the ambiguity.
+	 */
+	if (strlen(last_sym->addr->obj) > strlen(sym->addr->obj)) {
+		struct sym_maybe_collides *tmp;
+
+		tmp = sym;
+		sym = last_sym;
+		last_sym = tmp;
+	}
+
+	short_objname = obj2short_get(sym->addr->obj);
+
+	if (!short_objname) {
+		int i = strhash(sym->addr->obj) & OBJ2MOD_MASK;
+		char *p;
+
+		short_objname = malloc(sizeof(struct obj2short_elem));
+		if (short_objname == NULL)
+			goto oom;
+
+		/*
+		 * New symbol: try maximal shortening, which is just the object
+		 * file name (no directory) with the suffix removed (the suffix
+		 * is useless for disambiguation since it is almost always .o).
+		 *
+		 * Add a bit of paranoia to allow for names starting with /,
+		 * ending with ., and names with no suffix.  (At least two of
+		 * these are most unlikely, but possible.)
+		 */
+
+		memset(short_objname, 0, sizeof(struct obj2short_elem));
+		short_objname->obj = sym->addr->obj;
+
+		p = strrchr(sym->addr->obj, '.');
+		if (p)
+			short_objname->desuffixed = strndup(sym->addr->obj,
+							    p - sym->addr->obj);
+		else
+			short_objname->desuffixed = strdup(sym->addr->obj);
+
+		if (short_objname->desuffixed == NULL)
+			goto oom;
+
+		p = strrchr(short_objname->desuffixed, '/');
+		if (p && p[1] != 0)
+			short_objname->short_obj = p + 1;
+		else
+			short_objname->short_obj = short_objname->desuffixed;
+
+		short_objname->short_next = obj2short[i];
+		short_objname->last_rehash = hash_cycle;
+		obj2short[i] = short_objname;
+
+		num_shortnames++;
+		return 1;
+	}
+
+	/*
+	 * Objname already lengthened by a previous symbol clash: do nothing
+	 * until we rehash again.
+	 */
+	if (short_objname->last_rehash == hash_cycle)
+		return 0;
+	short_objname->last_rehash = hash_cycle;
+
+	/*
+	 * Existing symbol: lengthen the objname we already have.
+	 */
+
+	if (short_objname->desuffixed == short_objname->short_obj) {
+		fprintf(stderr, "Cannot disambiguate %s: objname %s is "
+			"max-length but still colliding\n",
+			&sym->sym->sym[1], short_objname->short_obj);
+		return 0;
+	}
+
+	/*
+	 * Allow for absolute paths, where the first byte is '/'.
+	 */
+
+	if (short_objname->desuffixed >= short_objname->short_obj - 2)
+		short_objname->short_obj = short_objname->desuffixed;
+	else {
+		for (short_objname->short_obj -= 2;
+		     short_objname->short_obj > short_objname->desuffixed &&
+		     *short_objname->short_obj != '/';
+		     short_objname->short_obj--);
+
+		if (*short_objname->short_obj == '/')
+			short_objname->short_obj++;
+	}
+	return 1;
+ oom:
+	fprintf(stderr, "Out of memory disambiguating syms\n");
+	exit(EXIT_FAILURE);
+}
+
+/*
+ * Do one round of disambiguation-check symbol hashing, factoring in the current
+ * set of applicable shortened object file names for those symbols that need
+ * them.
+ */
+static void disambiguate_hash_syms(struct sym_maybe_collides *syms)
+{
+	size_t i;
+	for (i = 0; i < table_cnt; i++) {
+		struct obj2short_elem *short_objname = NULL;
+		char *tmp, *p;
+		size_t tmp_size;
+
+		if (syms[i].sym == NULL) {
+			syms[i].symhash = 0;
+			continue;
+		}
+
+		short_objname = obj2short_get(syms[i].addr->obj);
+
+		tmp_size = strlen((char *) &(syms[i].sym->sym[1])) + 1;
+
+		if (short_objname)
+			tmp_size += strlen(short_objname->short_obj) + 1;
+
+		if (syms[i].addr->objfile)
+			tmp_size += sizeof(syms[i].addr->objfile->modhash);
+
+		tmp = malloc(tmp_size);
+		if (tmp == NULL) {
+			fprintf(stderr, "Out of memory disambiguating syms\n");
+			exit(EXIT_FAILURE);
+		}
+
+		p = stpcpy(tmp, (char *) &(syms[i].sym->sym[1]));
+		p++;
+		if (short_objname) {
+			p = stpcpy(p, short_objname->short_obj);
+			p++;
+		}
+		if (syms[i].addr->objfile)
+			memcpy(p, &(syms[i].addr->objfile->modhash),
+			       sizeof(syms[i].addr->objfile->modhash));
+
+		syms[i].symhash = memhash(tmp, tmp_size);
+		free(tmp);
+	}
+
+	qsort(syms, table_cnt, sizeof (struct sym_maybe_collides), qsymhash);
+}
+
+/*
+ * Figure out which object file names are necessary to disambiguate all symbols
+ * in the linked kernel: transform them for minimum length while retaining
+ * disambiguity: point to them in obj2short.
+ */
+static void disambiguate_syms(void)
+{
+	size_t i;
+	int retry;
+	int hash_cycle = 0;
+	unsigned int lasthash;
+	struct sym_maybe_collides *syms;
+
+	syms = calloc(table_cnt, sizeof(struct sym_maybe_collides));
+
+	if (syms == NULL)
+		goto oom;
+
+	/*
+	 * Initial table population: symbol-dependent things not affected by
+	 * disambiguation rounds.
+	 */
+	for (i = 0; i < table_cnt; i++) {
+		struct addrmap_entry *addr;
+
+		/*
+		 * Only bother doing anything for function symbols.
+		 */
+		if (table[i]->sym[0] != 't' && table[i]->sym[0] != 'T' &&
+		    table[i]->sym[0] != 'w' && table[i]->sym[0] != 'W')
+			continue;
+
+		addr = bsearch(table[i], addrmap, addrmap_num,
+			       sizeof(struct addrmap_entry), find_addrmap);
+
+		/*
+		 * Some function symbols (section start symbols, discarded
+		 * non-text-range symbols, etc) don't appear in the linker map
+		 * at all.
+		 */
+		if (addr == NULL)
+			continue;
+
+		syms[i].sym = table[i];
+		syms[i].addr = addr;
+	}
+
+	do {
+		hash_cycle++;
+		retry = 0;
+		lasthash = 0;
+		disambiguate_hash_syms(syms);
+
+		for (i = 0; i < table_cnt; i++) {
+			if (syms[i].sym == NULL)
+				continue;
+			if (syms[i].symhash == lasthash) {
+				if (lengthen_short_name(&syms[i], &syms[i-1],
+							hash_cycle))
+					retry = 1;
+			}
+			lasthash = syms[i].symhash;
+		}
+	} while (retry);
+
+	free(syms);
+	return;
+ oom:
+	fprintf(stderr, "kallsyms: out of memory disambiguating syms\n");
+	exit(EXIT_FAILURE);
+
+}
+
 #endif /* CONFIG_KALLMODSYMS */
 
 static void usage(void)
@@ -426,6 +839,7 @@ static bool is_ignored_symbol(const char *name, char type)
 		"kallsyms_relative_base",
 		"kallsyms_num_syms",
 		"kallsyms_num_modules",
+		"kallsyms_num_objfiles",
 		"kallsyms_names",
 		"kallsyms_markers",
 		"kallsyms_token_table",
@@ -433,6 +847,7 @@ static bool is_ignored_symbol(const char *name, char type)
 		"kallsyms_module_offsets",
 		"kallsyms_module_addresses",
 		"kallsyms_modules",
+		"kallsyms_objfiles",
 		"kallsyms_mod_objnames",
 		"kallsyms_mod_objnames_len",
 		/* Exclude linker generated symbols which vary between passes */
@@ -702,6 +1117,7 @@ static void output_address(unsigned long long addr)
 static void output_kallmodsyms_mod_objnames(void)
 {
 	struct obj2mod_elem *elem;
+	struct obj2short_elem *short_elem;
 	size_t offset = 1;
 	size_t i;
 
@@ -757,15 +1173,77 @@ static void output_kallmodsyms_mod_objnames(void)
 			}
 		}
 	}
+
+	/*
+	 * Module names are done; now emit objfile names that don't match
+	 * objfile names.  They go in the same section to enable deduplication
+	 * between (maximally-shortened) objfile names and module names.
+	 * (This is another reason why objfile names drop the suffix.)
+	 */
+	for (i = 0; i < OBJ2MOD_N; i++) {
+		for (short_elem = obj2short[i]; short_elem;
+		     short_elem = short_elem->short_next) {
+
+			struct obj2short_elem *out_elem = short_elem;
+
+			/* Already emitted? */
+			if (out_elem->mod_xref)
+				continue;
+
+			if (out_elem->short_xref)
+				out_elem = out_elem->short_xref;
+
+			if (out_elem->short_offset != 0)
+				continue;
+
+			printf("/* 0x%lx: shortened from %s */\n", offset,
+			       out_elem->obj);
+
+			out_elem->short_offset = offset;
+			printf("\t.asciz\t\"%s\"\n", out_elem->short_obj);
+			offset += strlen(out_elem->short_obj) + 1;
+		}
+	}
+
 	printf("\n");
 	output_label("kallsyms_mod_objnames_len");
 	printf("\t.long\t%zi\n", offset);
+}
+
+/*
+ * Return 1 if this address range cites the same built-in module and objfile
+ * name as the previous one.
+ */
+static int same_kallmodsyms_range(int i)
+{
+	struct obj2short_elem *last_short;
+	struct obj2short_elem *this_short;
+	if (i == 0)
+		return 0;
+
+	last_short = obj2short_get(addrmap[i-1].obj);
+	this_short = obj2short_get(addrmap[i].obj);
+
+	if (addrmap[i-1].objfile == addrmap[i].objfile) {
+
+		if ((last_short == NULL && this_short != NULL) ||
+		    (last_short != NULL && this_short == NULL))
+			return 0;
+
+		if (last_short == NULL && this_short == NULL)
+			return 1;
+
+		if (strcmp(last_short->short_obj, this_short->short_obj) == 0)
+			return 1;
+	}
+	return 0;
 }
 
 static void output_kallmodsyms_objfiles(void)
 {
 	size_t i = 0;
 	size_t emitted_offsets = 0;
+	size_t emitted_modules = 0;
 	size_t emitted_objfiles = 0;
 
 	if (base_relative)
@@ -777,12 +1255,15 @@ static void output_kallmodsyms_objfiles(void)
 		long long offset;
 		int overflow;
 
-                /*
-                 * Fuse consecutive address ranges citing the same object file
-                 * into one.
-                 */
-                if (i > 0 && addrmap[i-1].objfile == addrmap[i].objfile)
-                        continue;
+		printf("/* 0x%llx--0x%llx: %s */\n", addrmap[i].addr,
+		       addrmap[i].end_addr, addrmap[i].obj);
+
+		/*
+		 * Fuse consecutive address ranges citing the same built-in
+		 * module and objfile name into one.
+		 */
+		if (same_kallmodsyms_range(i))
+			continue;
 
 		if (base_relative) {
 			if (!absolute_percpu) {
@@ -809,11 +1290,12 @@ static void output_kallmodsyms_objfiles(void)
 
 	for (i = 0; i < addrmap_num; i++) {
 		struct obj2mod_elem *elem = addrmap[i].objfile;
+		struct obj2mod_elem *orig_elem = NULL;
 		int orig_nmods;
 		const char *orig_modname;
 		int mod_offset;
 
-		if (i > 0 && addrmap[i-1].objfile == addrmap[i].objfile)
+		if (same_kallmodsyms_range(i))
 			continue;
 
 		/*
@@ -821,8 +1303,10 @@ static void output_kallmodsyms_objfiles(void)
 		 * built-in module.
 		 */
 		if (addrmap[i].objfile == NULL) {
+			printf("/* 0x%llx--0x%llx: %s: built-in */\n",
+			       addrmap[i].addr, addrmap[i].end_addr, addrmap[i].obj);
 			printf("\t.long\t0x0\n");
-			emitted_objfiles++;
+			emitted_modules++;
 			continue;
 		}
 
@@ -837,8 +1321,10 @@ static void output_kallmodsyms_objfiles(void)
 		 * always points at the start of the xref target, so its offset
 		 * can be used as is.
 		 */
-		if (elem->xref)
+		if (elem->xref) {
+			orig_elem = elem;
 			elem = elem->xref;
+		}
 
 		if (elem->nmods == 1 || orig_nmods > 1) {
 
@@ -874,6 +1360,19 @@ static void output_kallmodsyms_objfiles(void)
 			 * the multimodule entry.
 			 */
 			mod_offset += onemod - elem->mods + 2;
+
+			/*
+			 * If this was the result of an xref chase, store this
+			 * mod_offset in the original entry so we can just reuse
+			 * it if an objfile shares this name.
+			 */
+
+			printf("/* 0x%llx--0x%llx: %s: single-module ref to %s in multimodule at %x */\n",
+			       addrmap[i].addr, addrmap[i].end_addr,
+			       orig_elem->mods, onemod, elem->mod_offset);
+
+			if (orig_elem)
+				orig_elem->mod_offset = mod_offset;
 		}
 
 		/*
@@ -883,12 +1382,68 @@ static void output_kallmodsyms_objfiles(void)
 		assert(elem->mod_offset != 0);
 
 		printf("\t.long\t0x%x\n", mod_offset);
-		emitted_objfiles++;
+		emitted_modules++;
 	}
 
-	assert(emitted_offsets == emitted_objfiles);
+	assert(emitted_offsets == emitted_modules);
 	output_label("kallsyms_num_modules");
+	printf("\t.long\t%zi\n", emitted_modules);
+
+	output_label("kallsyms_objfiles");
+
+	for (i = 0; i < addrmap_num; i++) {
+		struct obj2short_elem *elem;
+		int mod_offset;
+
+		if (same_kallmodsyms_range(i))
+			continue;
+
+		/*
+		 * No corresponding objfile name: no disambiguation needed;
+		 * point at 0.
+		 */
+		elem = obj2short_get(addrmap[i].obj);
+
+		if (elem == NULL) {
+			printf("/* 0x%llx--0x%llx: %s: unambiguous */\n",
+			       addrmap[i].addr, addrmap[i].end_addr,
+			       addrmap[i].obj);
+			printf("\t.long\t0x0\n");
+			emitted_objfiles++;
+			continue;
+		}
+
+		/*
+		 * Maybe the name is also used for a module: if it is, it cannot
+		 * be a multimodule.
+		 */
+
+		if (elem->mod_xref) {
+			assert(elem->mod_xref->nmods == 1);
+			mod_offset = elem->mod_xref->mod_offset;
+			printf("/* 0x%llx--0x%llx: %s: shortened as %s, references module */\n",
+			       addrmap[i].addr, addrmap[i].end_addr,
+			       addrmap[i].obj, elem->short_obj);
+		} else {
+			/*
+			 * A name only used for objfiles.  Chase down xrefs to
+			 * reuse existing entries.
+			 */
+			if (elem->short_xref)
+				elem = elem->short_xref;
+
+			mod_offset = elem->short_offset;
+			printf("/* 0x%llx--0x%llx: %s: shortened as %s */\n",
+			       addrmap[i].addr, addrmap[i].end_addr,
+			       addrmap[i].obj, elem->short_obj);
+		}
+		printf("\t.long\t0x%x\n", mod_offset);
+		emitted_objfiles++;
+	}
+	assert(emitted_offsets == emitted_objfiles);
+	output_label("kallsyms_num_objfiles");
 	printf("\t.long\t%zi\n", emitted_objfiles);
+
 	printf("\n");
 }
 #endif /* CONFIG_KALLMODSYMS */
@@ -1501,6 +2056,20 @@ static void read_modules(const char *modules_builtin)
 	 * Read linker map.
 	 */
 	read_linker_map();
+
+	/*
+	 * Now the modules are sorted out and we know their address ranges, use
+	 * the modhashes computed in optimize_obj2mod to identify any symbols
+	 * that are still ambiguous and set up the minimal representation of
+	 * their objfile name to disambiguate them.
+	 */
+	disambiguate_syms();
+
+	/*
+	 * Now we have objfile names, optimize the objfile list.
+	 */
+	optimize_objnames();
+
 }
 #else
 static void read_modules(const char *unused) {}
