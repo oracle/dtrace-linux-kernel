@@ -30,12 +30,12 @@ $(MODLIB)/modules.order: modules.order FORCE
 quiet_cmd_install_modorder = INSTALL $@
       cmd_install_modorder = sed 's:^\(.*\)\.o$$:kernel/\1.ko:' $< > $@
 
-# Install modules.builtin(.modinfo,.ranges) even when CONFIG_MODULES is disabled.
-install-y += $(addprefix $(MODLIB)/, modules.builtin modules.builtin.modinfo)
+# Install modules.builtin(.modinfo,.ranges,.objs) even when CONFIG_MODULES is disabled.
+install-y += $(addprefix $(MODLIB)/, modules.builtin modules.builtin.modinfo modules.builtin.objs)
 
 install-$(CONFIG_BUILTIN_MODULE_RANGES) += $(MODLIB)/modules.builtin.ranges
 
-$(addprefix $(MODLIB)/, modules.builtin modules.builtin.modinfo modules.builtin.ranges): $(MODLIB)/%: % FORCE
+$(addprefix $(MODLIB)/, modules.builtin modules.builtin.modinfo modules.builtin.ranges modules.builtin.objs): $(MODLIB)/%: % FORCE
 	$(call cmd,install)
 
 endif
