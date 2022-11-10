@@ -1228,7 +1228,11 @@ PHONY += vmlinux_o
 vmlinux_o: vmlinux.a $(KBUILD_VMLINUX_LIBS)
 	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.vmlinux_o
 
-vmlinux.o modules.builtin.modinfo modules.builtin: vmlinux_o
+MODULES_BUILTIN := modules.builtin.modinfo
+MODULES_BUILTIN += modules.builtin
+MODULES_BUILTIN += modules.builtin.objs
+
+vmlinux.o $(MODULES_BUILTIN): vmlinux_o
 	@:
 
 PHONY += vmlinux
@@ -1558,7 +1562,7 @@ __modinst_pre:
 	fi
 	@sed 's:^:kernel/:' modules.order > $(MODLIB)/modules.order
 	@cp -f modules.builtin $(MODLIB)/
-	@cp -f $(objtree)/modules.builtin.modinfo $(MODLIB)/
+	@cp -f $(objtree)/modules.builtin.* $(MODLIB)/
 
 endif # CONFIG_MODULES
 
@@ -1571,7 +1575,7 @@ endif # CONFIG_MODULES
 
 # Directories & files removed with 'make clean'
 CLEAN_FILES += include/ksym vmlinux.symvers modules-only.symvers \
-	       modules.builtin modules.builtin.modinfo modules.nsdeps \
+	       modules.builtin modules.builtin.* modules.nsdeps \
 	       compile_commands.json .thinlto-cache rust/test rust/doc \
 	       .vmlinux.objs .vmlinux.export.c
 
