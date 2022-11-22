@@ -20,6 +20,6 @@ wfx-y := \
 	debug.o
 wfx-$(CONFIG_SPI) += bus_spi.o
 # When CONFIG_MMC == m, append to 'wfx-y' (and not to 'wfx-m')
-wfx-$(subst m,y,$(CONFIG_MMC)) += bus_sdio.o
+wfx-$(call always_built_in,$(CONFIG_MMC)) += bus_sdio.o
 
 obj-$(CONFIG_WFX) += wfx.o

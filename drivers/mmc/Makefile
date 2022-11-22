@@ -4,4 +4,4 @@
 #
 
 obj-$(CONFIG_MMC)		+= core/
-obj-$(subst m,y,$(CONFIG_MMC))	+= host/
+obj-$(call always_built_in,$(CONFIG_MMC))	+= host/

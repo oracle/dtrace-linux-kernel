@@ -21,4 +21,4 @@ sctp-$(CONFIG_SCTP_DBG_OBJCNT) += objcnt.o
 sctp-$(CONFIG_PROC_FS) += proc.o
 sctp-$(CONFIG_SYSCTL) += sysctl.o
 
-sctp-$(subst m,y,$(CONFIG_IPV6))	+= ipv6.o
+sctp-$(call always_built_in,$(CONFIG_IPV6))	+= ipv6.o

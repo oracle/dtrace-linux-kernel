@@ -188,6 +188,21 @@ cmd_and_fixdep =                                                             \
 # and if so will execute $(rule_foo).
 if_changed_rule = $(if $(if-changed-cond),$(rule_$(1)),@:)
 
+# Usage. $(call always-built-in,CONFIG_VAR)
+# Expands to y if CONFIG_VAR is m, suitable for always-built-in pieces
+# of things that otherwise may be modular.
+always_built_in = $(subst M,Y,$(subst m,y,$(1)))
+
+# Usage, obj-$(call module_if_any_modular,$(CONCATENATED)$(CONFIG)$(VARS))
+# Expands to m if any of the concatenated config vars are m, otherwise
+# y if any of them are y, otherwise n
+module_if_any_modular = $(strip \
+    $(if $(findstring m,$(subst M,m,$(1))), \
+        $(if $(findstring M,$(1)),M,m), \
+        $(if $(findstring y,$(subst Y,y,$(1))), \
+            $(if $(findstring Y,$(1)),Y,y), \
+            $(if $(findstring N,$(1)),N,n))))
+
 ###
 # why - tell why a target got built
 #       enabled by make V=2
