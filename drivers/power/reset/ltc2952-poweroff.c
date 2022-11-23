@@ -315,6 +315,3 @@ static struct platform_driver ltc2952_poweroff_driver = {
 
 module_platform_driver(ltc2952_poweroff_driver);
 
-MODULE_AUTHOR("René Moll <rene.moll@xsens.com>");
-MODULE_DESCRIPTION("LTC PowerPath power-off driver");
-MODULE_LICENSE("GPL v2");

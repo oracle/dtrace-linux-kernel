@@ -958,6 +958,3 @@ static int tegra_mc_init(void)
 }
 arch_initcall(tegra_mc_init);
 
-MODULE_AUTHOR("Thierry Reding <treding@nvidia.com>");
-MODULE_DESCRIPTION("NVIDIA Tegra Memory Controller driver");
-MODULE_LICENSE("GPL v2");

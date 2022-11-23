@@ -45,6 +45,3 @@ imx_console_early_setup(struct earlycon_device *dev, const char *opt)
 OF_EARLYCON_DECLARE(ec_imx6q, "fsl,imx6q-uart", imx_console_early_setup);
 OF_EARLYCON_DECLARE(ec_imx21, "fsl,imx21-uart", imx_console_early_setup);
 
-MODULE_AUTHOR("NXP");
-MODULE_DESCRIPTION("IMX earlycon driver");
-MODULE_LICENSE("GPL");

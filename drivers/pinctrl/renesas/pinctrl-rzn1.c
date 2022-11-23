@@ -946,6 +946,3 @@ static int __init _pinctrl_drv_register(void)
 }
 subsys_initcall(_pinctrl_drv_register);
 
-MODULE_AUTHOR("Phil Edworthy <phil.edworthy@renesas.com>");
-MODULE_DESCRIPTION("Renesas RZ/N1 pinctrl driver");
-MODULE_LICENSE("GPL v2");

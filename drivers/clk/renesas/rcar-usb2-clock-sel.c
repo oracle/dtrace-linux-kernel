@@ -219,5 +219,3 @@ static struct platform_driver rcar_usb2_clock_sel_driver = {
 };
 builtin_platform_driver(rcar_usb2_clock_sel_driver);
 
-MODULE_DESCRIPTION("Renesas R-Car USB2 clock selector Driver");
-MODULE_LICENSE("GPL v2");

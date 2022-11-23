@@ -22,10 +22,6 @@
 #include <linux/kbd_kern.h>
 #include <linux/input.h>
 
-MODULE_AUTHOR("samuel.thibault@ens-lyon.org");
-MODULE_DESCRIPTION("braille device");
-MODULE_LICENSE("GPL");
-
 /*
  * Braille device support part.
  */

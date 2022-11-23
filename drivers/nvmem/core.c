@@ -1952,7 +1952,3 @@ static void __exit nvmem_exit(void)
 subsys_initcall(nvmem_init);
 module_exit(nvmem_exit);
 
-MODULE_AUTHOR("Srinivas Kandagatla <srinivas.kandagatla@linaro.org");
-MODULE_AUTHOR("Maxime Ripard <maxime.ripard@free-electrons.com");
-MODULE_DESCRIPTION("nvmem Driver Core");
-MODULE_LICENSE("GPL v2");

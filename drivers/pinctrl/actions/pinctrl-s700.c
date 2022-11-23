@@ -1906,6 +1906,3 @@ static void __exit s700_pinctrl_exit(void)
 }
 module_exit(s700_pinctrl_exit);
 
-MODULE_AUTHOR("Actions Semi Inc.");
-MODULE_DESCRIPTION("Actions Semi S700 Soc Pinctrl Driver");
-MODULE_LICENSE("GPL");

@@ -1813,7 +1813,3 @@ static int __init stm32_mdma_init(void)
 
 subsys_initcall(stm32_mdma_init);
 
-MODULE_DESCRIPTION("Driver for STM32 MDMA controller");
-MODULE_AUTHOR("M'boumba Cedric Madianga <cedric.madianga@gmail.com>");
-MODULE_AUTHOR("Pierre-Yves Mordret <pierre-yves.mordret@st.com>");
-MODULE_LICENSE("GPL v2");

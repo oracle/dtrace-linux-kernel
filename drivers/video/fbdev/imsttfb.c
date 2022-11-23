@@ -1631,7 +1631,6 @@ static void __exit imsttfb_exit(void)
 	pci_unregister_driver(&imsttfb_pci_driver);
 }
 
-MODULE_LICENSE("GPL");
 
 module_init(imsttfb_init);
 module_exit(imsttfb_exit);

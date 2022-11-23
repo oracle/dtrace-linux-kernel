@@ -677,6 +677,3 @@ sh_early_platform_init("earlytimer", &sh_tmu_device_driver);
 subsys_initcall(sh_tmu_init);
 module_exit(sh_tmu_exit);
 
-MODULE_AUTHOR("Magnus Damm");
-MODULE_DESCRIPTION("SuperH TMU Timer Driver");
-MODULE_LICENSE("GPL v2");

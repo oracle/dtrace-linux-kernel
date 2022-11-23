@@ -1066,4 +1066,3 @@ out_error:
 
 postcore_initcall(xenbus_init);
 
-MODULE_LICENSE("GPL");

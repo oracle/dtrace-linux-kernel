@@ -997,7 +997,3 @@ static struct platform_driver sun50i_iommu_driver = {
 };
 builtin_platform_driver_probe(sun50i_iommu_driver, sun50i_iommu_probe);
 
-MODULE_DESCRIPTION("Allwinner H6 IOMMU driver");
-MODULE_AUTHOR("Maxime Ripard <maxime@cerno.tech>");
-MODULE_AUTHOR("zhuxianbin <zhuxianbin@allwinnertech.com>");
-MODULE_LICENSE("Dual BSD/GPL");

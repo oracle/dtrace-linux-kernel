@@ -356,6 +356,3 @@ static struct platform_driver imx_scu_driver = {
 };
 builtin_platform_driver(imx_scu_driver);
 
-MODULE_AUTHOR("Dong Aisheng <aisheng.dong@nxp.com>");
-MODULE_DESCRIPTION("IMX SCU firmware protocol driver");
-MODULE_LICENSE("GPL v2");

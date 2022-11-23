@@ -103,7 +103,4 @@ static struct platform_driver gpio_poweroff_driver = {
 
 module_platform_driver(gpio_poweroff_driver);
 
-MODULE_AUTHOR("Jamie Lentin <jm@lentin.co.uk>");
-MODULE_DESCRIPTION("GPIO poweroff driver");
-MODULE_LICENSE("GPL v2");
 MODULE_ALIAS("platform:poweroff-gpio");

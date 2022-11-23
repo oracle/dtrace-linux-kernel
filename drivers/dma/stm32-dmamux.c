@@ -397,7 +397,3 @@ static int __init stm32_dmamux_init(void)
 }
 arch_initcall(stm32_dmamux_init);
 
-MODULE_DESCRIPTION("DMA Router driver for STM32 DMA MUX");
-MODULE_AUTHOR("M'boumba Cedric Madianga <cedric.madianga@gmail.com>");
-MODULE_AUTHOR("Pierre-Yves Mordret <pierre-yves.mordret@st.com>");
-MODULE_LICENSE("GPL v2");

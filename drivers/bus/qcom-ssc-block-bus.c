@@ -384,6 +384,3 @@ static struct platform_driver qcom_ssc_block_bus_driver = {
 
 module_platform_driver(qcom_ssc_block_bus_driver);
 
-MODULE_DESCRIPTION("A driver for handling the init sequence needed for accessing the SSC block on (some) qcom SoCs over AHB");
-MODULE_AUTHOR("Michael Srba <Michael.Srba@seznam.cz>");
-MODULE_LICENSE("GPL v2");

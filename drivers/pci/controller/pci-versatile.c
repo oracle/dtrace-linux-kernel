@@ -168,5 +168,3 @@ static struct platform_driver versatile_pci_driver = {
 };
 module_platform_driver(versatile_pci_driver);
 
-MODULE_DESCRIPTION("Versatile PCI driver");
-MODULE_LICENSE("GPL v2");

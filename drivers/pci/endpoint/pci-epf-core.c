@@ -566,6 +566,3 @@ static void __exit pci_epf_exit(void)
 }
 module_exit(pci_epf_exit);
 
-MODULE_DESCRIPTION("PCI EPF Library");
-MODULE_AUTHOR("Kishon Vijay Abraham I <kishon@ti.com>");
-MODULE_LICENSE("GPL v2");

@@ -716,6 +716,3 @@ static void __exit zynqmp_ipi_exit(void)
 }
 module_exit(zynqmp_ipi_exit);
 
-MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("Xilinx ZynqMP IPI Mailbox driver");
-MODULE_AUTHOR("Xilinx Inc.");

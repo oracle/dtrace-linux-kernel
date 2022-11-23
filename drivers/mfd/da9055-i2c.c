@@ -96,6 +96,3 @@ static void __exit da9055_i2c_exit(void)
 }
 module_exit(da9055_i2c_exit);
 
-MODULE_AUTHOR("David Dajun Chen <dchen@diasemi.com>");
-MODULE_DESCRIPTION("I2C driver for Dialog DA9055 PMIC");
-MODULE_LICENSE("GPL");

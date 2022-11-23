@@ -947,6 +947,3 @@ static struct platform_driver bm1880_clk_driver = {
 };
 module_platform_driver(bm1880_clk_driver);
 
-MODULE_AUTHOR("Manivannan Sadhasivam <manivannan.sadhasivam@linaro.org>");
-MODULE_DESCRIPTION("Clock driver for Bitmain BM1880 SoC");
-MODULE_LICENSE("GPL v2");

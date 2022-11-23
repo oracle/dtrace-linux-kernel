@@ -63,7 +63,4 @@ static void __exit n_null_exit(void)
 module_init(n_null_init);
 module_exit(n_null_exit);
 
-MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Alan Cox");
 MODULE_ALIAS_LDISC(N_NULL);
-MODULE_DESCRIPTION("Null ldisc driver");

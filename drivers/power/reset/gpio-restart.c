@@ -137,6 +137,3 @@ static struct platform_driver gpio_restart_driver = {
 
 module_platform_driver(gpio_restart_driver);
 
-MODULE_AUTHOR("David Riley <davidriley@chromium.org>");
-MODULE_DESCRIPTION("GPIO restart driver");
-MODULE_LICENSE("GPL");

@@ -1569,9 +1569,3 @@ static void __exit power_supply_class_exit(void)
 
 subsys_initcall(power_supply_class_init);
 module_exit(power_supply_class_exit);
-
-MODULE_DESCRIPTION("Universal power supply monitor class");
-MODULE_AUTHOR("Ian Molton <spyro@f2s.com>, "
-	      "Szabolcs Gyurko, "
-	      "Anton Vorontsov <cbou@mail.ru>");
-MODULE_LICENSE("GPL");

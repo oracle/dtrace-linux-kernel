@@ -258,6 +258,3 @@ void pci_epc_mem_free_addr(struct pci_epc *epc, phys_addr_t phys_addr,
 }
 EXPORT_SYMBOL_GPL(pci_epc_mem_free_addr);
 
-MODULE_DESCRIPTION("PCI EPC Address Space Management");
-MODULE_AUTHOR("Kishon Vijay Abraham I <kishon@ti.com>");
-MODULE_LICENSE("GPL v2");

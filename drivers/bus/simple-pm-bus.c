@@ -90,6 +90,3 @@ static struct platform_driver simple_pm_bus_driver = {
 
 module_platform_driver(simple_pm_bus_driver);
 
-MODULE_DESCRIPTION("Simple Power-Managed Bus Driver");
-MODULE_AUTHOR("Geert Uytterhoeven <geert+renesas@glider.be>");
-MODULE_LICENSE("GPL v2");

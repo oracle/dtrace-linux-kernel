@@ -1114,6 +1114,3 @@ static int __init rzv2m_pinctrl_init(void)
 }
 core_initcall(rzv2m_pinctrl_init);
 
-MODULE_AUTHOR("Phil Edworthy <phil.edworthy@renesas.com>");
-MODULE_DESCRIPTION("Pin and gpio controller driver for RZ/V2M");
-MODULE_LICENSE("GPL");

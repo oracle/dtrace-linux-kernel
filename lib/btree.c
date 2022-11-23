@@ -792,6 +792,3 @@ static void __exit btree_module_exit(void)
 module_init(btree_module_init);
 module_exit(btree_module_exit);
 
-MODULE_AUTHOR("Joern Engel <joern@logfs.org>");
-MODULE_AUTHOR("Johannes Berg <johannes@sipsolutions.net>");
-MODULE_LICENSE("GPL");

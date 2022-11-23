@@ -693,8 +693,5 @@ static __exit void mctp_exit(void)
 subsys_initcall(mctp_init);
 module_exit(mctp_exit);
 
-MODULE_DESCRIPTION("MCTP core");
-MODULE_LICENSE("GPL v2");
-MODULE_AUTHOR("Jeremy Kerr <jk@codeconstruct.com.au>");
 
 MODULE_ALIAS_NETPROTO(PF_MCTP);

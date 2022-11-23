@@ -43,9 +43,6 @@ static struct acpiphp_attention_info *attention_info;
 #define DRIVER_AUTHOR	"Greg Kroah-Hartman <gregkh@us.ibm.com>, Takayoshi Kochi <t-kochi@bq.jp.nec.com>, Matthew Wilcox <willy@infradead.org>"
 #define DRIVER_DESC	"ACPI Hot Plug PCI Controller Driver"
 
-MODULE_AUTHOR(DRIVER_AUTHOR);
-MODULE_DESCRIPTION(DRIVER_DESC);
-MODULE_LICENSE("GPL");
 MODULE_PARM_DESC(disable, "disable acpiphp driver");
 module_param_named(disable, acpiphp_disabled, bool, 0444);
 

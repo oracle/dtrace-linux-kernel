@@ -824,6 +824,3 @@ static void __exit rda_uart_exit(void)
 module_init(rda_uart_init);
 module_exit(rda_uart_exit);
 
-MODULE_AUTHOR("Manivannan Sadhasivam <manivannan.sadhasivam@linaro.org>");
-MODULE_DESCRIPTION("RDA8810PL serial device driver");
-MODULE_LICENSE("GPL");

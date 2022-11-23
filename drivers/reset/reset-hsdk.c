@@ -133,6 +133,3 @@ static struct platform_driver hsdk_reset_driver = {
 };
 builtin_platform_driver(hsdk_reset_driver);
 
-MODULE_AUTHOR("Eugeniy Paltsev <Eugeniy.Paltsev@synopsys.com>");
-MODULE_DESCRIPTION("Synopsys HSDK SDP reset driver");
-MODULE_LICENSE("GPL v2");

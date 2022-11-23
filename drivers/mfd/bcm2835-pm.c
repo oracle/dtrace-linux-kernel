@@ -121,6 +121,3 @@ static struct platform_driver bcm2835_pm_driver = {
 };
 module_platform_driver(bcm2835_pm_driver);
 
-MODULE_AUTHOR("Eric Anholt <eric@anholt.net>");
-MODULE_DESCRIPTION("Driver for Broadcom BCM2835 PM MFD");
-MODULE_LICENSE("GPL");

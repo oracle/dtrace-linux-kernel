@@ -167,6 +167,3 @@ static struct spi_driver panel_tpohvga_driver = {
 };
 module_spi_driver(panel_tpohvga_driver);
 
-MODULE_AUTHOR("Lisa Du<cldu@marvell.com>");
-MODULE_DESCRIPTION("Panel driver for tpohvga");
-MODULE_LICENSE("GPL");

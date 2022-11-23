@@ -1557,6 +1557,3 @@ static int __init rzg2l_pinctrl_init(void)
 }
 core_initcall(rzg2l_pinctrl_init);
 
-MODULE_AUTHOR("Lad Prabhakar <prabhakar.mahadev-lad.rj@bp.renesas.com>");
-MODULE_DESCRIPTION("Pin and gpio controller driver for RZ/G2L family");
-MODULE_LICENSE("GPL v2");

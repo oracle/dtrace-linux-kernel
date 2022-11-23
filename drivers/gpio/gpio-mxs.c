@@ -359,9 +359,3 @@ static int __init mxs_gpio_init(void)
 	return platform_driver_register(&mxs_gpio_driver);
 }
 postcore_initcall(mxs_gpio_init);
-
-MODULE_AUTHOR("Freescale Semiconductor, "
-	      "Daniel Mack <danielncaiaq.de>, "
-	      "Juergen Beisert <kernel@pengutronix.de>");
-MODULE_DESCRIPTION("Freescale MXS GPIO");
-MODULE_LICENSE("GPL");

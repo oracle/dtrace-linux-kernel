@@ -509,8 +509,3 @@ static void __exit clk_mpfs_exit(void)
 }
 module_exit(clk_mpfs_exit);
 
-MODULE_DESCRIPTION("Microchip PolarFire SoC Clock Driver");
-MODULE_AUTHOR("Padmarao Begari <padmarao.begari@microchip.com>");
-MODULE_AUTHOR("Daire McNamara <daire.mcnamara@microchip.com>");
-MODULE_AUTHOR("Conor Dooley <conor.dooley@microchip.com>");
-MODULE_LICENSE("GPL");

@@ -387,7 +387,3 @@ static struct platform_driver mbigen_platform_driver = {
 
 module_platform_driver(mbigen_platform_driver);
 
-MODULE_AUTHOR("Jun Ma <majun258@huawei.com>");
-MODULE_AUTHOR("Yun Wu <wuyun.wu@huawei.com>");
-MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("HiSilicon MBI Generator driver");

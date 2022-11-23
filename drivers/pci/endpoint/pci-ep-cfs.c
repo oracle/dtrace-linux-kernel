@@ -726,6 +726,3 @@ static void __exit pci_ep_cfs_exit(void)
 }
 module_exit(pci_ep_cfs_exit);
 
-MODULE_DESCRIPTION("PCI EP CONFIGFS");
-MODULE_AUTHOR("Kishon Vijay Abraham I <kishon@ti.com>");
-MODULE_LICENSE("GPL v2");

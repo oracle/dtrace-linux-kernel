@@ -27,9 +27,6 @@
 #include <linux/watch_queue.h>
 #include <linux/pipe_fs_i.h>
 
-MODULE_DESCRIPTION("Watch queue");
-MODULE_AUTHOR("Red Hat, Inc.");
-MODULE_LICENSE("GPL");
 
 #define WATCH_QUEUE_NOTE_SIZE 128
 #define WATCH_QUEUE_NOTES_PER_PAGE (PAGE_SIZE / WATCH_QUEUE_NOTE_SIZE)

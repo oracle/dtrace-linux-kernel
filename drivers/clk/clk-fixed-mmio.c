@@ -97,6 +97,3 @@ static struct platform_driver of_fixed_mmio_clk_driver = {
 };
 module_platform_driver(of_fixed_mmio_clk_driver);
 
-MODULE_AUTHOR("Jan Kotas <jank@cadence.com>");
-MODULE_DESCRIPTION("Memory Mapped IO Fixed clock driver");
-MODULE_LICENSE("GPL v2");

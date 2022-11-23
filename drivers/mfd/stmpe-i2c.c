@@ -136,6 +136,3 @@ static void __exit stmpe_exit(void)
 }
 module_exit(stmpe_exit);
 
-MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("STMPE MFD I2C Interface Driver");
-MODULE_AUTHOR("Rabin Vincent <rabin.vincent@stericsson.com>");

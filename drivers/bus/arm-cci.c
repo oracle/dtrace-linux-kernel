@@ -583,5 +583,3 @@ EXPORT_SYMBOL_GPL(cci_probed);
 
 early_initcall(cci_init);
 core_initcall(cci_platform_init);
-MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("ARM CCI support");

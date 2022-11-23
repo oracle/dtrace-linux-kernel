@@ -366,6 +366,3 @@ static void __exit em_sti_exit(void)
 subsys_initcall(em_sti_init);
 module_exit(em_sti_exit);
 
-MODULE_AUTHOR("Magnus Damm");
-MODULE_DESCRIPTION("Renesas Emma Mobile STI Timer Driver");
-MODULE_LICENSE("GPL v2");

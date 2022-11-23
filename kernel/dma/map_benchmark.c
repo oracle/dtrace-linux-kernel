@@ -354,6 +354,3 @@ static void __exit map_benchmark_cleanup(void)
 module_init(map_benchmark_init);
 module_exit(map_benchmark_cleanup);
 
-MODULE_AUTHOR("Barry Song <song.bao.hua@hisilicon.com>");
-MODULE_DESCRIPTION("dma_map benchmark driver");
-MODULE_LICENSE("GPL");

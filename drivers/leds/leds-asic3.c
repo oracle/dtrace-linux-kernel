@@ -171,7 +171,4 @@ static struct platform_driver asic3_led_driver = {
 
 module_platform_driver(asic3_led_driver);
 
-MODULE_AUTHOR("Paul Parsons <lost.distance@yahoo.com>");
-MODULE_DESCRIPTION("HTC ASIC3 LED driver");
-MODULE_LICENSE("GPL");
 MODULE_ALIAS("platform:leds-asic3");

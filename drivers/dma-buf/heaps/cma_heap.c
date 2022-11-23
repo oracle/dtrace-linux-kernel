@@ -403,5 +403,3 @@ static int add_default_cma_heap(void)
 	return ret;
 }
 module_init(add_default_cma_heap);
-MODULE_DESCRIPTION("DMA-BUF CMA Heap");
-MODULE_LICENSE("GPL v2");

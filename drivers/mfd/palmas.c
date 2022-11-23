@@ -750,6 +750,3 @@ static void __exit palmas_i2c_exit(void)
 }
 module_exit(palmas_i2c_exit);
 
-MODULE_AUTHOR("Graeme Gregory <gg@slimlogic.co.uk>");
-MODULE_DESCRIPTION("Palmas chip family multi-function driver");
-MODULE_LICENSE("GPL");

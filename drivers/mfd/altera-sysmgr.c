@@ -196,6 +196,3 @@ static void __exit altr_sysmgr_exit(void)
 }
 module_exit(altr_sysmgr_exit);
 
-MODULE_AUTHOR("Thor Thayer <>");
-MODULE_DESCRIPTION("SOCFPGA System Manager driver");
-MODULE_LICENSE("GPL v2");

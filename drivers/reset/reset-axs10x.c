@@ -79,6 +79,3 @@ static struct platform_driver axs10x_reset_driver = {
 };
 builtin_platform_driver(axs10x_reset_driver);
 
-MODULE_AUTHOR("Eugeniy Paltsev <Eugeniy.Paltsev@synopsys.com>");
-MODULE_DESCRIPTION("Synopsys AXS10x reset driver");
-MODULE_LICENSE("GPL v2");
