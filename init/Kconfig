@@ -1570,6 +1570,16 @@ config POSIX_TIMERS
 
 	  If unsure say y.
 
+config KALLMODSYMS
+	default y
+	bool "Enable support for /proc/kallmodsyms" if EXPERT
+	depends on KALLSYMS
+	select VMLINUX_MAP
+	help
+	  This option enables the /proc/kallmodsyms file, which unambiguously
+	  maps built-in kernel symbols and their associated object files and
+	  modules to addresses.
+
 config PRINTK
 	default y
 	bool "Enable support for printk" if EXPERT

@@ -27,6 +27,10 @@ ifdef CONFIG_LTO_CLANG
 initcalls-lds := .tmp_initcalls.lds
 endif
 
+ifneq ($(CONFIG_VMLINUX_MAP)$(CONFIG_KALLMODSYMS),)
+KBUILD_MAPFLAGS = -Map=$@.map
+endif
+
 # objtool for vmlinux.o
 # ---------------------------------------------------------------------------
 #
@@ -47,7 +51,7 @@ objtool-args = $(vmlinux-objtool-args-y) --link
 quiet_cmd_ld_vmlinux.o = LD      $@
       cmd_ld_vmlinux.o = \
 	$(LD) ${KBUILD_LDFLAGS} -r -o $@ \
-	$(addprefix -T , $(initcalls-lds)) \
+	$(KBUILD_MAPFLAGS) $(addprefix -T , $(initcalls-lds)) \
 	--whole-archive vmlinux.a --no-whole-archive \
 	--start-group $(KBUILD_VMLINUX_LIBS) --end-group \
 	$(cmd_objtool)

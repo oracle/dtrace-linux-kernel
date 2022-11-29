@@ -79,6 +79,7 @@ SCCS
 System.map*
 TAGS
 aconf
+addaddrs
 af_names.h
 aic7*reg.h*
 aic7*reg_print.c*
