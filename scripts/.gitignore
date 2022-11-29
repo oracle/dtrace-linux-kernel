@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-only
+/addaddrs
 /asn1_compiler
 /generate_rust_target
 /insert-sys-cert

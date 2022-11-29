@@ -60,10 +60,7 @@ vmlinux_link()
 	# skip output file argument
 	shift
 
-	# kallmodsyms needs a linker mapfile that contains original object
-	# file names, so cannot use this optimization.
-	if { is_enabled CONFIG_LTO_CLANG || is_enabled CONFIG_X86_KERNEL_IBT; } && \
-	   ! is_enabled CONFIG_KALLMODSYMS; then
+	if is_enabled CONFIG_LTO_CLANG || is_enabled CONFIG_X86_KERNEL_IBT; then
 		# Use vmlinux.o instead of performing the slow LTO link again.
 		objs=vmlinux.o
 		libs=
@@ -153,12 +150,31 @@ kallsyms()
 	#       - but sometimes there is a line break after the first field
 	#   - start reading at "Linker script and memory map"
 	#   - stop reading at ".brk"
+	# if there is a vmlinux.o.map and LTO_CLANG or KERNEL_IBT are
+	# turned on, we have used a vmlinux -r'ed .o for linking: use this
+	# as our primary information source, but acquire section addresses
+	# from the (later) linker map we were passed in.  This makes things
+	# a bit more complex, since we have to recognize and eliminate
+	# sections elided by the linker, and add together numbers larger
+	# than awk can portably handle.
 	if is_enabled CONFIG_KALLMODSYMS; then
-		${AWK} '
-		    /\.o$/ && start==1 { print $(NF-2), $(NF-1), $NF }
-		    /^Linker script and memory map/ { start = 1 }
-		    /^\.brk/ { exit(0) }
-		' ${3} | sort > .tmp_vmlinux.ranges
+		if is_enabled CONFIG_LTO_CLANG || is_enabled CONFIG_X86_KERNEL_IBT; then
+			${AWK} 'BEGIN { addresses = 1 }
+			    /^Linker script and memory map/ { start = 1 }
+			    !start { next }
+			    { got_section = 0 }
+			    /^ \./ { section = $1; got_section = 1; if (NF == 1) { getline }}
+			    addresses && got_section && !(section in addrs) { addrs[section] = $2 }
+			    !addresses && got_section && section in addrs { print $(NF-2), addrs[section], $(NF-1), $NF }
+			    /^\.brk/ || /^\.bss\.\.brk/ { addresses = 0; start = 0; nextfile }
+			' ${3} vmlinux.o.map | scripts/addaddrs | sort > .tmp_vmlinux.ranges
+		else
+			${AWK} '
+			    start && /\.o$/ { print $(NF-2), $(NF-1), $NF }
+			    /^Linker script and memory map/ { start = 1 }
+			    /^\.brk/ { exit(0) }
+			' ${3} | sort > .tmp_vmlinux.ranges
+		fi
 	fi
 
 	# get kallsyms options
