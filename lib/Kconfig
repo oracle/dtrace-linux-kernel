@@ -644,6 +644,7 @@ config LIBFDT
 #
 config CTF
         bool "Compact Type Format generation"
+	default y
         depends on HAVE_CTF_TOOLCHAIN
         help
           Emit a compact, compressed description of the kernel's datatypes and
